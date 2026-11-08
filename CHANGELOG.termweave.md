@@ -3,6 +3,16 @@
 TermWeave(herdr web ui 포크)의 변경 기록입니다. 원본 프로젝트의 기록은 `CHANGELOG.md`에 있습니다.
 이 파일에는 실제 동작이나 게이트로 확인된 완료 항목만 적습니다. 일부만 끝난 항목은 "남은 일"에 따로 적습니다.
 
+## [0.3.33] - 2026-11-09
+
+- fix(fleet,wait,ws): settle waits on this turn; keep jitter and backoff on wake
+- feat(pane-context): wait until a P-number's agent stops working
+- fix(ws): jitter reconnects, back off on flaps, retry at once on return
+- feat(fleet): show every PC and its agents on one orbit map
+- fix(operations): validate Unix socket paths without realpath on sockets
+- feat(operations): verify isolated recovery before production activation
+- feat(projects): create project folders and preserve live fixes
+
 ## [0.3.32] - 2026-11-05
 
 - feat(projects): create and select an empty project folder from the folder browser, including remote PCs.

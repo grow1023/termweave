@@ -1054,9 +1054,9 @@ export function PaneTerminal({
     const apply = (): void => {
       // a newer font, or an unmounted terminal, took over while the faces loaded
       if (superseded || termRef.current !== term) return;
-      if (term.options.fontSize === terminalFontSize && term.options.fontFamily === fontFamily) return;
       term.options.fontSize = terminalFontSize;
       term.options.fontFamily = fontFamily;
+      term.refresh(0, term.rows - 1);
       if (observeRef.current || fixedGridRef.current || chatViewRef.current) return;
       try {
         fitRef.current?.fit();
@@ -1066,8 +1066,7 @@ export function PaneTerminal({
       const pane = paneRef.current;
       if (pane) socketRef.current?.resize(pane, term.cols, term.rows, true);
     };
-    if (fontFamily === TERMINAL_FONT_STACK) apply();
-    else void loadFontStack(fontFamily, terminalFontSize).then(apply);
+    void loadFontStack(fontFamily, terminalFontSize).then(apply);
     return () => { superseded = true; };
   }, [terminalFontSize, fontFamily]);
 

@@ -1,6 +1,7 @@
 import { protectFrontendInput } from "./frontendReloadSafety.ts";
 import type { ClientMessage, ClientRole, ServerFeature, ServerMessage } from "../../shared/protocol.ts";
 import { OUTPUT_STALLED_CLOSE_CODE } from "../../shared/terminal-flow.ts";
+import { reconnectDelay, retriesAfterClose } from "./reconnect.ts";
 
 type Handler = (message: ServerMessage) => void;
 
@@ -53,6 +54,8 @@ export class HerdrSocket {
   private readonly inputReady = new Set<string>();
   private readonly attached = new Map<string, AttachState>();
   private retries = 0;
+  /** when the current socket opened; null while it never has */
+  private openedAt: number | null = null;
   private reconnectTimer: number | null = null;
   private disposed = false;
   private draining = false;
@@ -71,6 +74,27 @@ export class HerdrSocket {
 
   constructor(url: string = defaultUrl()) {
     this.url = url;
+    window.addEventListener("online", this.wake);
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", this.wake);
+  }
+
+  /**
+   * The network came back or the page is visible again: a pending retry runs now instead of
+   * waiting out its backoff, which was sized for a condition that just changed.
+   */
+  private readonly wake = (): void => {
+    if (this.disposed || this.reconnectTimer === null) return;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+    window.clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+    // soon, not in this tick: every pane's socket hears the same event. The retry count stays,
+    // so a server that drops each connection at once keeps its backoff.
+    this.scheduleReconnect(reconnectDelay(0));
+  };
+
+  private stopWaking(): void {
+    window.removeEventListener("online", this.wake);
+    if (typeof document !== "undefined") document.removeEventListener("visibilitychange", this.wake);
   }
 
   get connected(): boolean {
@@ -91,7 +115,7 @@ export class HerdrSocket {
     this.snapshotSeen = new Promise((resolve) => { this.markSnapshot = resolve; });
 
     socket.addEventListener("open", () => {
-      this.retries = 0;
+      this.openedAt = Date.now();
       // always send the role, never only when non-default: a user can flip the role
       // while disconnected (setMode stores it without sending), so without this frame
       // the reconnect would leave the server on the stale role and no ack would ever
@@ -143,6 +167,8 @@ export class HerdrSocket {
     socket.addEventListener("close", (event) => {
       if (this.socket !== socket) return;
       this.socket = null;
+      this.retries = retriesAfterClose(this.retries, this.openedAt, Date.now());
+      this.openedAt = null;
       for (const handler of this.disconnectHandlers) handler();
       this.markSnapshot();
       this.settleSubmits(DISCONNECTED);
@@ -159,10 +185,11 @@ export class HerdrSocket {
     });
   }
 
-  private scheduleReconnect(): void {
+  /** With no delay given, the next backoff step (and one more retry counted). */
+  private scheduleReconnect(wakeDelay?: number): void {
     if (this.disposed || this.reconnectTimer !== null) return;
-    const delay = Math.min(5000, 250 * 2 ** this.retries);
-    this.retries += 1;
+    const delay = wakeDelay ?? reconnectDelay(this.retries);
+    if (wakeDelay === undefined) this.retries += 1;
     this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();
@@ -361,6 +388,7 @@ export class HerdrSocket {
     if (!this.submits.size || !this.connected) { this.close(); return; }
     this.draining = true;
     this.disposed = true;
+    this.stopWaking();
     this.cancelSnapshotWaits();
     if (this.reconnectTimer !== null) window.clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
@@ -370,6 +398,7 @@ export class HerdrSocket {
 
   close(): void {
     this.disposed = true;
+    this.stopWaking();
     this.cancelSnapshotWaits();
     if (this.reconnectTimer !== null) window.clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;

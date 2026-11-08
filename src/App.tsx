@@ -1,7 +1,7 @@
 import { initialPaneView, readPaneView, writePaneView } from "./lib/paneView.ts";
 import { adjacentWorkspacePane } from "./lib/workspaceNavigation.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bell, BellOff, FolderOpen, Lock, Menu, MessageSquare, MoreHorizontal, PanelLeft, Search, SquareTerminal, Users, X } from "lucide-react";
+import { Bell, BellOff, FolderOpen, Lock, Menu, MessageSquare, MoreHorizontal, Orbit, PanelLeft, Search, SquareTerminal, Users, X } from "lucide-react";
 
 import type { AgentStatus, ClientRole, ServerMessage, AccessRefusal, HealthAuth, HerdrPane } from "../shared/protocol.ts";
 import { ApiError, authenticate, fetchHealth, fetchBridgeHealth, fetchMachines, fetchSession, movePane as movePaneRequest, pairDevice, swapPanes as swapPanesRequest, sendTestPush, signOut, type HealthInfo } from "./lib/api.ts";
@@ -13,6 +13,7 @@ import { AccessGate } from "./components/AccessGate.tsx";
 import { AgentMark } from "./components/AgentMark.tsx";
 import { NewSessionDialog } from "./components/NewSessionDialog.tsx";
 import { OpenRigPanel } from "./components/OpenRigPanel.tsx";
+import { FleetPanel } from "./components/FleetPanel.tsx";
 import { TerminalNotificationCenter } from "./components/TerminalNotificationsPanel.tsx";
 import { SettingsDialog } from "./components/SettingsDialog.tsx";
 import { CommandPalette } from "./components/CommandPalette.tsx";
@@ -211,6 +212,12 @@ export function App() {
     setOpenRigOpen(false);
     const url = new URL(window.location.href);
     if (url.searchParams.get("panel") === "openrig") { url.searchParams.delete("panel"); window.history.replaceState(null, "", url); }
+  }, []);
+  const [fleetOpen, setFleetOpen] = useState(() => new URLSearchParams(window.location.search).get("panel") === "fleet");
+  const closeFleet = useCallback(() => {
+    setFleetOpen(false);
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("panel") === "fleet") { url.searchParams.delete("panel"); window.history.replaceState(null, "", url); }
   }, []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const [newSessionOpen, setNewSessionOpen] = useState(false);
@@ -790,6 +797,7 @@ export function App() {
             <span className="conn-text">{t(connected ? "live" : outputStopped ? "disconnected" : "reconnecting")}</span>
           </span>
           {!targetHerdr && <span className="pill pill-offline">{t("herdr offline")}</span>}
+          <button type="button" className="icon-button" aria-label={t("Agent fleet")} title={t("Agent fleet")} onClick={() => setFleetOpen(true)}><Orbit aria-hidden="true" /></button>
           <button type="button" className="icon-button" aria-label={t("OpenRig teams")} title={t("OpenRig teams")} onClick={() => setOpenRigOpen(true)}><Users aria-hidden="true" /></button>
           <TerminalNotificationCenter readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onSelect={target => selectTargetRef.current("local", target.paneId)} />
           {selectedPane && (
@@ -899,6 +907,7 @@ export function App() {
         setFilesOpen(false);
         selectTargetRef.current(machineId, paneId);
       }} />
+      {fleetOpen && <FleetPanel machines={machines} onClose={closeFleet} onOpen={(machineId, paneId) => { setDrawerOpen(false); selectTargetRef.current(machineId, paneId); }} />}
       {openRigOpen && <OpenRigPanel canManageService={auth?.authenticated === true && auth.role !== "watch" && role !== "observe"} readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onClose={closeOpenRig} onOpened={() => { void load(); }} />}
       <SettingsDialog auth={auth} open={settingsOpen} onClose={closeSettings} actions={actions} updates={updates} onEnableNotifications={enableNotifications} />
       {filesOpen && selectedPane && (

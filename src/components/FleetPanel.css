@@ -1,0 +1,89 @@
+.fleet-dialog { width: min(880px, calc(100vw - 24px)); max-height: calc(var(--app-height, 100dvh) - 24px); margin: auto; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--bg); color: var(--text); overflow: hidden; word-break: keep-all; overflow-wrap: anywhere; }
+.fleet-dialog[open] { display: flex; flex-direction: column; }
+.fleet-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+.fleet-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.fleet-header h2 { font-size: 16px; color: var(--text-strong); margin: 0 0 4px; text-wrap: balance; }
+.fleet-header p { font-size: 12px; color: var(--text-dim); margin: 0; text-wrap: pretty; }
+.fleet-body { padding: 14px 16px 18px; overflow: auto; min-height: 0; overscroll-behavior: contain; }
+
+.fleet-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px; }
+.fleet-summary > div { min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-panel); }
+.fleet-summary dt { font-size: 11px; color: var(--text); }
+.fleet-summary dd { margin: 2px 0 0; font-size: 20px; font-weight: 600; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.fleet-summary [data-state="running"] { background: var(--status-working-tint); }
+.fleet-summary [data-state="attention"] { background: var(--status-blocked-tint); }
+
+/* graph: neutral lines; status only on rings, halos and dots */
+.fleet-graph { position: relative; width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-panel); overflow: hidden; }
+.fleet-graph svg { display: block; }
+.fleet-orbit { fill: none; stroke: var(--border); stroke-dasharray: 2 5; }
+.fleet-edge { fill: none; stroke: var(--border-strong); stroke-width: 1.25; }
+.fleet-edge-agent { stroke: var(--border); }
+.fleet-edge[data-offline] { stroke-dasharray: 3 4; }
+.fleet-particle { fill: var(--status-working); }
+.fleet-center circle { fill: var(--bg-elevated); stroke: var(--border-strong); }
+.fleet-center svg { color: var(--text-strong); }
+.fleet-initials, .fleet-count { fill: var(--text-strong); font-size: 11px; font-weight: 600; text-anchor: middle; pointer-events: none; }
+.fleet-label { fill: var(--text-dim); font-size: 11px; text-anchor: middle; pointer-events: none; font-variant-numeric: tabular-nums; }
+.fleet-machine-name { fill: var(--text); font-weight: 600; }
+.fleet-node { cursor: pointer; outline: none; }
+.fleet-node .fleet-ring, .fleet-node-more .fleet-ring { fill: var(--bg-elevated); stroke: var(--border-strong); stroke-width: 1.5; transition: stroke var(--dur-fast, 120ms) var(--ease-out, ease-out), opacity var(--dur-fast, 120ms) var(--ease-out, ease-out); }
+.fleet-machine[data-selected] .fleet-ring { stroke: var(--text-strong); stroke-width: 2.5; }
+/* offline and filtered-out PCs fade their shapes only; their labels stay readable (WCAG 1.4.3) */
+.fleet-machine:not([data-online]) .fleet-ring { stroke-dasharray: 3 3; opacity: 0.55; }
+.fleet-machine:not([data-online]) .fleet-machine-name { fill: var(--text-dim); }
+.fleet-presence { fill: var(--status-blocked); stroke: var(--bg-panel); stroke-width: 2; }
+.fleet-halo { fill: transparent; stroke: none; }
+.fleet-agent[data-state="running"] .fleet-ring { stroke: var(--status-working); }
+.fleet-agent[data-state="attention"] .fleet-ring { stroke: var(--status-blocked); stroke-width: 2.5; }
+.fleet-agent[data-state="attention"] .fleet-halo { fill: var(--status-blocked-tint); }
+.fleet-agent[data-state="reported"] .fleet-ring { stroke: var(--status-done); }
+.fleet-node:hover .fleet-ring { stroke: var(--text-strong); }
+.fleet-node:focus-visible .fleet-ring { stroke: var(--accent); stroke-width: 3; }
+/* a faded (filtered-out) node still shows its focus ring at full strength */
+.fleet-machine-group .fleet-node:focus-visible .fleet-ring { opacity: 1; }
+.fleet-machine-group[data-dimmed] :is(.fleet-edge, .fleet-ring, .fleet-halo, .fleet-mark, .fleet-particle, .fleet-initials) { opacity: 0.3; }
+.fleet-machine-group :is(.fleet-edge, .fleet-mark) { transition: opacity var(--dur-fast, 120ms) var(--ease-out, ease-out); }
+/* stepped, not smooth: see src/motion.test.ts */
+.fleet-agent[data-state="attention"] .fleet-halo { animation: pulse var(--dur-pulse) var(--ease-pulse) infinite; }
+
+.fleet-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; font-size: 12px; color: var(--text-dim); }
+.fleet-empty { margin: 12px 0 0; font-size: 12px; line-height: 1.55; color: var(--text-dim); text-wrap: pretty; }
+
+.fleet-machine-section { margin-top: 16px; min-width: 0; }
+.fleet-machine-section h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; margin: 0 0 6px; font-size: 13px; color: var(--text-strong); text-wrap: balance; }
+.fleet-machine-state { font-size: 11px; font-weight: 400; color: var(--text-dim); }
+.fleet-machine-state[data-online] { color: var(--status-done); }
+.fleet-list { list-style: none; margin: 0; padding: 0; }
+.fleet-list li + li { border-top: 1px solid var(--border); }
+.fleet-row { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 6px 8px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text); font: inherit; font-size: 13px; text-align: start; cursor: pointer; }
+.fleet-row:hover { background: var(--bg-hover); }
+.fleet-row:focus-visible { outline: var(--ring); outline-offset: -2px; }
+.fleet-row[data-state="attention"] { background: var(--status-blocked-tint); }
+.fleet-row-number { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text-strong); }
+.fleet-row-title { min-width: 0; text-wrap: pretty; }
+.fleet-row-title small { display: block; font-size: 11px; color: var(--text-dim); }
+.fleet-row[data-state="attention"] .fleet-row-title small { color: var(--text); }
+.fleet-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; font-size: 11px; white-space: nowrap; background: var(--bg-elevated); }
+.fleet-chip[data-state="running"] { background: var(--status-working-tint); }
+.fleet-chip[data-state="attention"] { background: var(--status-blocked-tint); }
+.fleet-chip[data-state="reported"] { background: var(--status-done-tint); }
+.fleet-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--status-idle); flex-shrink: 0; }
+.fleet-chip[data-state="running"] .fleet-dot { background: var(--status-working); }
+.fleet-chip[data-state="attention"] .fleet-dot { background: var(--status-blocked); }
+.fleet-chip[data-state="reported"] .fleet-dot { background: var(--status-done); }
+
+@media (max-width: 640px), (pointer: coarse) { .fleet-row, .fleet-dialog .btn, .fleet-dialog .icon-button { min-height: 44px; } }
+@media (max-width: 480px) {
+  .fleet-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fleet-header, .fleet-body { padding-inline: 12px; }
+  .fleet-row { grid-template-columns: auto auto minmax(0, 1fr); }
+  .fleet-chip { grid-column: 3; justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fleet-particle { display: none; }
+  .fleet-agent[data-state="attention"] .fleet-halo { animation: none; }
+  .fleet-node .fleet-ring, .fleet-machine-group :is(.fleet-edge, .fleet-mark) { transition: none; }
+}
+.fleet-mark { pointer-events: none; overflow: visible; }
+.fleet-mark .agent-mark { display: block; }
