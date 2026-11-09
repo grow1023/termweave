@@ -14,6 +14,7 @@ import { AgentMark } from "./components/AgentMark.tsx";
 import { NewSessionDialog } from "./components/NewSessionDialog.tsx";
 import { OpenRigPanel } from "./components/OpenRigPanel.tsx";
 import { FleetPanel } from "./components/FleetPanel.tsx";
+import { observeFleetRuns } from "./lib/fleetTelemetry.ts";
 import { TerminalNotificationCenter } from "./components/TerminalNotificationsPanel.tsx";
 import { SettingsDialog } from "./components/SettingsDialog.tsx";
 import { CommandPalette } from "./components/CommandPalette.tsx";
@@ -134,6 +135,8 @@ export function App() {
   const alertsOnRef = useRef(alertsOn);
   alertsOnRef.current = alertsOn;
   const [machines, setMachines] = useState<Machine[]>([]);
+  // the Fleet console's last hour counts runs seen while its page was closed too
+  useEffect(() => observeFleetRuns(machines), [machines]);
   const [selectedMachineId, setSelectedMachineId] = useState(() => {
     const query = new URLSearchParams(window.location.search);
     if (query.has("pane")) return query.get("machine") ?? "local";
@@ -219,7 +222,9 @@ export function App() {
     const url = new URL(window.location.href);
     if (url.searchParams.get("panel") === "fleet") { url.searchParams.delete("panel"); window.history.replaceState(null, "", url); }
   }, []);
-  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  /** the Settings section to open at; Fleet's connection settings open it at Remote PCs */
+  const [settingsSection, setSettingsSection] = useState<string | undefined>(undefined);
+  const closeSettings = useCallback(() => { setSettingsOpen(false); setSettingsSection(undefined); }, []);
   const [newSessionOpen, setNewSessionOpen] = useState(false);
   const [connected, setConnected] = useState(false);
   const [outputStopped, setOutputStopped] = useState(false);
@@ -907,9 +912,9 @@ export function App() {
         setFilesOpen(false);
         selectTargetRef.current(machineId, paneId);
       }} />
-      {fleetOpen && <FleetPanel machines={machines} onClose={closeFleet} onOpen={(machineId, paneId) => { setDrawerOpen(false); selectTargetRef.current(machineId, paneId); }} />}
+      {fleetOpen && <FleetPanel machines={machines} onClose={closeFleet} onOpen={(machineId, paneId) => { setDrawerOpen(false); selectTargetRef.current(machineId, paneId); }} onSetup={(machine) => { setDrawerOpen(false); setUpdateRemote(false); setMachineDialog(machine); }} onConnections={() => { setSettingsSection("remote"); setSettingsOpen(true); }} />}
       {openRigOpen && <OpenRigPanel canManageService={auth?.authenticated === true && auth.role !== "watch" && role !== "observe"} readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onClose={closeOpenRig} onOpened={() => { void load(); }} />}
-      <SettingsDialog auth={auth} open={settingsOpen} onClose={closeSettings} actions={actions} updates={updates} onEnableNotifications={enableNotifications} />
+      <SettingsDialog auth={auth} open={settingsOpen} onClose={closeSettings} actions={actions} updates={updates} onEnableNotifications={enableNotifications} section={settingsSection} />
       {filesOpen && selectedPane && (
         <FilesDialog start={selectedPane.foreground_cwd ?? selectedPane.cwd ?? ""} viewing={viewing !== null} onOpenFile={viewFile} onClose={() => setFilesOpen(false)} />
       )}

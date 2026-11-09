@@ -3,6 +3,10 @@
 TermWeave(herdr web ui 포크)의 변경 기록입니다. 원본 프로젝트의 기록은 `CHANGELOG.md`에 있습니다.
 이 파일에는 실제 동작이나 게이트로 확인된 완료 항목만 적습니다. 일부만 끝난 항목은 "남은 일"에 따로 적습니다.
 
+## [0.3.34] - 2026-11-09
+
+- feat(fleet): port GOAT's whole Fleet page: heat, telemetry console, pullable graph
+
 ## [0.3.33] - 2026-11-09
 
 - fix(fleet,wait,ws): settle waits on this turn; keep jitter and backoff on wake

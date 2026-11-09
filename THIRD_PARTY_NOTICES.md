@@ -895,10 +895,21 @@ THE SOFTWARE.
 
 ## GOAT
 
-`src/lib/fleetLayout.ts` and `src/lib/fleetLayout.test.ts` are copied from [GOAT](https://github.com/goat-si/goat)
-(`packages/client-runtime/src/state/fleetLayout.ts` at 18b984275d; the test runner swapped to `bun:test`).
-The agent fleet panel (`src/components/FleetPanel.tsx`, `FleetGraph.tsx`) follows the design of
-GOAT's Fleet page without copying its code.
+The agent fleet page is ported from [GOAT](https://github.com/goat-si/goat)'s Fleet page at 18b984275d:
+
+- Copied: `src/lib/fleetLayout.ts` and `src/lib/fleetLayout.test.ts` (`packages/client-runtime/src/state/fleetLayout.ts`),
+  `src/lib/fleetDrag.ts` and `src/lib/fleetDrag.test.ts` (`apps/web/src/components/fleet/fleetDrag.ts`); the test
+  runner swapped to `bun:test`.
+- Adapted to TermWeave's PCs, herdr panes and host status: `src/lib/fleet.ts` (`state/fleet.ts`,
+  `fleetMachineDescription.ts`), `src/lib/fleetHeat.ts` (`state/fleetHeat.ts`, `host-metrics.ts`),
+  `src/lib/fleetConnection.ts` (`state/fleetConnection.ts`, `fleetHostHealth.ts`, `components/fleet/fleetConnection.ts`),
+  `src/lib/fleetTelemetry.ts` (`components/fleet/fleetTelemetry.ts`, `fleetQuota.ts`, `fleetCount.ts`),
+  `src/components/FleetGraph.tsx`, `FleetConsole.tsx`, `FleetPanel.tsx` and `FleetPanel.css` (`components/fleet/*.tsx`
+  and the Fleet rules of `apps/web/src/index.css`), and `server/host-status.ts`
+  (`apps/server/src/resourceTelemetry/HostResources.ts`, `hostCapacity.ts`, `environment/ServerEnvironmentMachine.ts`,
+  `fleet/pressure/pressureModel.ts`), with their tests following GOAT's cases.
+- Not ported, as TermWeave has nothing they describe: Boat cloud machines, cloud agents, the OpenCodex Hub summary,
+  storage compaction, stray server clean-up, and event-loop stall alerts. GOAT's wordmark is not used.
 
 ```
 MIT License
