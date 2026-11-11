@@ -1,7 +1,7 @@
 import type { SetupAction, SetupRequest } from "../shared/machines.ts";
 import { MachineManager } from "./machines.ts";
 import { canSendSecret, sameOrigin } from "./machine-security.ts";
-import { isJsonObject, jsonResponse } from "./http.ts";
+import { isJsonObject, jsonResponse, errorMessage } from "./http.ts";
 
 const fail = (code: string, message: string, status: number) => jsonResponse({ error: { code, message } }, status);
 export const MACHINE_PROXY_PATH = /^(?:session|agents|host-status|pane\/(?:read|scroll|selection|conversation(?:\/image|\/tool-output)?|commands|files|omo-tasks|prompt|prompt\/answer|input|keys|close|rename|move|image)|workspace\/(?:create|rename|move|close|directories|directory\/create)|fs\/(?:stat|file))$/;
@@ -111,5 +111,5 @@ export async function handleMachineRequest(request: Request, manager: MachineMan
       finally { untrack(); }
     }
     return fail("not_found", "Unknown PC endpoint", 404);
-  } catch (e) { return fail("machine_request_failed", e instanceof Error ? e.message : String(e), 400); }
+  } catch (e) { return fail("machine_request_failed", errorMessage(e), 400); }
 }

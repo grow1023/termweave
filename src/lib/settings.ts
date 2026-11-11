@@ -290,7 +290,7 @@ function applyToDocument(settings: Settings, resolved: ResolvedTheme, language: 
   const appearance = appearanceColors(settings.appearancePreset,resolved,settings.customColors);
   for(const key of Object.keys(appearanceVariables(CUSTOM_DEFAULT)))root.style.removeProperty(key);
   if(appearance)for(const [key,value] of Object.entries(appearanceVariables(appearance)))root.style.setProperty(key,value);
-  if(settings.uiFontFamily)root.style.setProperty("--font-ui",`${settings.uiFontFamily}, sans-serif`);else root.style.removeProperty("--font-ui");
+  if(settings.uiFontFamily)root.style.setProperty("--font-ui",`${settings.uiFontFamily}, var(--font-cjk), sans-serif`);else root.style.removeProperty("--font-ui");
   root.style.colorScheme = resolved;
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", appearance?.surface ?? THEME_COLOR[settings.palette][resolved]);
 }

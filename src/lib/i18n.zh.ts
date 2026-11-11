@@ -956,7 +956,7 @@ export const ZH: Record<string, string> = {
   "Theme colors follow dark or light mode. Fonts are served locally; no external font service is contacted.": "主题颜色随深色或浅色模式变化。字体在本地提供，不连接外部字体服务。",
   "Catppuccin themes: Mocha / Latte": "Catppuccin 主题：Mocha / Latte",
   "Rosé Pine themes: Main / Dawn": "Rosé Pine 主题：Main / Dawn",
-  "Font family, e.g. Noto Sans KR, sans-serif": "字体示例：Noto Sans KR, sans-serif",
+  "Font family, e.g. Noto Sans KR, sans-serif": "字体示例：PingFang SC, sans-serif",
   "Sample text: ABC 0123": "文字示例：中文 ABC 0123",
   "Terminal sample: P3 $ git status": "终端示例：P3 $ git status",
   "Catppuccin source": "Catppuccin 来源",

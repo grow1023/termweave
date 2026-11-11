@@ -150,14 +150,14 @@ export class HerdrSocket {
         const settle = this.submits.get(message.id);
         this.submits.delete(message.id);
         this.clearRequestTimer(message.id);
-        settle?.(message.ok ? { ok: true } : { ok: false, code: message.code ?? "submit_failed", message: message.message ?? "the pane did not take the message" });
+        if (typeof settle === "function") settle(message.ok ? { ok: true } : { ok: false, code: message.code ?? "submit_failed", message: message.message ?? "the pane did not take the message" });
         if (this.draining && this.submits.size === 0) this.close();
       }
       if (message.type === "secret-result") {
         const settle = this.submits.get(message.id);
         this.submits.delete(message.id);
         this.clearRequestTimer(message.id);
-        settle?.(message.ok ? { ok: true } : { ok: false, code: message.code ?? "secret_failed", message: "Secret was not sent. Check the prompt and enter it again." });
+        if (typeof settle === "function") settle(message.ok ? { ok: true } : { ok: false, code: message.code ?? "secret_failed", message: "Secret was not sent. Check the prompt and enter it again." });
         if (this.draining && this.submits.size === 0) this.close();
       }
       // A terminal/parser failure is not malformed JSON and must not disappear.

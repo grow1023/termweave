@@ -954,7 +954,7 @@ export const JA: Record<string, string> = {
   "Theme colors follow dark or light mode. Fonts are served locally; no external font service is contacted.": "テーマの色はダークモードとライトモードに合わせて変わります。フォントはローカルで配信し、外部サービスには接続しません。",
   "Catppuccin themes: Mocha / Latte": "Catppuccin テーマ：Mocha / Latte",
   "Rosé Pine themes: Main / Dawn": "Rosé Pine テーマ：Main / Dawn",
-  "Font family, e.g. Noto Sans KR, sans-serif": "フォントの例：Noto Sans KR, sans-serif",
+  "Font family, e.g. Noto Sans KR, sans-serif": "フォントの例：Hiragino Sans, sans-serif",
   "Sample text: ABC 0123": "文字の見本：あいうえお ABC 0123",
   "Terminal sample: P3 $ git status": "ターミナルの例：P3 $ git status",
   "Catppuccin source": "Catppuccin の出典",

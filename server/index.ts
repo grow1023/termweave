@@ -22,7 +22,7 @@ import { DeviceStore, handleDeviceRequest } from "./devices.ts";
 import { remoteAccess, tailscaleIdentity } from "./tailscale.ts";
 import { paneCommands } from "./commands.ts";
 import { paneFiles } from "./files.ts";
-import { badRequest, errorResponse, isCount, isJsonObject, jsonResponse } from "./http.ts";
+import { badRequest, errorResponse, isCount, isJsonObject, jsonResponse, errorMessage } from "./http.ts";
 import { serveStatic } from "./static.ts";
 import { startStatusCollector } from "./collector.ts";
 import { createPaneMesh } from "./pane-mesh.ts";
@@ -865,7 +865,7 @@ export function createServer(
 
   /** The attaching client sees the error in-band; the log is the only record the operator gets. */
   function spawnFailure(paneId: string, error: unknown): string {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     console.error(`terminal attach for pane ${paneId} failed to start: ${message}`);
     return message;
   }
@@ -1299,7 +1299,7 @@ export function createServer(
               agent_started: false,
               error: {
                 code: error instanceof HerdrError ? error.code : "agent_start_failed",
-                message: error instanceof Error ? error.message : String(error),
+                message: errorMessage(error),
               },
             });
           }
@@ -1661,7 +1661,7 @@ export function createServer(
           send(client, { type: "snapshot", snapshot: await clientSnapshot(), features: SERVER_FEATURES });
         } catch (error) {
           const code = error instanceof HerdrError ? error.code : "snapshot_failed";
-          send(client, { type: "error", code, message: error instanceof Error ? error.message : String(error) });
+          send(client, { type: "error", code, message: errorMessage(error) });
         }
       },
 
