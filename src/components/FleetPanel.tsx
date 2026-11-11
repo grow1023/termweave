@@ -18,6 +18,7 @@ import { useFleetTelemetry } from "../lib/useFleetTelemetry.ts";
 import { AgentMark } from "./AgentMark.tsx";
 import { FleetConnectionGlyph, FleetConnectionIcon, FleetGraph } from "./FleetGraph.tsx";
 import { FleetConsole, FleetUncountedHosts } from "./FleetConsole.tsx";
+import { FleetMap } from "./FleetMap.tsx";
 import { FleetTip } from "./FleetTip.tsx";
 import "./FleetPanel.css";
 
@@ -127,6 +128,7 @@ export function FleetPanel({ machines, onClose, onOpen, onSetup, onConnections }
           {totals.reported > 0 ? " " + t("{n} done, waiting to be read.", { n: totals.reported }) : null}
           {telemetry.loading && machines.some((machine) => machine.state === "connected") ? " " + t("Reading host status…") : null}
         </p>
+        <FleetMap machines={selectedMachine ? machines.filter((machine) => machine.id === selectedMachine.id) : machines} onOpen={(machineId, paneId) => { onOpen(machineId, paneId); onClose(); }} />
         <section aria-label={t("Fleet graph")} className="fleet-graph-card">
           <FleetGraph snapshot={snapshot} connections={connections} currentMachineId={LOCAL_MACHINE} selectedMachineId={selected} onSelectMachine={toggleMachine} heat={telemetry.heat} slowMachineIds={slowMachineIds} />
           <div className="fleet-legend">
