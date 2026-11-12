@@ -739,6 +739,8 @@ export const JA: Record<string, string> = {
   "Current": "現在",
   "Highlight the current workspace": "現在のワークスペースを強調",
   "Ring the open workspace in the sidebar, mark it Current, and show its name as a pill above the terminal": "開いているワークスペースをサイドバーで枠で囲み「現在」と表示し、ターミナル上に名前を強調表示します",
+  "Bionic reading": "バイオニックリーディング",
+  "Bold the start of each word in live terminal output, Korean included. Only the display changes; copied text stays the same.": "ライブのターミナル出力で各単語の先頭を太字にします。韓国語にも適用されます。表示だけが変わり、コピーした文字は変わりません。",
   "Show plan limits": "プランの上限を表示",
   "Session": "セッション",
   "Daily": "日次",

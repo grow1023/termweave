@@ -29,6 +29,7 @@ import { RenderBoundary } from "./RenderBoundary.tsx";
 import { Composer } from "./Composer.tsx";
 import type { AgentStatus, ClientRole, ConversationMetadata, InteractivePrompt, ServerMessage } from "../../shared/protocol.ts";
 import type { PaneView } from "../lib/actions.ts";
+import { createBionic } from "../lib/bionic.ts";
 import { useSettings, terminalTheme, terminalContrast, type Palette, type ResolvedTheme } from "../lib/settings.ts";
 import { imeEdit, imeSpaces } from "../lib/imeDiff.ts";
 import { loadFontStack, TERMINAL_FONT_STACK, terminalFontStack } from "../lib/fontFamily.ts";
@@ -185,6 +186,9 @@ export function PaneTerminal({
   const { settings, update: updateSettings } = useSettings();
   const shortcutSettings = useRef(settings.shortcutOverrides);
   shortcutSettings.current = settings.shortcutOverrides;
+  // read inside the socket handler: switching it never reconnects the terminal
+  const bionicOn = useRef(settings.bionicReading);
+  bionicOn.current = settings.bionicReading;
   const directTyping = settings.terminalInputMode === "direct" || (settings.terminalInputMode === "auto" && (!coarse || storedDirectTyping()));
   const inputLine = !directTyping && !chatView;
   const inputLineRef = useRef(inputLine);
@@ -685,6 +689,7 @@ export function PaneTerminal({
     socket.setMode(role);
     term.options.disableStdin = role === "observe";
     let outputGeneration = 0;
+    const bionic = createBionic();
     const off = socket.on((message) => {
       onServerMessageRef.current?.(message);
       if (paneRef.current) setInputReady(socket.canInput(paneRef.current));
@@ -694,7 +699,7 @@ export function PaneTerminal({
         const acknowledge = socket.outputAcknowledgement(message);
         const owner = message.pane_id;
         const generation = outputGeneration;
-        term.write(message.data, () => {
+        term.write(bionic(message.data, bionicOn.current), () => {
           acknowledge?.();
           if (paneRef.current !== owner || generation !== outputGeneration) return;
           setOutputReady(true);

@@ -741,6 +741,8 @@ export const ZH: Record<string, string> = {
   "Current": "当前",
   "Highlight the current workspace": "突出显示当前工作区",
   "Ring the open workspace in the sidebar, mark it Current, and show its name as a pill above the terminal": "在侧边栏用边框圈出打开的工作区并标记“当前”，在终端上方突出显示其名称",
+  "Bionic reading": "仿生阅读",
+  "Bold the start of each word in live terminal output, Korean included. Only the display changes; copied text stays the same.": "在实时终端输出中加粗每个单词的开头，也适用于韩语。只改变显示，复制的文字保持不变。",
   "Show plan limits": "显示套餐限额",
   "Session": "会话",
   "Daily": "每日",

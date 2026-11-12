@@ -87,6 +87,8 @@ export interface Settings {
   voicePolishTerminal: boolean;
   /** the open workspace stands out: a ringed sidebar block with a "Current" chip, and a header pill */
   focusHighlight: boolean;
+  /** bold the start of each word in live terminal output (src/lib/bionic.ts); off until chosen */
+  bionicReading: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -97,6 +99,7 @@ export const DEFAULT_SETTINGS: Settings = {
   density: "comfortable",
   sidebarGrouping: "workspace",
   focusHighlight: true,
+  bionicReading: false,
   palette: "amber",
   terminalFontSize: 13,
   terminalWheelSpeed: 1,
@@ -190,6 +193,7 @@ export function sanitizeSettings(raw: unknown): Settings {
       : DEFAULT_SETTINGS.chatFontSize,
     terminalFontFamily: sanitizeFontFamily(record["terminalFontFamily"]),
     chatFontFamily: sanitizeFontFamily(record["chatFontFamily"]),
+    bionicReading: typeof record["bionicReading"] === "boolean" ? record["bionicReading"] : DEFAULT_SETTINGS.bionicReading,
     focusHighlight: typeof record["focusHighlight"] === "boolean" ? record["focusHighlight"] : DEFAULT_SETTINGS.focusHighlight,
     enterSends: typeof record["enterSends"] === "boolean" ? record["enterSends"] : DEFAULT_SETTINGS.enterSends,
     showThinking: typeof record["showThinking"] === "boolean" ? record["showThinking"] : DEFAULT_SETTINGS.showThinking,
