@@ -438,6 +438,10 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
                     ))}
                   </div>
                 </div>
+                <div className="settings-row">
+                  <div><span className="settings-label">{t("Highlight the current workspace")}</span><span className="settings-description">{t("Ring the open workspace in the sidebar, mark it Current, and show its name as a pill above the terminal")}</span></div>
+                  <Toggle label={t("Highlight the current workspace")} checked={settings.focusHighlight} onChange={(focusHighlight) => update({ focusHighlight })} />
+                </div>
                 <div className="settings-row settings-row-action">
                   <button type="button" className="btn" onClick={() => { if (window.confirm(t("Copy upstream preferences without credentials? Existing TermWeave values stay unchanged."))) { migrateUpstreamPreferences(localStorage, true); window.location.reload(); } }}>{t("Import upstream preferences (opt-in)")}</button>
                 </div>

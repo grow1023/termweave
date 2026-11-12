@@ -85,6 +85,8 @@ export interface Settings {
   voicePolishChat: boolean;
   /** off by default: a terminal line is usually a command, kept as spoken */
   voicePolishTerminal: boolean;
+  /** the open workspace stands out: a ringed sidebar block with a "Current" chip, and a header pill */
+  focusHighlight: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -94,6 +96,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: "dark",
   density: "comfortable",
   sidebarGrouping: "workspace",
+  focusHighlight: true,
   palette: "amber",
   terminalFontSize: 13,
   terminalWheelSpeed: 1,
@@ -187,6 +190,7 @@ export function sanitizeSettings(raw: unknown): Settings {
       : DEFAULT_SETTINGS.chatFontSize,
     terminalFontFamily: sanitizeFontFamily(record["terminalFontFamily"]),
     chatFontFamily: sanitizeFontFamily(record["chatFontFamily"]),
+    focusHighlight: typeof record["focusHighlight"] === "boolean" ? record["focusHighlight"] : DEFAULT_SETTINGS.focusHighlight,
     enterSends: typeof record["enterSends"] === "boolean" ? record["enterSends"] : DEFAULT_SETTINGS.enterSends,
     showThinking: typeof record["showThinking"] === "boolean" ? record["showThinking"] : DEFAULT_SETTINGS.showThinking,
     keepScreenOn: typeof record["keepScreenOn"] === "boolean" ? record["keepScreenOn"] : DEFAULT_SETTINGS.keepScreenOn,
@@ -281,6 +285,7 @@ function applyToDocument(settings: Settings, resolved: ResolvedTheme, language: 
   root.dataset["theme"] = resolved;
   root.dataset["density"] = settings.density;
   root.dataset["palette"] = settings.palette;
+  root.dataset["focus"] = settings.focusHighlight ? "strong" : "subtle";
   // ChatView.css scales its type tokens by this: the chosen size over the density's
   root.style.setProperty("--chat-scale", String(chatFontSize(settings) / CHAT_BASE_FONT[settings.density]));
   // ChatView.css sets the transcript's prose in this, and falls back to --font-ui without it

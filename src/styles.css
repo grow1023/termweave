@@ -528,6 +528,18 @@ button {
   text-overflow: ellipsis;
 }
 
+/* Settings › Highlight the current workspace: its name above the terminal is a pill too */
+:root[data-focus="strong"] .context-sub > .context-workspace {
+  flex: 0 1 auto;
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent-tint);
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+}
+
 .context-sep {
   flex: 0 0 auto;
 }
@@ -1176,6 +1188,10 @@ button {
 
 @media (max-width: 480px) {
   .context-sub > span:not(.machine-context-name) { display: none; }
+  /* phones: with the highlight on, the workspace pill shows in place of the PC name */
+  :root[data-focus="strong"] .context-sub > .context-workspace { display: inline; }
+  :root[data-focus="strong"] .context-sub > .machine-context-name,
+  :root[data-focus="strong"] .context-sub > .machine-context-name + span { display: none; }
 }
 
 /* just above phone width the lens labels would squeeze the pane title to a glyph: icons only */

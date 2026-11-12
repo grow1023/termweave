@@ -344,6 +344,7 @@ export function Sidebar({ snapshot, selectedPaneId, selectedWorkspaceId, onSelec
               onClick={event => event.stopPropagation()} onChange={event => setWorkspaceLabel(event.target.value)} onBlur={() => saveWorkspaceRename(workspace.workspace_id)}
               onKeyDown={event => { event.stopPropagation(); if (event.key === "Enter") saveWorkspaceRename(workspace.workspace_id); if (event.key === "Escape") { event.preventDefault(); renameSettled.current = true; setEditingWorkspaceId(null); } }} />
               : <span className="pane-title" onDoubleClick={() => beginWorkspaceRename(workspace, scope)}>{workspace.label}</span>}
+            {selected && !editing && <span className="workspace-current-chip">{t("Current")}</span>}
           </span><span className="pane-meta">
             <BackgroundBadge count={summary.backgroundTasks} />
             <span className="pane-subtitle">{t("{n} terminals", { n: visiblePanes.length })}</span>

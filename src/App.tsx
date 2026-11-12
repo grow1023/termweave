@@ -760,7 +760,7 @@ export function App() {
             </div>
             <div className="context-sub">
               <span className="machine-context-name">{selectedMachine?.name ?? selectedMachineId}</span><span aria-hidden="true"> › </span>
-              <span>{selectedWorkspace?.label ?? selectedPane.workspace_id}</span>
+              <span className="context-workspace">{selectedWorkspace?.label ?? selectedPane.workspace_id}</span>
               {selectedPane.cwd && (
                 <>
                   <span className="context-sep" aria-hidden="true">
