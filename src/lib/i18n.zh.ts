@@ -736,7 +736,7 @@ export const ZH: Record<string, string> = {
   "Highlight the current workspace": "突出显示当前工作区",
   "Ring the open workspace in the sidebar, mark it Current, and show its name as a pill above the terminal": "在侧边栏用边框圈出打开的工作区并标记“当前”，在终端上方突出显示其名称",
   "Bionic reading": "仿生阅读",
-  "Bold the start of each word in live terminal output, Korean included. Only the display changes; copied text stays the same.": "在实时终端输出中加粗每个单词的开头，也适用于韩语。只改变显示，复制的文字保持不变。",
+  "In live terminal output, draw the start of each word bold and the rest dim, Korean included. Only the display changes; copied text stays the same.": "在实时终端输出中，每个单词的开头加粗、其余部分变淡，也适用于韩语。只改变显示，复制的文字保持不变。",
   "Updating…": "正在更新…",
   "Update to v{version}": "更新到 v{version}",
   "Install the new version and restart; herdr sessions keep running": "安装新版本并重新启动；herdr 会话继续运行",

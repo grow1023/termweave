@@ -1,6 +1,6 @@
 /**
  * Bionic reading for live terminal output (Settings › Terminal). The start of each word, Korean
- * included, is wrapped in SGR bold (ESC[1m … ESC[22m) before xterm draws it. Only the drawing
+ * included, is drawn bold (ESC[1m) and the rest dim (ESC[2m) before xterm draws it. Only the drawing
  * changes: the bytes the program sent, the buffer text, copy and search stay the same.
  *
  * The transformer is stateful per pane: escape sequences split across chunks pass through
@@ -36,7 +36,8 @@ export function createBionic(): (chunk: string, enabled: boolean) => string {
     let out = "", word = "";
     const flush = () => {
       const chars = [...word], head = enabled && !bold ? fixation(chars.length) : 0;
-      out += head === 0 ? word : BOLD + chars.slice(0, head).join("") + NORMAL + (dim ? DIM : "") + chars.slice(head).join("");
+      // the rest is dimmed too: Hangul fonts draw bold barely heavier, so bold alone hardly shows
+      out += head === 0 ? word : BOLD + chars.slice(0, head).join("") + NORMAL + DIM + chars.slice(head).join("") + (dim ? "" : NORMAL);
       word = "";
     };
     for (const ch of chunk) {

@@ -737,7 +737,7 @@ export const KO: Record<string, string> = {
   "Highlight the current workspace": "현재 작업 공간 강조",
   "Ring the open workspace in the sidebar, mark it Current, and show its name as a pill above the terminal": "열린 작업 공간을 사이드바에서 테두리로 감싸고 '현재' 표시를 붙이며, 터미널 위에 이름을 강조해 보여 줍니다",
   "Bionic reading": "바이오닉 리딩",
-  "Bold the start of each word in live terminal output, Korean included. Only the display changes; copied text stays the same.": "실시간 터미널 출력에서 단어 앞부분을 굵게 표시합니다. 한국어도 적용됩니다. 화면 표시만 바뀌고 복사한 글자는 그대로입니다.",
+  "In live terminal output, draw the start of each word bold and the rest dim, Korean included. Only the display changes; copied text stays the same.": "실시간 터미널 출력에서 단어 앞부분은 굵게, 나머지는 흐리게 표시합니다. 한국어도 적용됩니다. 화면 표시만 바뀌고 복사한 글자는 그대로입니다.",
   "Updating…": "업데이트 중…",
   "Update to v{version}": "v{version}으로 업데이트",
   "Install the new version and restart; herdr sessions keep running": "새 버전을 설치하고 다시 시작합니다. herdr 세션은 계속 실행됩니다",

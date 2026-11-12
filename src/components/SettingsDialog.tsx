@@ -449,7 +449,7 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
               <h4 className="settings-subheading">{t("Terminal")}</h4>
               <div className="settings-card">
                 <div className="settings-row">
-                  <div><span className="settings-label">{t("Bionic reading")}</span><span className="settings-description">{t("Bold the start of each word in live terminal output, Korean included. Only the display changes; copied text stays the same.")}</span></div>
+                  <div><span className="settings-label">{t("Bionic reading")}</span><span className="settings-description">{t("In live terminal output, draw the start of each word bold and the rest dim, Korean included. Only the display changes; copied text stays the same.")}</span></div>
                   <Toggle label={t("Bionic reading")} checked={settings.bionicReading} onChange={(bionicReading) => update({ bionicReading })} />
                 </div>
                 <div className="settings-row">

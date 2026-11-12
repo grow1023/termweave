@@ -734,7 +734,7 @@ export const JA: Record<string, string> = {
   "Highlight the current workspace": "現在のワークスペースを強調",
   "Ring the open workspace in the sidebar, mark it Current, and show its name as a pill above the terminal": "開いているワークスペースをサイドバーで枠で囲み「現在」と表示し、ターミナル上に名前を強調表示します",
   "Bionic reading": "バイオニックリーディング",
-  "Bold the start of each word in live terminal output, Korean included. Only the display changes; copied text stays the same.": "ライブのターミナル出力で各単語の先頭を太字にします。韓国語にも適用されます。表示だけが変わり、コピーした文字は変わりません。",
+  "In live terminal output, draw the start of each word bold and the rest dim, Korean included. Only the display changes; copied text stays the same.": "ライブのターミナル出力で各単語の先頭を太字に、残りを薄く表示します。韓国語にも適用されます。表示だけが変わり、コピーした文字は変わりません。",
   "Updating…": "更新中…",
   "Update to v{version}": "v{version} に更新",
   "Install the new version and restart; herdr sessions keep running": "新しいバージョンをインストールして再起動します。herdr のセッションは実行され続けます",

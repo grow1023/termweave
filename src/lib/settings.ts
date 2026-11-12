@@ -290,6 +290,8 @@ function applyToDocument(settings: Settings, resolved: ResolvedTheme, language: 
   root.dataset["density"] = settings.density;
   root.dataset["palette"] = settings.palette;
   root.dataset["focus"] = settings.focusHighlight ? "strong" : "subtle";
+  // PaneTerminal.css fades bionic reading's dim word ends that carry their own color
+  root.dataset["bionic"] = settings.bionicReading ? "on" : "off";
   // ChatView.css scales its type tokens by this: the chosen size over the density's
   root.style.setProperty("--chat-scale", String(chatFontSize(settings) / CHAT_BASE_FONT[settings.density]));
   // ChatView.css sets the transcript's prose in this, and falls back to --font-ui without it
