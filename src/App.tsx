@@ -43,7 +43,7 @@ import { ensurePushSubscription, pushSupported, removePushSubscription } from ".
 import { onNotificationTarget } from "./lib/notificationTarget.ts";
 import { useUpdates } from "./lib/updates.ts";
 import { FrontendControls } from "./components/FrontendControls.tsx";
-import { UpdateNotice } from "./components/UpdateControls.tsx";
+import { UpdateButton } from "./components/UpdateControls.tsx";
 import { FilesDialog } from "./components/FilesDialog.tsx";
 import { FileViewer } from "./components/FileViewer.tsx";
 import { OpenFileContext } from "./lib/filePaths.ts";
@@ -774,6 +774,7 @@ export function App() {
         ) : (
           <><Brand /><span className="machine-context-name">{selectedMachine?.name ?? selectedMachineId}</span></>
         )}
+        <UpdateButton updates={updates} />
         {selectedPane && (
           <div className="segmented view-switch" role="group" aria-label="Pane view">
             <button type="button" aria-pressed={view === "chat"} onClick={() => setView("chat")} title={t("Chat transcript (⌘⇧J)")}>
@@ -832,7 +833,6 @@ export function App() {
         </div>
       </header>
 
-      <UpdateNotice updates={updates} onOpen={() => setSettingsOpen(true)} />
       <MachineActionBanner machines={machines} onSetup={(machine, update = false) => { setDrawerOpen(false); setUpdateRemote(update); setMachineDialog(machine); }} />
       <div className="app-body">
         <aside id="workspace-drawer" className={`sidebar${drawerOpen ? " is-open" : ""}`}>

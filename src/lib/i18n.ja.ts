@@ -392,12 +392,6 @@ export const JA: Record<string, string> = {
   "Updating herdr…": "herdr を更新しています…",
   "The server was updated. Save any unsent drafts, then": "サーバーが更新されました。未送信の下書きを保存してから",
   "Reload app": "アプリを再読み込み",
-  "App updated. Save unsent drafts before reloading.": "アプリが更新されました。再読み込みする前に未送信の下書きを保存してください。",
-  "Preparing the update…": "更新を準備しています…",
-  "Updating; reconnecting shortly…": "更新中です。まもなく再接続します…",
-  "TermWeave v{version} is available.": "TermWeave v{version} が利用可能です。",
-  "A TermWeave update is available.": "TermWeave の更新が利用可能です。",
-  "View update": "更新を表示",
 
   // ---- key bar ----
   "Terminal keys": "ターミナルキー",
@@ -741,6 +735,9 @@ export const JA: Record<string, string> = {
   "Ring the open workspace in the sidebar, mark it Current, and show its name as a pill above the terminal": "開いているワークスペースをサイドバーで枠で囲み「現在」と表示し、ターミナル上に名前を強調表示します",
   "Bionic reading": "バイオニックリーディング",
   "Bold the start of each word in live terminal output, Korean included. Only the display changes; copied text stays the same.": "ライブのターミナル出力で各単語の先頭を太字にします。韓国語にも適用されます。表示だけが変わり、コピーした文字は変わりません。",
+  "Updating…": "更新中…",
+  "Update to v{version}": "v{version} に更新",
+  "Install the new version and restart; herdr sessions keep running": "新しいバージョンをインストールして再起動します。herdr のセッションは実行され続けます",
   "Show plan limits": "プランの上限を表示",
   "Session": "セッション",
   "Daily": "日次",

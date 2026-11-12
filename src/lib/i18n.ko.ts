@@ -395,12 +395,6 @@ export const KO: Record<string, string> = {
   "Updating herdr…": "herdr 업데이트 중…",
   "The server was updated. Save any unsent drafts, then": "서버가 업데이트되었습니다. 보내지 않은 초안을 저장한 뒤",
   "Reload app": "앱 새로 고침",
-  "App updated. Save unsent drafts before reloading.": "앱이 업데이트되었습니다. 새로 고치기 전에 보내지 않은 초안을 저장하세요.",
-  "Preparing the update…": "업데이트 준비 중…",
-  "Updating; reconnecting shortly…": "업데이트 중. 곧 다시 연결됩니다…",
-  "TermWeave v{version} is available.": "TermWeave v{version}이 나왔습니다.",
-  "A TermWeave update is available.": "TermWeave 업데이트가 있습니다.",
-  "View update": "업데이트 보기",
 
   // ---- key bar ----
   "Terminal keys": "터미널 키",
@@ -744,6 +738,9 @@ export const KO: Record<string, string> = {
   "Ring the open workspace in the sidebar, mark it Current, and show its name as a pill above the terminal": "열린 작업 공간을 사이드바에서 테두리로 감싸고 '현재' 표시를 붙이며, 터미널 위에 이름을 강조해 보여 줍니다",
   "Bionic reading": "바이오닉 리딩",
   "Bold the start of each word in live terminal output, Korean included. Only the display changes; copied text stays the same.": "실시간 터미널 출력에서 단어 앞부분을 굵게 표시합니다. 한국어도 적용됩니다. 화면 표시만 바뀌고 복사한 글자는 그대로입니다.",
+  "Updating…": "업데이트 중…",
+  "Update to v{version}": "v{version}으로 업데이트",
+  "Install the new version and restart; herdr sessions keep running": "새 버전을 설치하고 다시 시작합니다. herdr 세션은 계속 실행됩니다",
   "Show plan limits": "요금제 한도 표시",
   "Session": "세션",
   "Daily": "일간",
