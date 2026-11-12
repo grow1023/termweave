@@ -66,6 +66,7 @@ import { mirrorInput } from "./mirror-input.ts";
 import { OutputWindow, OUTPUT_HIGH_BYTES, OUTPUT_HARD_BYTES, OUTPUT_STALL_MS, ReplayBuffer } from "./output-window.ts";
 import { OUTPUT_STALLED_CLOSE_CODE } from "../shared/terminal-flow.ts";
 import { connectUpdater, handleUpdateRequest, type UpdateService } from "./update-api.ts";
+import { ownedUpdater } from "./owned-updater.ts";
 import { handleHerdrUpdateRequest, HerdrUpdater } from "./herdr-update.ts";
 import { handleUsageRequest, UsageService } from "./usage.ts";
 import { handleHostStatusRequest, HostStatusService } from "./host-status.ts";
@@ -2018,11 +2019,14 @@ if (import.meta.main) {
   if (existsSync(join(import.meta.dir, '..', '.termweave-owned.json')) && process.env.TERMWEAVE_OWNED_LAUNCH !== '1') throw new Error('Owned installation requires the recorded foreground lifecycle launcher');
   const configuredHost = process.env.HOST ?? '127.0.0.1';
   if (!LOOPBACK_HOSTNAMES.has(configuredHost) && (!process.env.HERDR_WEB_TOKEN || process.env.TERMWEAVE_EXTERNAL_ACCESS !== '1')) throw new Error('External binding requires TERMWEAVE_EXTERNAL_ACCESS=1 and a configured token');
-  const instance = createServer({ updates: connectUpdater(), registerBridge: true });
+  // an install.sh install is a plain copy: it updates from the public GitHub Releases instead
+  const owned = process.env.TERMWEAVE_OWNED_LAUNCH === '1' ? ownedUpdater(resolve(import.meta.dir, '..')) : null;
+  const instance = createServer({ updates: owned ?? connectUpdater(), registerBridge: true });
   let stopping = false;
   const shutdown = () => {
     if (stopping) return;
     stopping = true;
+    owned?.stop();
     instance.stop();
     // Attach sidecars need ~1.2s to release herdr's exclusive client slot.
     setTimeout(() => process.exit(0), 2000);
