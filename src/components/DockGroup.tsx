@@ -19,9 +19,16 @@ interface Props {
   renameTab?: (id: string) => void;
   rename?: React.ReactNode; terminate?: React.ReactNode; viewControls?: React.ReactNode; children: React.ReactNode; search?: React.ReactNode; nativeMove?: React.ReactNode; address?: React.ReactNode;
 }
+/** how long a finger rests on a tab before it is renamed; a scroll or drag cancels the pointer first */
+const HOLD_MS = 500;
+
 export function DockGroup({ node, panes, busy, zoomed, groupIds, activate, drop, add, split, canAdd, zoom, detach, children, search, nativeMove, address, terminate, rename, renameTab, viewControls, preview, acceptsDrag, beginDrag, previewDrag, dragDrop }: Props) {
   const t = useT();
   const stripRef = useRef<HTMLDivElement>(null);
+  // touch screens have no right-click: holding a tab renames it. Android also sends contextmenu
+  // for a hold, iOS does not; both ask for the same dialog, so the second ask changes nothing.
+  const hold = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const release = () => clearTimeout(hold.current);
   useLayoutEffect(() => {
     const strip = stripRef.current;
     if (!strip) return;
@@ -67,7 +74,9 @@ export function DockGroup({ node, panes, busy, zoomed, groupIds, activate, drop,
         onDragOver={event => over(event, "center", boundary(event, index))}
         onDrop={event => dragDrop(event, node.id, "center", boundary(event, index))}
         data-tab-id={id} title={displayPaneTitle(panes.find(pane => pane.pane_id === id) ?? { pane_id: id } as HerdrPane)} onClick={() => activate(id)}
-        onContextMenu={renameTab && (event => { event.preventDefault(); renameTab(id); })}><span className="pane-number" data-pane-number={paneNumber(panes.find(p => p.pane_id === id))}>{paneNumber(panes.find(p => p.pane_id === id))}</span> <AgentMark agent={panes.find(p => p.pane_id === id)?.agent || "shell"} size={14} /> <span className="dock-tab-title">{displayPaneTitle(panes.find(pane => pane.pane_id === id) ?? { pane_id: id } as HerdrPane)}</span></button>)}
+        onContextMenu={renameTab && (event => { event.preventDefault(); renameTab(id); })}
+        onPointerDown={renameTab && (event => { release(); if (event.pointerType === "touch") hold.current = setTimeout(() => renameTab(id), HOLD_MS); })}
+        onPointerUp={release} onPointerLeave={release} onPointerCancel={release}><span className="pane-number" data-pane-number={paneNumber(panes.find(p => p.pane_id === id))}>{paneNumber(panes.find(p => p.pane_id === id))}</span> <AgentMark agent={panes.find(p => p.pane_id === id)?.agent || "shell"} size={14} /> <span className="dock-tab-title">{displayPaneTitle(panes.find(pane => pane.pane_id === id) ?? { pane_id: id } as HerdrPane)}</span></button>)}
       <span className={`dock-strip-end${preview?.index === node.tabs.length ? " dock-insert-end" : ""}`} aria-hidden="true" />
       </div>
       <div className="dock-tab-actions">

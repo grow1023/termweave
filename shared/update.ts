@@ -10,6 +10,8 @@ export interface UpdateStatus {
   current_version: string | null;
   latest_version: string | null;
   available: boolean;
+  /** what the latest release changes, as its GitHub Release body (Markdown); absent where the updater has none */
+  latest_notes?: string | null;
   checked_at: string | null;
   blocked_reason: string | null;
   error: string | null;

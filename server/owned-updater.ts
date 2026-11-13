@@ -19,6 +19,7 @@ import { runCommand } from "./updater.ts";
 export const RELEASE_REPO = "VoidLight00/termweave";
 const RELEASE_TAG = /^v(\d+)\.(\d+)\.(\d+)$/;
 const CHECK_EVERY = 6 * 60 * 60_000;
+const NOTES_MAX = 8000;
 /** what install.sh passes to the server; the restarted one gets the same, nothing more */
 const ENV_KEYS = ["HOME", "PATH", "PORT", "HOST", "LANG", "USER", "SHELL", "XDG_CONFIG_HOME", "HERDR_SOCKET", "HERDR_WEB_TOKEN"];
 
@@ -44,9 +45,12 @@ export function ownedUpdater(root: string, fetcher: typeof fetch = fetch): Updat
         headers: { accept: "application/vnd.github+json", "user-agent": "termweave-updater" }, signal: AbortSignal.timeout(15_000),
       });
       if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
-      const tag = String(((await response.json()) as { tag_name?: unknown }).tag_name ?? "");
+      const release = (await response.json()) as { tag_name?: unknown; body?: unknown };
+      const tag = String(release.tag_name ?? "");
       if (!RELEASE_TAG.test(tag)) throw new Error("The latest release has no vX.Y.Z tag");
-      patch({ phase: "idle", latest_version: tag.slice(1), available: isNewer(tag, PRODUCT_VERSION), checked_at: new Date().toISOString() });
+      // the update post (tools/public-release/post_release_notes.sh), shown before the user installs
+      const notes = typeof release.body === "string" && release.body.trim() ? release.body.slice(0, NOTES_MAX) : null;
+      patch({ phase: "idle", latest_version: tag.slice(1), latest_notes: notes, available: isNewer(tag, PRODUCT_VERSION), checked_at: new Date().toISOString() });
     } catch (error) {
       patch({ phase: "error", error: `Update check failed: ${error instanceof Error ? error.message : String(error)}` });
     }

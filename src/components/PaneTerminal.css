@@ -282,11 +282,14 @@
   content-visibility: hidden;
 }
 
-/* Bionic reading (src/lib/bionic.ts) dims each word's end. xterm 5.5's DOM renderer dims only
-   through the .xterm-dim class colour, and a cell with its own colour (Claude Code paints in
-   RGB; light theme lifts contrast inline) overrides it, so the end would stay bright. Fade
-   those cells instead; cells with a background are left alone so row bars keep their fill.
-   Dark theme only: the light theme lifts contrast and already draws dim cells at half. */
-:root[data-theme="dark"][data-bionic="on"] .xterm .xterm-dim:is([style*="color"], [class*="xterm-fg-"]):not([style*="background"], [class*="xterm-bg-"]) {
-  opacity: 0.5 !important; /* xterm.css resets .xterm-dim to 1 !important */
+/* Bionic reading (src/lib/bionic.ts) marks each word's end with overline (SGR 53). The mark is
+   drawn as a fade, never as a line, so every kind of cell fades the same way in both themes, by
+   Settings › Fade. Text marked while the setting was on stays marked after it is turned off, so
+   the line itself is hidden whatever the setting. An underline under the mark is kept.
+   Cells with a background are left alone so row bars keep their fill. Text the program itself
+   sent dim keeps its own dimness and no more: xterm.css pins .xterm-dim to opacity 1 !important. */
+.xterm .xterm-rows .xterm-overline { text-decoration-line: none; }
+.xterm .xterm-rows .xterm-overline[class*="xterm-underline-"] { text-decoration-line: underline; }
+:root[data-bionic="on"] .xterm .xterm-rows .xterm-overline:not([style*="background"], [class*="xterm-bg-"]) {
+  opacity: var(--bionic-fade, 0.5);
 }

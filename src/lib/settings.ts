@@ -25,6 +25,11 @@ export type UsagePlacement = "footer" | "top";
 export type DefaultView = "auto" | "chat" | "terminal";
 
 import { sanitizeShortcutOverrides, type ShortcutOverrides } from "./shortcutBindings.ts";
+import { BIONIC_RATIO, type BionicBold } from "./bionic.ts";
+
+/** how far bionic reading fades the end of each word: the opacity it is drawn at */
+export const BIONIC_FADE = { subtle: 0.7, medium: 0.5, strong: 0.35 } as const;
+export type BionicFade = keyof typeof BIONIC_FADE;
 
 export interface Settings {
   appearancePreset: AppearancePreset;
@@ -89,6 +94,9 @@ export interface Settings {
   focusHighlight: boolean;
   /** bold the start of each word in live terminal output (src/lib/bionic.ts); off until chosen */
   bionicReading: boolean;
+  /** bionic reading: how much of each word is bold, and how far the rest fades */
+  bionicBold: BionicBold;
+  bionicFade: BionicFade;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -100,6 +108,8 @@ export const DEFAULT_SETTINGS: Settings = {
   sidebarGrouping: "workspace",
   focusHighlight: true,
   bionicReading: false,
+  bionicBold: "medium",
+  bionicFade: "medium",
   palette: "amber",
   terminalFontSize: 13,
   terminalWheelSpeed: 1,
@@ -194,6 +204,8 @@ export function sanitizeSettings(raw: unknown): Settings {
     terminalFontFamily: sanitizeFontFamily(record["terminalFontFamily"]),
     chatFontFamily: sanitizeFontFamily(record["chatFontFamily"]),
     bionicReading: typeof record["bionicReading"] === "boolean" ? record["bionicReading"] : DEFAULT_SETTINGS.bionicReading,
+    bionicBold: Object.hasOwn(BIONIC_RATIO, String(record["bionicBold"])) ? record["bionicBold"] as BionicBold : DEFAULT_SETTINGS.bionicBold,
+    bionicFade: Object.hasOwn(BIONIC_FADE, String(record["bionicFade"])) ? record["bionicFade"] as BionicFade : DEFAULT_SETTINGS.bionicFade,
     focusHighlight: typeof record["focusHighlight"] === "boolean" ? record["focusHighlight"] : DEFAULT_SETTINGS.focusHighlight,
     enterSends: typeof record["enterSends"] === "boolean" ? record["enterSends"] : DEFAULT_SETTINGS.enterSends,
     showThinking: typeof record["showThinking"] === "boolean" ? record["showThinking"] : DEFAULT_SETTINGS.showThinking,
@@ -290,8 +302,9 @@ function applyToDocument(settings: Settings, resolved: ResolvedTheme, language: 
   root.dataset["density"] = settings.density;
   root.dataset["palette"] = settings.palette;
   root.dataset["focus"] = settings.focusHighlight ? "strong" : "subtle";
-  // PaneTerminal.css fades bionic reading's dim word ends that carry their own color
+  // PaneTerminal.css fades the word ends bionic reading marks, by this much
   root.dataset["bionic"] = settings.bionicReading ? "on" : "off";
+  root.style.setProperty("--bionic-fade", String(BIONIC_FADE[settings.bionicFade]));
   // ChatView.css scales its type tokens by this: the chosen size over the density's
   root.style.setProperty("--chat-scale", String(chatFontSize(settings) / CHAT_BASE_FONT[settings.density]));
   // ChatView.css sets the transcript's prose in this, and falls back to --font-ui without it

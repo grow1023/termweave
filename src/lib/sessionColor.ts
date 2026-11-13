@@ -25,6 +25,16 @@ export function resolveSessionColor(color: SessionColor | null): string | undefi
   if (color === null) return undefined;
   return SESSION_COLORS.find(preset => preset.id === color)?.value ?? normalizeHex(color) ?? undefined;
 }
+/**
+ * The color a workspace gets until one is chosen: always the same for the same workspace.
+ * ponytail: six presets, so two of seven workspaces must share one; choosing a color in the
+ * workspace menu settles a clash.
+ */
+export function autoSessionColor(workspaceId: string): string {
+  let hash = 0;
+  for (const ch of workspaceId) hash = (hash * 31 + ch.codePointAt(0)!) >>> 0;
+  return SESSION_COLORS[hash % SESSION_COLORS.length]!.value;
+}
 /** Dark or light text for a background of this hex (WCAG relative luminance). */
 export function readableTextOn(hex: string): "#111111" | "#ffffff" {
   const value = normalizeHex(hex) ?? "#000000";

@@ -668,6 +668,7 @@ export function App() {
         else setSidebarCollapsed((collapsed) => !collapsed);
       },
       toggleTheme: () => updateSettings({ theme: resolvedTheme === "dark" ? "light" : "dark" }),
+      toggleBionic: () => updateSettings({ bionicReading: !settings.bionicReading }),
       lock: canSignOut ? () => void lock() : null,
       enableNotifications: bellVisible && !bell.on ? () => void enableNotifications() : null,
       refresh: () => void load(),
@@ -695,7 +696,7 @@ export function App() {
       },
       openFiles: selectedPaneId !== null ? () => { setDrawerOpen(false); setFilesOpen(true); } : null,
     }),
-    [selectPane, selectedPaneId, selectedMachineId, setView, view, updateSettings, resolvedTheme, canSignOut, lock, bellVisible, bell.on, enableNotifications, load, onMoved, t],
+    [selectPane, selectedPaneId, selectedMachineId, setView, view, updateSettings, resolvedTheme, settings.bionicReading, canSignOut, lock, bellVisible, bell.on, enableNotifications, load, onMoved, t],
   );
 
   useShortcuts(actions, locked === false);

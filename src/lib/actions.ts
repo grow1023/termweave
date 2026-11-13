@@ -22,6 +22,8 @@ export interface AppActions {
   toggleSidebar: () => void;
   /** flips dark/light (a `system` setting becomes the opposite of the resolved theme) */
   toggleTheme: () => void;
+  /** bionic reading on or off, for terminal text printed from then on */
+  toggleBionic: () => void;
   /** Sign out of token/device authentication; null for automatic local/Tailscale access. */
   lock: (() => void) | null;
   /** null once alerts are on (or unsupported); otherwise asks for permission */

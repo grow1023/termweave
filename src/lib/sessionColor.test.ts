@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { sessionColorKey, readSessionColor, writeSessionColor, isSessionColor, normalizeHex, resolveSessionColor, readableTextOn, readRecentColors, rememberRecentColor, type ColorStorage } from "./sessionColor.ts";
+import { autoSessionColor, SESSION_COLORS, sessionColorKey, readSessionColor, writeSessionColor, isSessionColor, normalizeHex, resolveSessionColor, readableTextOn, readRecentColors, rememberRecentColor, type ColorStorage } from "./sessionColor.ts";
 const memory = (): ColorStorage => {
   let state: Record<string, string> = {};
   return { getItem: key => state[key] ?? null, setItem: (key, value) => { state = { ...state, [key]: value }; }, removeItem: key => { state = Object.fromEntries(Object.entries(state).filter(([candidate]) => candidate !== key)); } };
@@ -42,4 +42,14 @@ test("text contrast and recent colors", () => {
   const store = memory();
   for (const c of ["#111111", "#222222", "#333333", "#444444", "#555555", "#666666", "#777777", "#222222"]) rememberRecentColor(store, c);
   expect(readRecentColors(store)).toEqual(["#222222", "#777777", "#666666", "#555555", "#444444", "#333333"]);
+});
+
+test("a workspace without a chosen color always gets the same preset", () => {
+  const presets = SESSION_COLORS.map(color => color.value as string);
+  for (const id of ["w1", "w2", "작업 공간", ""]) {
+    expect(presets).toContain(autoSessionColor(id));
+    expect(autoSessionColor(id)).toBe(autoSessionColor(id));
+  }
+  // not one color for everything
+  expect(new Set(["w1", "w2", "w3", "w4", "w5", "w6", "w7", "w8"].map(autoSessionColor)).size).toBeGreaterThan(2);
 });

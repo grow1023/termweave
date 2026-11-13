@@ -605,9 +605,12 @@
 
 :root[data-focus="strong"] .workspace:has(> .pane-item.is-selected) {
   padding-bottom: var(--space-1);
-  background: var(--accent-tint);
-  box-shadow: inset 0 0 0 2px var(--accent);
+  background: color-mix(in srgb, var(--ws-color, var(--accent)) 14%, transparent);
+  box-shadow: inset 0 0 0 2px var(--ws-color, var(--accent));
 }
+
+/* every workspace carries its own color on its folder mark, so a place is known by color before its name is read */
+:root[data-focus="strong"] .workspace .agent-mark-holder.is-shell { color: var(--ws-color); }
 
 :root[data-focus="strong"] .pane-item.is-selected .pane-row { background: transparent; }
 
@@ -621,9 +624,10 @@
   flex: 0 0 auto;
   align-items: center;
   padding: 0 var(--space-2);
-  border: var(--hairline) solid var(--accent);
+  border: var(--hairline) solid var(--ws-color, var(--accent));
   border-radius: 999px;
-  color: var(--accent);
+  background: color-mix(in srgb, var(--ws-color, var(--accent)) 22%, transparent);
+  color: var(--text-strong);
   font-size: var(--fs-xs);
   font-weight: var(--fw-semibold);
   line-height: 1.6;

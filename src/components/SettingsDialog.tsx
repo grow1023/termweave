@@ -452,6 +452,28 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
                   <div><span className="settings-label">{t("Bionic reading")}</span><span className="settings-description">{t("In live terminal output, draw the start of each word bold and the rest dim, Korean included. Only the display changes; copied text stays the same.")}</span></div>
                   <Toggle label={t("Bionic reading")} checked={settings.bionicReading} onChange={(bionicReading) => update({ bionicReading })} />
                 </div>
+                {settings.bionicReading && <>
+                  <div className="settings-row">
+                    <div><span className="settings-label">{t("Bold part")}</span><span className="settings-description">{t("How much of each word is drawn bold. Applies to text printed from now on.")}</span></div>
+                    <div className="segmented" aria-label={t("Bold part")}>
+                      {(["short", "medium", "long"] as const).map((bionicBold) => (
+                        <button key={bionicBold} type="button" aria-pressed={settings.bionicBold === bionicBold} onClick={() => update({ bionicBold })}>
+                          {t(bionicBold === "short" ? "Short" : bionicBold === "medium" ? "Medium" : "Long")}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="settings-row">
+                    <div><span className="settings-label">{t("Fade")}</span><span className="settings-description">{t("How far the rest of each word fades")}</span></div>
+                    <div className="segmented" aria-label={t("Fade")}>
+                      {(["subtle", "medium", "strong"] as const).map((bionicFade) => (
+                        <button key={bionicFade} type="button" aria-pressed={settings.bionicFade === bionicFade} onClick={() => update({ bionicFade })}>
+                          {t(bionicFade === "subtle" ? "Subtle" : bionicFade === "medium" ? "Medium" : "Strong")}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>}
                 <div className="settings-row">
                   <div><span className="settings-label">{t("Terminal font size")}</span><span className="settings-description">{t("Applied to every terminal pane")}</span></div>
                   <div className="settings-stepper" aria-label={t("Terminal font size")}>

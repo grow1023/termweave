@@ -14,12 +14,16 @@ describe("owned updater", () => {
     const [major, minor, patch] = PRODUCT_VERSION.split(".").map(Number);
     const next = `v${major}.${minor}.${patch! + 1}`;
     const reply = (body: unknown, status = 200) => (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
-    const updater = ownedUpdater("/nowhere", reply({ tag_name: next }));
+    const updater = ownedUpdater("/nowhere", reply({ tag_name: next, body: "- 새 기능" + "x".repeat(9000) }));
     updater.request("check"); await Bun.sleep(10);
     expect(updater.status()).toMatchObject({ managed: true, available: true, latest_version: next.slice(1), phase: "idle" });
+    // the release notes come along, bounded
+    expect(updater.status().latest_notes).toStartWith("- 새 기능");
+    expect(updater.status().latest_notes).toHaveLength(8000);
     const down = ownedUpdater("/nowhere", reply({}, 503));
     down.request("check"); await Bun.sleep(10);
     expect(down.status()).toMatchObject({ available: false, phase: "error" });
+    expect(down.status().latest_notes ?? null).toBeNull();
     updater.stop(); down.stop();
   });
 });

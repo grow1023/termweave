@@ -1,7 +1,7 @@
 import { AgentMark } from "./AgentMark.tsx";
 import { TeamFolders } from "./TeamFolders.tsx";
 import { paneNumber } from "../lib/paneNumber.ts";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent } from "react";
 import { useWorkspaceReorder } from "../lib/workspaceReorder.ts";
 import { ChevronRight, Ellipsis, Folder, GripVertical, Layers, Palette, Pencil, Plus, X } from "lucide-react";
 import { readCollapsedWorkspaces, workspaceCollapseId, writeCollapsedWorkspaces } from "../lib/workspaceCollapse.ts";
@@ -16,7 +16,7 @@ import { knownStatus, STATUS_WORD, workspaceStatusSummary } from "../lib/status.
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { RowMenu, type RowMenuItem } from "./RowMenu.tsx";
 import { SessionColorDialog } from "./SessionColorDialog.tsx";
-import { resolveSessionColor, browserColorStorage, readSessionColor, sessionColorKey, toSessionColor, writeSessionColor, type SessionColor } from "../lib/sessionColor.ts";
+import { autoSessionColor, resolveSessionColor, browserColorStorage, readSessionColor, sessionColorKey, toSessionColor, writeSessionColor, type SessionColor } from "../lib/sessionColor.ts";
 import { focusWorkspaceListToggle } from "../lib/focus.ts";
 import { composeTitle, shortPathTitle } from "../lib/paneName.ts";
 import { useT } from "../lib/i18n.ts";
@@ -122,6 +122,16 @@ export function Sidebar({ snapshot, selectedPaneId, selectedWorkspaceId, onSelec
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const colorOf = (workspaceId: string): SessionColor | null => serverColors
     ? toSessionColor(serverColors[workspaceId]) : readSessionColor(browserColorStorage(), colorKey(workspaceId));
+  /** the chosen color, or the workspace's own automatic one: Sidebar.css draws the highlight in it */
+  const workspaceColor = (workspaceId: string): string => resolveSessionColor(colorOf(workspaceId)) ?? autoSessionColor(workspaceId);
+  // the header's workspace pill (styles.css) takes the color of the workspace whose pane is open
+  const openWorkspaceId = snapshot?.panes.find(pane => pane.pane_id === selectedPaneId)?.workspace_id;
+  const openWorkspaceColor = openWorkspaceId ? workspaceColor(openWorkspaceId) : null;
+  useEffect(() => {
+    if (!openWorkspaceColor) return;
+    document.documentElement.style.setProperty("--ws-current", openWorkspaceColor);
+    return () => { document.documentElement.style.removeProperty("--ws-current"); };
+  }, [openWorkspaceColor]);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [moveSource, setMoveSource] = useState<PaneInfo | null>(null);
   const [paneDrag, setPaneDrag] = useState<{ source: PaneInfo; over: string | null } | null>(null);
@@ -322,6 +332,7 @@ export function Sidebar({ snapshot, selectedPaneId, selectedWorkspaceId, onSelec
       { key: "done", status: "done", label: t("Done"), target: summary.done },
     ];
     return <section className={`workspace${paneDrag?.over === workspace.workspace_id ? " is-pane-drop" : ""}`} data-reorder-workspace={workspace.workspace_id} key={workspace.workspace_id}
+      style={{ "--ws-color": workspaceColor(workspace.workspace_id) } as CSSProperties}
       onDragOver={event => { if (!dropTarget(workspace.workspace_id, hoveredPane(event))) return; event.preventDefault(); event.dataTransfer.dropEffect = "move";
         if (paneDrag?.over !== workspace.workspace_id) setPaneDrag(drag => drag && { ...drag, over: workspace.workspace_id }); }}
       onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaneDrag(drag => drag && { ...drag, over: null }); }}

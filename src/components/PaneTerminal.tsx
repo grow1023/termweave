@@ -29,7 +29,7 @@ import { RenderBoundary } from "./RenderBoundary.tsx";
 import { Composer } from "./Composer.tsx";
 import type { AgentStatus, ClientRole, ConversationMetadata, InteractivePrompt, ServerMessage } from "../../shared/protocol.ts";
 import type { PaneView } from "../lib/actions.ts";
-import { createBionic } from "../lib/bionic.ts";
+import { BIONIC_RATIO, createBionic } from "../lib/bionic.ts";
 import { useSettings, terminalTheme, terminalContrast, type Palette, type ResolvedTheme } from "../lib/settings.ts";
 import { imeEdit, imeSpaces } from "../lib/imeDiff.ts";
 import { loadFontStack, TERMINAL_FONT_STACK, terminalFontStack } from "../lib/fontFamily.ts";
@@ -189,6 +189,8 @@ export function PaneTerminal({
   // read inside the socket handler: switching it never reconnects the terminal
   const bionicOn = useRef(settings.bionicReading);
   bionicOn.current = settings.bionicReading;
+  const bionicRatio = useRef(BIONIC_RATIO[settings.bionicBold]);
+  bionicRatio.current = BIONIC_RATIO[settings.bionicBold];
   const directTyping = settings.terminalInputMode === "direct" || (settings.terminalInputMode === "auto" && (!coarse || storedDirectTyping()));
   const inputLine = !directTyping && !chatView;
   const inputLineRef = useRef(inputLine);
@@ -699,7 +701,7 @@ export function PaneTerminal({
         const acknowledge = socket.outputAcknowledgement(message);
         const owner = message.pane_id;
         const generation = outputGeneration;
-        term.write(bionic(message.data, bionicOn.current), () => {
+        term.write(bionic(message.data, bionicOn.current, bionicRatio.current), () => {
           acknowledge?.();
           if (paneRef.current !== owner || generation !== outputGeneration) return;
           setOutputReady(true);

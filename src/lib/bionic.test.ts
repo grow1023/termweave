@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import { createBionic } from "./bionic.ts";
 
-const B = "\x1b[1m", N = "\x1b[22m", D = "\x1b[2m";
-/** a word as the filter draws it: bold start, dim rest, back to normal */
-const w = (head: string, tail: string, dimAfter = false) => `${B}${head}${N}${D}${tail}${dimAfter ? "" : N}`;
+const B = "\x1b[1m", N = "\x1b[22m", D = "\x1b[2m", M = "\x1b[53m", U = "\x1b[55m";
+/** a word as the filter draws it: bold start, then the rest marked for the fade; a dim program stays dim */
+const w = (head: string, tail: string, dim = false) => `${B}${head}${N}${dim ? D : ""}${M}${tail}${U}`;
 describe("bionic reading stream", () => {
   it("bolds the start of Korean and Latin words", () => {
     const run = createBionic();
@@ -19,6 +19,12 @@ describe("bionic reading stream", () => {
     const run = createBionic();
     expect(run("\x1b[1mbold words\x1b[0m plain", true)).toBe(`\x1b[1mbold words\x1b[0m ${w("pl", "ain")}`);
     expect(run("\x1b[2mfaint", true)).toBe(`\x1b[2m${w("fa", "int", true)}`);
+  });
+  it("bolds the share chosen in Settings and leaves a program's own overline alone", () => {
+    const run = createBionic();
+    expect(run("reading", true, 0.3)).toBe(w("rea", "ding"));
+    expect(run(" reading", true, 0.5)).toBe(` ${w("read", "ing")}`);
+    expect(run("\x1b[53mlined\x1b[55m plain", true)).toBe(`\x1b[53mlined\x1b[55m ${w("pl", "ain")}`);
   });
   it("passes text through when off but keeps tracking state", () => {
     const run = createBionic();

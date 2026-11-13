@@ -11,6 +11,8 @@
 .dock-tab-strip { display: flex; align-items: center; gap: 3px; min-width: 0; height: 36px; overflow-x: scroll; scrollbar-width: thin; }
 .dock-tab-strip button { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; max-width: min(280px, calc(100% - 12px)); min-width: 0; height: 28px; white-space: nowrap; }
 .dock-tab-strip button > :not(.dock-tab-title) { flex-shrink: 0; }
+/* a held tab is renamed (DockGroup.tsx): no iOS callout or text selection on the way */
+.dock-tab-strip button { -webkit-touch-callout: none; user-select: none; }
 .dock-tab-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .dock-tab-strip::-webkit-scrollbar { height: 6px; }
 .dock-tab-strip::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }

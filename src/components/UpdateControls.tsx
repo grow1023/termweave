@@ -1,4 +1,7 @@
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Download } from "lucide-react";
+import { Markdown } from "./Markdown.tsx";
 import { useHerdrUpdate } from "../lib/herdrUpdate.ts";
 import type { UpdatesModel } from "../lib/updates.ts";
 import "./UpdateControls.css";
@@ -59,16 +62,39 @@ export function HerdrUpdateControls({ enabled }: { enabled: boolean }) {
   </section>;
 }
 
-/** The header's update button, left of the Chat/Terminal switch: only while not up to date. */
+/**
+ * The header's update button, left of the Chat/Terminal switch: only while not up to date.
+ * It opens what the release changes (its update post) first; Install is pressed there.
+ */
 export function UpdateButton({ updates }: { updates: UpdatesModel }) {
   const t = useT();
+  const id = useId();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const install = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
   const { status, busy, request } = updates;
+  // showModal focuses the first control, a link in the notes: the choice the dialog is for comes first
+  useEffect(() => { if (open) { dialog.current?.showModal(); install.current?.focus(); } }, [open]);
   const working = status?.phase === "building" || status?.phase === "restarting";
   if (!working && !status?.available) return null;
   const label = working ? t("Updating…") : t("Update to v{version}", { version: status?.latest_version ?? "" });
-  return <button type="button" className="btn btn-primary header-update" disabled={busy || !!status?.blocked_reason}
-    aria-label={label} title={status?.blocked_reason ?? t("Install the new version and restart; herdr sessions keep running")}
-    onClick={() => void request("install")}>
-    <Download aria-hidden="true" /><span className="header-desktop-only">{label}</span>
-  </button>;
+  return <>
+    <button type="button" className="btn btn-primary header-update" disabled={busy || !!status?.blocked_reason}
+      aria-label={label} aria-haspopup="dialog" title={status?.blocked_reason ?? t("See what is new, then install")}
+      onClick={() => setOpen(true)}>
+      <Download aria-hidden="true" /><span className="header-desktop-only">{label}</span>
+    </button>
+    {open && createPortal(<dialog ref={dialog} className="modal update-dialog" aria-labelledby={id} onClose={() => setOpen(false)}>
+      <header className="modal-header"><h2 className="modal-title" id={id}>{t("What is new in v{version}", { version: status?.latest_version ?? "" })}</h2></header>
+      <div className="modal-body update-notes">
+        {status?.latest_notes ? <Markdown>{status.latest_notes}</Markdown> : <p>{t("The release notes could not be loaded.")}</p>}
+        <p className="settings-hint">{t("Install the new version and restart; herdr sessions keep running")}</p>
+      </div>
+      <footer className="modal-footer">
+        <button type="button" className="btn" onClick={() => dialog.current?.close()}>{t("Later")}</button>
+        <button type="button" className="btn btn-primary" ref={install} disabled={busy || !status?.available || !!status?.blocked_reason}
+          onClick={() => { dialog.current?.close(); void request("install"); }}>{t("Install and restart")}</button>
+      </footer>
+    </dialog>, document.body)}
+  </>;
 }

@@ -532,9 +532,9 @@ button {
 :root[data-focus="strong"] .context-sub > .context-workspace {
   flex: 0 1 auto;
   padding: 0 var(--space-2);
-  border: var(--hairline) solid var(--accent);
+  border: var(--hairline) solid var(--ws-current, var(--accent));
   border-radius: 999px;
-  background: var(--accent-tint);
+  background: color-mix(in srgb, var(--ws-current, var(--accent)) 22%, transparent);
   color: var(--text-strong);
   font-weight: var(--fw-semibold);
   white-space: nowrap;

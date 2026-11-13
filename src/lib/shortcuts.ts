@@ -14,6 +14,7 @@ export const SHORTCUTS = [
   { id: "previous-pane", label: "Previous pane", keys: ["Mod", "Shift", "ArrowUp"] },
   { id: "next-pane", label: "Next pane", keys: ["Mod", "Shift", "ArrowDown"] },
   { id: "settings", label: "Settings", keys: ["Mod", "Shift", ","] },
+  { id: "toggle-bionic", label: "Toggle bionic reading", keys: ["Mod", "Shift", "E"] },
   // listed only: held, not dispatched; VoiceInput.tsx listens for it itself (isVoiceShortcut)
   { id: "voice", label: "Dictate (hold)", keys: ["Mod", "Shift", "Space"] },
 ] as const;
@@ -40,6 +41,7 @@ const KEY_TO_ID: Readonly<Record<string, ShortcutId>> = {
   ArrowUp: "previous-pane",
   ArrowDown: "next-pane",
   ",": "settings",
+  e: "toggle-bionic",
 };
 
 export function shortcutKeys(id: ShortcutId, overrides: ShortcutOverrides): string[] {
@@ -152,6 +154,9 @@ export function useShortcuts(actions: AppActions, enabled: boolean): void {
           break;
         case "settings":
           actions.openSettings();
+          break;
+        case "toggle-bionic":
+          actions.toggleBionic();
           break;
       }
     };

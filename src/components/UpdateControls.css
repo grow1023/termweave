@@ -49,3 +49,17 @@
   white-space: nowrap;
 }
 .header-update svg { width: 16px; height: 16px; }
+
+/* what the release changes, before Install: long notes scroll inside the dialog */
+.update-notes { overflow-wrap: anywhere; word-break: keep-all; }
+.update-notes h2, .update-notes h3 { margin: 0 0 var(--space-2); font-size: var(--fs-md); }
+.update-notes ul { margin: 0 0 var(--space-3); padding-left: var(--space-5); }
+.update-notes li + li { margin-top: var(--space-2); }
+.update-dialog { margin: auto; padding: 0; color: var(--text); max-width: calc(100vw - 24px); }
+.modal.update-dialog { border: var(--hairline) solid var(--border); max-height: calc(var(--app-height, 100dvh) - 24px); }
+.update-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+.update-dialog .modal-title { text-wrap: balance; }
+@media (pointer: coarse), (max-width: 768px) {
+  .update-dialog .btn { min-height: 44px; min-width: 64px; }
+}
+.update-notes .settings-hint { margin-top: var(--space-3); }
