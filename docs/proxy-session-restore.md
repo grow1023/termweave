@@ -196,7 +196,7 @@ Remove the two `export` lines from the wrapper. Restore the router plist from a 
 Copy this prompt into Claude Code or Codex:
 
 ```text
-Read docs/proxy-session-restore.md in https://github.com/VoidLight00/termweave.
+Read docs/proxy-session-restore.md in https://github.com/grow1023/termweave.
 Apply it on this Mac. Back up each file before you change it.
 Ask me before you restart a service that runs now.
 Do the test in section 6. Report each check with its real output.
@@ -205,7 +205,7 @@ Do the test in section 6. Report each check with its real output.
 한국어로 지시하려면 아래 문장을 그대로 붙여 넣으면 됩니다.
 
 ```text
-https://github.com/VoidLight00/termweave 의 docs/proxy-session-restore.md 를 읽고 이 Mac에 적용해 주세요.
+https://github.com/grow1023/termweave 의 docs/proxy-session-restore.md 를 읽고 이 Mac에 적용해 주세요.
 파일을 바꾸기 전에 각각 백업해 주세요. 실행 중인 서비스를 재시작하기 전에는 먼저 물어봐 주세요.
 6번 테스트를 실행하고, 각 확인 항목을 실제 출력과 함께 보고해 주세요.
 ```

@@ -801,8 +801,8 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
               <h3>{t("About")}</h3>
               <div className="settings-card settings-card-block">
                 <p><strong>{PRODUCT_LABEL}</strong></p>
-                <a className="btn" href="https://github.com/VoidLight00/termweave" target="_blank" rel="noreferrer"><Star aria-hidden="true" />{t("Star on GitHub")}</a>
-                <a href="https://github.com/VoidLight00/termweave" target="_blank" rel="noreferrer">TermWeave</a>
+                <a className="btn" href="https://github.com/grow1023/termweave" target="_blank" rel="noreferrer"><Star aria-hidden="true" />{t("Star on GitHub")}</a>
+                <a href="https://github.com/grow1023/termweave" target="_blank" rel="noreferrer">TermWeave</a>
               </div>
             </section>
             <div className="settings-updates-group" data-nav="updates">

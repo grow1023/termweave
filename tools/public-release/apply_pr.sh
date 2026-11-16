@@ -6,7 +6,7 @@
 # Without --check: applies the commits with `git am -3` on a branch pr/<n>, keeping each author.
 # Push, release and the PR comment stay manual: they publish.
 set -euo pipefail
-repo=VoidLight00/termweave
+repo=grow1023/termweave
 n=${1:?usage: apply_pr.sh <pr-number> [--check]}
 [[ $n == <-> ]] || { print -u2 "FAIL: PR number must be digits"; exit 2; }
 root=$(git rev-parse --show-toplevel); cd "$root"

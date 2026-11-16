@@ -58,6 +58,8 @@ test("rejects workspace mismatch, stale pane, caller cwd and malformed body", as
 test("unknown remote scope never falls back to local creation", async () => {
   const before = await sessionSnapshot();
   const response = await request({ pane_id: source, workspace_id: workspace }, { "x-herdr-machine": "1" }, "/api/machines/missing-machine/pane/split");
-  expect(response.status).toBe(404);
+  // 503 since a PC's workspace can get another terminal (pane/split is proxied): an unknown PC is
+  // an offline PC, as for every other proxied route. What this guards is unchanged: nothing local.
+  expect(response.status).toBe(503);
   expect((await sessionSnapshot()).panes.length).toBe(before.panes.length);
 });

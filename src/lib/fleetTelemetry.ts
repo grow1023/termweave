@@ -93,6 +93,12 @@ export function recordLastSeen(lastSeen: HostLastSeen, reports: HostReports, now
   return next ?? lastSeen;
 }
 
+/**
+ * No host status from this PC, though it is connected: a bridge from before the route (404), or
+ * a PC whose own TermWeave server does not give the route to bridges yet (401 on a remote).
+ */
+export const hostStatusUnsupported = (status: number, remote: boolean): boolean => status === 404 || remote && status === 401;
+
 export type FleetHostTone = "ok" | "stale" | "unreachable" | "unsupported" | "none";
 
 export interface FleetHostRow {

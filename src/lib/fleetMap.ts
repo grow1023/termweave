@@ -26,6 +26,7 @@ export interface FleetMapPane {
 
 export interface FleetMapProject {
   readonly key: string;
+  readonly workspaceId: string;
   readonly number: number;
   readonly label: string;
   readonly panes: ReadonlyArray<FleetMapPane>;
@@ -46,6 +47,7 @@ export function buildFleetMap(machines: ReadonlyArray<Machine>): FleetMapMachine
     const projects = snapshot.workspaces
       .map((workspace): FleetMapProject => ({
         key: `${machine.id}:${workspace.workspace_id}`,
+        workspaceId: workspace.workspace_id,
         number: workspace.number,
         label: workspace.label,
         panes: panes.filter((pane) => pane.workspace_id === workspace.workspace_id).flatMap((pane): FleetMapPane[] => {

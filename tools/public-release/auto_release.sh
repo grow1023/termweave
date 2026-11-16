@@ -23,6 +23,11 @@ print "== $(date '+%F %T') commit $(git -C "$repo" rev-parse --short HEAD)"
 mkdir "$lock" 2>/dev/null || { print "skip: another release is running"; exit 0; }
 trap 'rmdir "$lock" 2>/dev/null' EXIT
 
+# An automatic release publishes to the release repository as it is: it never changes who can
+# see it. Asked before the version bump, so an unreachable GitHub leaves no version commit behind.
+visibility=$(cd "$repo/.local/public" 2>/dev/null && gh repo view --json visibility -q '.visibility | ascii_downcase' 2>/dev/null)
+[[ $visibility == public || $visibility == private ]] || { print "FAIL: cannot read the release repository's visibility (gh auth status, and the origin of .local/public)"; exit 1; }
+
 subject=$(git -C "$repo" log -1 --format=%s)
 body=$(git -C "$repo" log -1 --format=%b)
 bump=""
@@ -87,7 +92,7 @@ fi
 
 "$repo/tools/public-release/build_public.sh" --version "$version" || { print "FAIL: export or leakscan"; exit 1; }
 "$harness" flow "$repo/.local/public" --profile public-full --languages en,ko,ja,zh \
-  --approve-images --approve-publish --public --release --approve-release || { print "FAIL: harness flow"; exit 1; }
+  --approve-images --approve-publish --$visibility --release --approve-release || { print "FAIL: harness flow"; exit 1; }
 print "PASS: published $version"
 "$repo/tools/public-release/post_release_notes.sh" "$version" \
   || print "FAIL: release notes not posted (run tools/public-release/post_release_notes.sh $version)"

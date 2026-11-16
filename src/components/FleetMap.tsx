@@ -10,7 +10,8 @@ import { AgentMark } from "./AgentMark.tsx";
 
 const ROW = 34;
 const LINK = 36;
-const STATE: Readonly<Record<FleetMapState, string>> = { running: "Running", attention: "Needs you", reported: "Done", idle: "Idle" };
+/** Translated where shown: `t(FLEET_MAP_STATE[state])`. */
+export const FLEET_MAP_STATE: Readonly<Record<FleetMapState, string>> = { running: "Running", attention: "Needs you", reported: "Done", idle: "Idle" };
 
 interface Props {
   readonly machines: ReadonlyArray<Machine>;
@@ -55,13 +56,13 @@ function FleetMapPc({ machine, onOpen }: { readonly machine: FleetMapMachine; re
             <ul className="fleet-map-panes">
               {project.panes.map((pane) => (
                 <li key={pane.key}>
-                  <button type="button" className="fleet-map-pane" data-state={pane.state} onClick={() => onOpen(machine.id, pane.paneId)} title={[pane.number, pane.agentLabel, pane.title, t(STATE[pane.state])].filter(Boolean).join(" · ")}>
+                  <button type="button" className="fleet-map-pane" data-state={pane.state} onClick={() => onOpen(machine.id, pane.paneId)} title={[pane.number, pane.agentLabel, pane.title, t(FLEET_MAP_STATE[pane.state])].filter(Boolean).join(" · ")}>
                     <span aria-hidden="true" className="fleet-state-dot" data-state={pane.state} />
                     <span className="fleet-map-pane-number">{pane.number}</span>
                     <span className="fleet-map-pane-agent"><AgentMark agent={pane.agent} size={14} />{pane.agentLabel}</span>
                     <span className="fleet-map-pane-title">{pane.title}</span>
                     {pane.subagents > 0 ? <span className="fleet-map-pane-sub">+{pane.subagents === 1 ? t("1 subagent") : t("{n} subagents", { n: pane.subagents })}</span> : null}
-                    <span className="fleet-map-pane-state">{t(STATE[pane.state])}</span>
+                    <span className="fleet-map-pane-state">{t(FLEET_MAP_STATE[pane.state])}</span>
                   </button>
                 </li>
               ))}

@@ -16,7 +16,7 @@ import type { ServerWebSocket } from "bun";
 import type { AgentKind, AgentStatus, ClientMessage, ClientRole, HealthAuth, HerdrPane, ServerFeature, ServerMessage, SessionSnapshot } from "../shared/protocol.ts";
 import { paneTitle } from "../shared/notify-policy.ts";
 import { DEFAULT_PORT } from "../shared/protocol.ts";
-import { DEVICE_COOKIE, handleAuthRequest, isAuthenticated, parseCookies, requiresAuth, unauthorizedJson } from "./auth.ts";
+import { DEVICE_COOKIE, handleAuthRequest, isAuthenticated, isBridgePath, parseCookies, requiresAuth, unauthorizedJson } from "./auth.ts";
 import { cameThroughProxy, decideAccess, isLoopbackAddress } from "./access.ts";
 import { DeviceStore, handleDeviceRequest } from "./devices.ts";
 import { remoteAccess, tailscaleIdentity } from "./tailscale.ts";
@@ -960,7 +960,7 @@ export function createServer(
       const url = new URL(request.url);
       let { pathname } = url;
       const bridgeAuthorized = isAuthenticated(request, bridgeToken);
-      const bridgePath = pathname === "/api/bridge" || pathname === "/api/session" || pathname === "/api/agents" || pathname.startsWith("/api/pane/") || pathname.startsWith("/api/workspace/") || pathname.startsWith("/api/fs/") || pathname === "/ws";
+      const bridgePath = isBridgePath(pathname);
       const ip = bunServer.requestIP(request);
       const access = decideAccess({
         loopback: ip !== null && isLoopbackAddress(ip.address),

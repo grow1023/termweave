@@ -58,6 +58,15 @@ export function isAuthenticated(request: Request, token: string): boolean {
   return matches(authorization.slice(BEARER_PREFIX.length), token);
 }
 
+/**
+ * What a PC's bridge token reaches on this server: the session, its panes and workspaces, files,
+ * host status and the socket. Never this server's own settings, devices or PC list.
+ */
+export function isBridgePath(pathname: string): boolean {
+  return pathname === "/api/bridge" || pathname === "/api/session" || pathname === "/api/agents" || pathname === "/api/host-status"
+    || pathname.startsWith("/api/pane/") || pathname.startsWith("/api/workspace/") || pathname.startsWith("/api/fs/") || pathname === "/ws";
+}
+
 /** /api/health, /api/auth and /api/devices/pair stay open so a client can discover the gate and pass it. */
 export function requiresAuth(pathname: string): boolean {
   if (pathname === "/ws") return true;

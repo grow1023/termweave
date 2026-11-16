@@ -16,7 +16,7 @@ import type { UpdateCommand, UpdateStatus } from "../shared/update.ts";
 import type { UpdateService } from "./update-api.ts";
 import { runCommand } from "./updater.ts";
 
-export const RELEASE_REPO = "VoidLight00/termweave";
+export const RELEASE_REPO = "grow1023/termweave";
 const RELEASE_TAG = /^v(\d+)\.(\d+)\.(\d+)$/;
 const CHECK_EVERY = 6 * 60 * 60_000;
 const NOTES_MAX = 8000;

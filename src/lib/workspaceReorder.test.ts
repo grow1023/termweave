@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { workspaceInsertion, workspaceSlots, type WorkspaceBox } from "./workspaceReorder.ts";
+import { workspaceDragBounds, workspaceInsertion, workspaceScrollStep, workspaceSlots, type WorkspaceBox } from "./workspaceReorder.ts";
 
 const boxes: WorkspaceBox[] = [{ id: "a", top: 8, height: 80, gap: 8 },
   { id: "b", top: 96, height: 200, gap: 8 }, { id: "c", top: 304, height: 40, gap: 8 }];
@@ -16,5 +16,25 @@ describe("measured workspace preview", () => {
     expect(workspaceInsertion(boxes, "a", 99, 1)).toBe(0);
     expect(workspaceInsertion(boxes, "a", 1000, 0)).toBe(2);
     expect(workspaceInsertion(boxes, "a", -100, 2)).toBe(0);
+  });
+});
+
+describe("a drag stays inside its list", () => {
+  test("the dragged section moves between the first slot and the last, whatever its height", () => {
+    expect(workspaceDragBounds(boxes, "a")).toEqual({ min: 0, max: 256 });
+    expect(workspaceDragBounds(boxes, "b")).toEqual({ min: -88, max: 48 });
+    expect(workspaceDragBounds(boxes, "c")).toEqual({ min: -296, max: 0 });
+    expect(workspaceDragBounds(boxes, "missing")).toEqual({ min: 0, max: 0 });
+    expect(workspaceDragBounds([], "a")).toEqual({ min: 0, max: 0 });
+  });
+  test("edge scrolling stops at the list's own content: held at the edge it never runs on", () => {
+    let top = 150;
+    for (let frame = 0; frame < 200; frame++) top = workspaceScrollStep(top, 12, 157);
+    expect(top).toBe(157);
+    for (let frame = 0; frame < 200; frame++) top = workspaceScrollStep(top, -12, 157);
+    expect(top).toBe(0);
+    // a list that fits has nothing to scroll
+    expect(workspaceScrollStep(0, 12, 0)).toBe(0);
+    expect(workspaceScrollStep(40, 0, 157)).toBe(40);
   });
 });

@@ -6,7 +6,7 @@ import type { Machine } from "../../shared/machines.ts";
 import type { HerdrPane } from "../../shared/protocol.ts";
 import { fleetConnectionLegend, fleetConnectionsSince, presentConnectionWait, presentFleetConnection, type FleetConnection } from "./fleetConnection.ts";
 import type { FleetHostEntry } from "./fleetHeat.ts";
-import { fleetAlerts, fleetHostRows, fleetQuota, fleetThroughput, hottestHost, hottestReading, lastKnownLabel, pushBounded, recordFleetRuns, recordHostSamples, recordLastSeen, signalTier, slowConnectionWaits, sparklinePath, type HostReports } from "./fleetTelemetry.ts";
+import { fleetAlerts, fleetHostRows, hostStatusUnsupported, fleetQuota, fleetThroughput, hottestHost, hottestReading, lastKnownLabel, pushBounded, recordFleetRuns, recordHostSamples, recordLastSeen, signalTier, slowConnectionWaits, sparklinePath, type HostReports } from "./fleetTelemetry.ts";
 
 const GIB = 1024 ** 3;
 const metrics = (overrides: Partial<HostStatus> = {}): HostStatus => ({
@@ -176,5 +176,15 @@ describe("fleetQuota", () => {
     const quota = fleetQuota(rows);
     expect(quota.map((row) => [row.label, row.host, row.peak, row.hidden])).toEqual([["Codex", "box", 90, 0], ["Claude · me", null, 60, 1]]);
     expect(quota[1]!.windows.map((window) => window.label)).toEqual(["Session", "Weekly"]);
+  });
+});
+
+describe("host status a PC cannot give", () => {
+  it("is unsupported for an old bridge, and for a remote PC that refuses the route to bridges", () => {
+    expect(hostStatusUnsupported(404, false)).toBe(true);
+    expect(hostStatusUnsupported(401, true)).toBe(true);
+    // this PC answering 401 means this browser is signed out: a real fault, not an old version
+    expect(hostStatusUnsupported(401, false)).toBe(false);
+    expect(hostStatusUnsupported(503, true)).toBe(false);
   });
 });

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { HostStatus } from "../../shared/hostStatus.ts";
-import { machinePath, type Machine } from "../../shared/machines.ts";
+import { LOCAL_MACHINE, machinePath, type Machine } from "../../shared/machines.ts";
 import { fetchPaneOmoActivity } from "./api.ts";
 import type { FleetSubagent, FleetThread } from "./fleet.ts";
 import { fleetMachineHeat, type FleetHeatTier, type FleetHostEntry, type FleetMachineHeat } from "./fleetHeat.ts";
-import { recordHostSamples, recordLastSeen, type HostHistory, type HostLastSeen, type HostReports } from "./fleetTelemetry.ts";
+import { hostStatusUnsupported, recordHostSamples, recordLastSeen, type HostHistory, type HostLastSeen, type HostReports } from "./fleetTelemetry.ts";
 import { usePageVisible } from "./visibility.ts";
 
 /** GOAT samples host status every 15 s while its Fleet page is open. */
@@ -31,8 +31,7 @@ async function readHost(machineId: string, previous: FleetHostEntry | undefined)
   const lastKnown = previous === undefined || previous.reachability === "unsupported" ? undefined : previous.metrics;
   try {
     const response = await fetch(machinePath(machineId, "host-status"), { signal: AbortSignal.timeout(SAMPLE_MS) });
-    // a bridge from before host status has no such route
-    if (response.status === 404) return { reachability: "unsupported" };
+    if (hostStatusUnsupported(response.status, machineId !== LOCAL_MACHINE)) return { reachability: "unsupported" };
     if (!response.ok) throw new Error(((await response.json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message ?? `HTTP ${response.status}`);
     return { reachability: "ok", metrics: await response.json() as HostStatus };
   } catch (error) {

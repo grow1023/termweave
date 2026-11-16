@@ -5,12 +5,14 @@ import type { MachineManager } from "./machines.ts";
 
 // A remote bridge that answers like the local conversation route: an ETag, then 304 while unchanged.
 const asked: (string | null)[] = [];
+const mutations: string[] = [];
 const remote = Bun.serve({
   port: 0,
   fetch(request) {
     const path = new URL(request.url).pathname;
     if (path === "/api/pane/conversation/image") return new Response(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": "image/png" } });
     if (path === "/api/pane/conversation/tool-output") return new Response("complete remote output", { headers: { "content-type": "text/plain; charset=utf-8" } });
+    if (path === "/api/pane/split" || path === "/api/pane/swap") { mutations.push(`${request.method} ${path} ${request.headers.get("authorization")}`); return Response.json({ ok: true }); }
     const ifNoneMatch = request.headers.get("if-none-match");
     asked.push(ifNoneMatch);
     if (ifNoneMatch === "\"v1\"") return new Response(null, { status: 304, headers: { etag: "\"v1\"" } });
@@ -57,4 +59,18 @@ it("refuses a path with an empty segment instead of forwarding it as another rou
     expect((await handleMachineRequest(new Request(`http://127.0.0.1/api/machines/${path}`), manager)).status).toBe(404);
   }
   expect(asked.length).toBe(before);
+});
+
+it("adds and reorders terminals on a PC with that PC's bridge token, and never on this one for an unknown PC", async () => {
+  const post = (path: string, to = manager) => handleMachineRequest(new Request(`http://127.0.0.1/api/machines/pc1/${path}`, {
+    method: "POST", headers: { "content-type": "application/json", "x-herdr-machine": "1", cookie: "termweave_token=local-secret", authorization: "Bearer local-secret" }, body: "{}",
+  }), to);
+  expect((await post("pane/split")).status).toBe(200);
+  expect((await post("pane/swap")).status).toBe(200);
+  // the browser's own credentials stay here: the PC sees only its bridge token
+  expect(mutations).toEqual(["POST /api/pane/split Bearer remote-token", "POST /api/pane/swap Bearer remote-token"]);
+  const offline = { endpoint: () => undefined, trackTerminal: () => () => undefined } as unknown as MachineManager;
+  expect((await post("pane/split", offline)).status).toBe(503);
+  expect((await post("pane/splits")).status).toBe(404);
+  expect(mutations.length).toBe(2);
 });

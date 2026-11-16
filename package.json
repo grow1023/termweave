@@ -1,13 +1,13 @@
 {
   "name": "termweave",
   "private": true,
-  "version": "0.3.44",
+  "version": "0.3.45",
   "type": "module",
   "description": "Browser version of the herdr terminal - live herdr workspaces, panes and agents in a web UI",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/VoidLight00/termweave.git"
+    "url": "git+https://github.com/grow1023/termweave.git"
   },
   "scripts": {
     "dev": "vite",

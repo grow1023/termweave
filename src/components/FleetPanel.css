@@ -54,6 +54,24 @@
     radial-gradient(color-mix(in oklab, var(--text) 9%, transparent) 1px, transparent 1px) center / 18px 18px;
   mask-image: radial-gradient(ellipse at center, black 35%, transparent 80%);
 }
+/* the graph's two views, and the project graph: PC hub → project → session. --ws-color is the workspace's own color */
+.fleet-graph-tabs { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px 0; }
+.fleet-graph-tab { min-height: 28px; padding: 2px 12px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text-dim); font: inherit; font-size: 12px; cursor: pointer; word-break: keep-all; }
+.fleet-graph-tab[aria-pressed="true"] { border-color: var(--text-dim); background: var(--bg-hover); color: var(--text-strong); font-weight: 600; }
+.fleet-graph-tab:focus-visible { outline: var(--ring); outline-offset: 1px; }
+.fleet-project-pc { position: relative; }
+/* in the flow, above its graph: laid over the graph it covered the sessions of a 320 px phone */
+.fleet-project-pc .fleet-map-pc-name { position: relative; display: inline-block; margin: 8px 12px 0; background: var(--bg-panel); }
+.fleet-project-link { stroke: color-mix(in oklab, var(--ws-color) 70%, transparent); }
+/* the ring leans toward the text color, so every workspace color keeps 3:1 against the panel in both themes */
+.fleet-project-body { fill: color-mix(in oklab, var(--ws-color) 24%, var(--bg-elevated)); stroke: color-mix(in oklab, var(--ws-color) 75%, var(--text-strong)); }
+.fleet-project-label { fill: var(--text-strong); font-size: 10px; font-weight: 600; text-anchor: middle; pointer-events: none; paint-order: stroke; stroke: var(--bg-panel); stroke-width: 3px; stroke-linejoin: round; }
+.fleet-session { outline: none; cursor: pointer; }
+.fleet-session-hit { fill: transparent; }
+.fleet-session[data-state="idle"] .fleet-mark { opacity: 0.75; }
+.fleet-session:hover .fleet-agent-body, .fleet-session:focus-visible .fleet-agent-body { stroke: var(--accent); stroke-width: 2.6; }
+.fleet-session .fleet-agent-label { paint-order: stroke; stroke: var(--bg-panel); stroke-width: 3px; stroke-linejoin: round; }
+.fleet-project-empty { position: relative; margin: 0; padding: 28px 14px; color: var(--text-dim); font-size: 13px; text-align: center; word-break: keep-all; overflow-wrap: anywhere; }
 .fleet-graph-svg { position: relative; display: block; width: 100%; height: auto; user-select: none; -webkit-user-select: none; }
 .fleet-orbit-ring { fill: none; pointer-events: none; stroke: color-mix(in oklab, var(--text) 15%, transparent); }
 .fleet-link { fill: none; stroke: var(--border-strong); }
@@ -300,7 +318,7 @@
 .fleet-console-sweep::before { content: ""; position: absolute; inset: 0 0 auto; height: 1px; background: linear-gradient(to right, transparent, var(--fleet-console-accent), transparent); box-shadow: 0 0 8px color-mix(in oklab, var(--fleet-primary) 40%, transparent); }
 
 @media (max-width: 640px), (pointer: coarse) {
-  .fleet-thread, .fleet-dialog .btn, .fleet-dialog .icon-button { min-height: 44px; }
+  .fleet-thread, .fleet-dialog .btn, .fleet-dialog .icon-button, .fleet-graph-tab { min-height: 44px; }
   .fleet-count-chip { min-height: 24px; min-width: 24px; justify-content: center; }
 }
 @media (max-width: 480px) {

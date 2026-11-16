@@ -29,6 +29,14 @@ const syncHeight = (): void => {
   if (document.querySelector(".app") !== null) window.scrollTo(0, 0);
 };
 
+// The shell never scrolls, on a desktop either. Once anything makes the document taller than the
+// window (a browser extension's element, a stray overflow), dragging a terminal tab or selected
+// text toward the window's edge scrolls the whole page, and it stays there: the header is gone
+// and nothing in the shell scrolls it back. The token gate has no .app and scrolls as a page.
+window.addEventListener("scroll", () => {
+  if ((window.scrollX !== 0 || window.scrollY !== 0) && document.querySelector(".app") !== null) window.scrollTo(0, 0);
+}, { passive: true });
+
 if (viewport) {
   // A focused field removed with its pane need not report focusout: the keyboard
   // closing (a resize) re-reads focus, so the flag cannot outlive it.

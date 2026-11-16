@@ -18,7 +18,8 @@ import { useFleetTelemetry } from "../lib/useFleetTelemetry.ts";
 import { AgentMark } from "./AgentMark.tsx";
 import { FleetConnectionGlyph, FleetConnectionIcon, FleetGraph } from "./FleetGraph.tsx";
 import { FleetConsole, FleetUncountedHosts } from "./FleetConsole.tsx";
-import { FleetMap } from "./FleetMap.tsx";
+import { FLEET_MAP_STATE, FleetMap } from "./FleetMap.tsx";
+import { FleetProjectGraph } from "./FleetProjectGraph.tsx";
 import { FleetTip } from "./FleetTip.tsx";
 import "./FleetPanel.css";
 
@@ -98,6 +99,8 @@ export function FleetPanel({ machines, onClose, onOpen, onSetup, onConnections }
   const { connections, now } = useConnections(machines);
   const slowMachineIds = slowConnectionWaits(connections, now);
   const [selected, setSelected] = useState<string | null>(null);
+  // projects first: it shows every agent session, the PC graph only work in progress
+  const [graphView, setGraphView] = useState<"projects" | "pcs">("projects");
   const selectedMachine = snapshot.machines.find((machine) => machine.id === selected) ?? null;
   const toggleMachine = (machineId: string) => setSelected((current) => current === machineId ? null : machineId);
   const threadsByMachine = groupThreadsByMachine(snapshot.threads);
@@ -110,6 +113,8 @@ export function FleetPanel({ machines, onClose, onOpen, onSetup, onConnections }
   const { totals } = snapshot;
   const uncounted = fleetUncountedMachines(snapshot.machines, connections);
   const open = (thread: FleetThread) => { onOpen(thread.machineId, thread.paneId); onClose(); };
+  const openPane = (machineId: string, paneId: string) => { onOpen(machineId, paneId); onClose(); };
+  const shownMachines = selectedMachine ? machines.filter((machine) => machine.id === selectedMachine.id) : machines;
 
   return createPortal(
     <dialog ref={dialog} className="fleet-dialog" lang={locale} aria-labelledby={`${id}-title`} onCancel={(event) => { event.preventDefault(); onClose(); }}>
@@ -128,20 +133,36 @@ export function FleetPanel({ machines, onClose, onOpen, onSetup, onConnections }
           {totals.reported > 0 ? " " + t("{n} done, waiting to be read.", { n: totals.reported }) : null}
           {telemetry.loading && machines.some((machine) => machine.state === "connected") ? " " + t("Reading host status…") : null}
         </p>
-        <FleetMap machines={selectedMachine ? machines.filter((machine) => machine.id === selectedMachine.id) : machines} onOpen={(machineId, paneId) => { onOpen(machineId, paneId); onClose(); }} />
         <section aria-label={t("Fleet graph")} className="fleet-graph-card">
-          <FleetGraph snapshot={snapshot} connections={connections} currentMachineId={LOCAL_MACHINE} selectedMachineId={selected} onSelectMachine={toggleMachine} heat={telemetry.heat} slowMachineIds={slowMachineIds} />
-          <div className="fleet-legend">
-            {(["running", "attention", "reported"] as const).map((state) => (
-              <span key={state} className="fleet-legend-item"><span aria-hidden="true" className="fleet-state-dot" data-state={state} />{t(STATE_LABEL[state])}</span>
+          <div className="fleet-graph-tabs" role="group" aria-label={t("Graph view")}>
+            {(["projects", "pcs"] as const).map((view) => (
+              <button key={view} type="button" className="fleet-graph-tab" aria-pressed={graphView === view} onClick={() => setGraphView(view)}>{view === "projects" ? t("By project") : t("By PC")}</button>
             ))}
-            {connectionLegend.length > 0 ? <span aria-hidden="true" className="fleet-legend-rule" /> : null}
-            {connectionLegend.map((entry) => <span key={entry.label} className="fleet-legend-item"><FleetConnectionIcon state={entry.state} />{entry.label}</span>)}
-            {heatLegend.length > 0 ? <span aria-hidden="true" className="fleet-legend-rule" /> : null}
-            {heatLegend.map((tier) => <span key={tier} className="fleet-legend-item"><span aria-hidden="true" className="fleet-heat-dot" data-tier={tier} />{t(FLEET_HEAT_LABEL[tier])}</span>)}
-            <span className="fleet-legend-hint">{t("Select a PC to show only its agents.")}</span>
           </div>
+          {graphView === "projects"
+            ? <FleetProjectGraph machines={shownMachines} onOpen={openPane} />
+            : <FleetGraph snapshot={snapshot} connections={connections} currentMachineId={LOCAL_MACHINE} selectedMachineId={selected} onSelectMachine={toggleMachine} heat={telemetry.heat} slowMachineIds={slowMachineIds} />}
+          {graphView === "projects" ? (
+            <div className="fleet-legend">
+              {(["running", "attention", "reported", "idle"] as const).map((state) => (
+                <span key={state} className="fleet-legend-item"><span aria-hidden="true" className="fleet-state-dot" data-state={state} />{t(FLEET_MAP_STATE[state])}</span>
+              ))}
+              <span className="fleet-legend-hint">{t("Select a session to open it.")}</span>
+            </div>
+          ) : (
+            <div className="fleet-legend">
+              {(["running", "attention", "reported"] as const).map((state) => (
+                <span key={state} className="fleet-legend-item"><span aria-hidden="true" className="fleet-state-dot" data-state={state} />{t(STATE_LABEL[state])}</span>
+              ))}
+              {connectionLegend.length > 0 ? <span aria-hidden="true" className="fleet-legend-rule" /> : null}
+              {connectionLegend.map((entry) => <span key={entry.label} className="fleet-legend-item"><FleetConnectionIcon state={entry.state} />{entry.label}</span>)}
+              {heatLegend.length > 0 ? <span aria-hidden="true" className="fleet-legend-rule" /> : null}
+              {heatLegend.map((tier) => <span key={tier} className="fleet-legend-item"><span aria-hidden="true" className="fleet-heat-dot" data-tier={tier} />{t(FLEET_HEAT_LABEL[tier])}</span>)}
+              <span className="fleet-legend-hint">{t("Select a PC to show only its agents.")}</span>
+            </div>
+          )}
         </section>
+        <FleetMap machines={shownMachines} onOpen={openPane} />
 
         {selectedMachine ? (
           <div className="fleet-filter">

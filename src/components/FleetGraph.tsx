@@ -134,7 +134,7 @@ function HeatLayer(props: { readonly spots: ReadonlyArray<HeatSpot>; readonly pa
   );
 }
 
-function useElementWidth() {
+export function useElementWidth() {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   useEffect(() => {
@@ -147,7 +147,7 @@ function useElementWidth() {
   return [ref, width] as const;
 }
 
-function useReducedMotion(): boolean {
+export function useReducedMotion(): boolean {
   const query = "(prefers-reduced-motion: reduce)";
   const [reduced, setReduced] = useState(() => typeof matchMedia === "function" && matchMedia(query).matches);
   useEffect(() => {
@@ -160,7 +160,7 @@ function useReducedMotion(): boolean {
 }
 
 /** Pauses SMIL and CSS animation while the tab is hidden, without re-rendering. */
-function usePauseWhileHidden(svg: RefObject<SVGSVGElement | null>) {
+export function usePauseWhileHidden(svg: RefObject<SVGSVGElement | null>) {
   useEffect(() => {
     const sync = () => {
       const element = svg.current;
@@ -259,7 +259,7 @@ const EDGE = 4;
  * A centered label's x offset from its node that keeps the whole label inside the graph: the
  * outer orbit runs close to the sides on a phone. Width is estimated from the font size.
  */
-function fitLabelX(nodeX: number, text: string, width: number, fontPx: number): number {
+export function fitLabelX(nodeX: number, text: string, width: number, fontPx: number): number {
   const half = ([...text].length * fontPx * 0.56) / 2;
   const min = EDGE + half - nodeX;
   const max = width - EDGE - half - nodeX;

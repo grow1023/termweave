@@ -5,7 +5,7 @@ You are an AI coding agent. A person asked you to install TermWeave. Follow thes
 ## 1. Get the source
 
 ```sh
-git clone https://github.com/VoidLight00/termweave.git
+git clone https://github.com/grow1023/termweave.git
 cd termweave
 ```
 

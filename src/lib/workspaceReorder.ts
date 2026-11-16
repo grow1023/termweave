@@ -27,16 +27,38 @@ export function workspaceInsertion(boxes: readonly WorkspaceBox[], id: string, t
   return index;
 }
 
-function scrollParent(element: HTMLElement): HTMLElement {
-  for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+/**
+ * How far the dragged section may move: from the first slot to the last. Past either end it
+ * lengthens the scroller it sits in, and the edge scrolling then follows its own tail.
+ */
+export function workspaceDragBounds(boxes: readonly WorkspaceBox[], id: string): { min: number; max: number } {
+  const own = boxes.find(box => box.id === id);
+  const first = boxes[0];
+  const last = boxes[boxes.length - 1];
+  if (!own || !first || !last) return { min: 0, max: 0 };
+  return { min: first.top - own.top, max: last.top + last.height - own.height - own.top };
+}
+
+/** One step of edge scrolling, never past the scroller's own content as measured before the drag. */
+export function workspaceScrollStep(scrollTop: number, velocity: number, max: number): number {
+  return Math.max(0, Math.min(max, scrollTop + velocity));
+}
+
+/**
+ * The nearest ancestor that really scrolls, or none when the list fits. Never the document: the
+ * shell does not scroll, and a document that some stray element made taller would carry the
+ * whole app away with the drag. Asked before the drag moves anything, so the overflow is real.
+ */
+function scrollParent(element: HTMLElement): HTMLElement | null {
+  for (let parent = element.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
     if (/(auto|scroll)/.test(getComputedStyle(parent).overflowY) && parent.scrollHeight > parent.clientHeight) return parent;
   }
-  return (document.scrollingElement ?? document.documentElement) as HTMLElement;
+  return null;
 }
 
 type Drag = {
   id: string; pointer: number; handle: HTMLButtonElement; section: HTMLElement; list: HTMLElement;
-  scroll: HTMLElement; startX: number; startY: number; y: number; offset: number;
+  scroll: HTMLElement | null; maxScroll: number; startX: number; startY: number; y: number; offset: number;
   index: number; active: boolean; settling: boolean; frame: number; animation?: Animation;
 };
 
@@ -76,7 +98,8 @@ export function useWorkspaceReorder(structure: string, busy: boolean, commit: (i
     const own = boxes.find(box => box.id === state.id)!;
     // offsetTop is in the list's positioned coordinate system. Rect includes scrolling.
     const base = state.section.getBoundingClientRect().top - (parseFloat(state.section.style.transform.match(/translateY\(([-.\d]+)px\)/)?.[1] ?? "0"));
-    const delta = state.y - state.offset - base;
+    const bounds = workspaceDragBounds(boxes, state.id);
+    const delta = Math.max(bounds.min, Math.min(bounds.max, state.y - state.offset - base));
     state.index = workspaceInsertion(boxes, state.id, own.top + delta, state.index);
     const slots = workspaceSlots(boxes, state.id, state.index);
     for (const section of state.list.querySelectorAll<HTMLElement>(":scope > .workspace")) {
@@ -89,11 +112,14 @@ export function useWorkspaceReorder(structure: string, busy: boolean, commit: (i
   const tick = () => {
     const state = drag.current;
     if (!state?.active || state.settling) return;
-    const rect = state.scroll.getBoundingClientRect();
-    const edge = 36;
-    const velocity = state.y < rect.top + edge ? -Math.min(12, (rect.top + edge - state.y) / 3)
-      : state.y > rect.bottom - edge ? Math.min(12, (state.y - rect.bottom + edge) / 3) : 0;
-    if (velocity) state.scroll.scrollTop += velocity;
+    if (state.scroll) {
+      const rect = state.scroll.getBoundingClientRect();
+      const edge = 36;
+      const velocity = state.y < rect.top + edge ? -Math.min(12, (rect.top + edge - state.y) / 3)
+        : state.y > rect.bottom - edge ? Math.min(12, (state.y - rect.bottom + edge) / 3) : 0;
+      const next = workspaceScrollStep(state.scroll.scrollTop, velocity, state.maxScroll);
+      if (next !== state.scroll.scrollTop) state.scroll.scrollTop = next;
+    }
     preview(state);
     state.frame = requestAnimationFrame(tick);
   };
@@ -105,7 +131,9 @@ export function useWorkspaceReorder(structure: string, busy: boolean, commit: (i
     const list = section.parentElement!;
     handle.focus({ preventScroll: true });
     handle.setPointerCapture(event.pointerId);
-    drag.current = { id, pointer: event.pointerId, handle, section, list, scroll: scrollParent(section),
+    const scroll = scrollParent(section);
+    // measured now: once sections carry a preview transform the scroller reports more than it holds
+    drag.current = { id, pointer: event.pointerId, handle, section, list, scroll, maxScroll: scroll ? Math.max(0, scroll.scrollHeight - scroll.clientHeight) : 0,
       startX: event.clientX, startY: event.clientY, y: event.clientY,
       offset: event.clientY - section.getBoundingClientRect().top,
       index: Array.from(list.children).indexOf(section), active: false, settling: false, frame: 0 };
