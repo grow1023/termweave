@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "repoType": "app",
-  "mode": "baseline",
-  "baselineCommit": null,
-  "reviewedHead": "79d971c1c41683b0ea8ccdcdfefce45c8849d9e5",
+  "mode": "update",
+  "baselineCommit": "79d971c1c41683b0ea8ccdcdfefce45c8849d9e5",
+  "reviewedHead": "e942d121a9a9d723ae5d540493bf621b6e41a45a",
   "references": [
     {
       "repo": "tsl0922/ttyd",
@@ -74,7 +74,20 @@
   "privacy": {
     "gaps": []
   },
-  "diffReview": null,
+  "diffReview": {
+    "since": "79d971c1c41683b0ea8ccdcdfefce45c8849d9e5",
+    "files": [
+      "CHANGELOG.termweave.md",
+      "CITATION.cff",
+      "herdr-plugin.toml",
+      "package.json",
+      "scripts/workspace-reorder-regression.ts",
+      "shared/product.ts",
+      "src/lib/workspaceReorder.test.ts",
+      "src/lib/workspaceReorder.ts"
+    ],
+    "summary": "v0.3.47: the sidebar drag stops edge scrolling once a dragged folder reaches its first or last slot (src/lib/workspaceReorder.ts), with a unit test and a browser regression that holds a drag past the list end; the other five files only bump the version to 0.3.47 and add its changelog line."
+  },
   "readiness": {
     "verified": [
       "reproducibility.install",
