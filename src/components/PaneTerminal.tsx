@@ -142,6 +142,7 @@ export function PaneTerminal({
   const fitRef = useRef<FitAddon | null>(null);
   const socketRef = useRef<HerdrSocket | null>(null);
   const paneRef = useRef<string | null>(paneId);
+  const borrowedRef = useRef(false);
   const onConnectionChangeRef = useRef(onConnectionChange);
   const onServerMessageRef = useRef(onServerMessage);
   const onRoleAckRef = useRef(onRoleAck);
@@ -415,10 +416,14 @@ export function PaneTerminal({
     // drag pans it. Until the user pans, the view keeps the cursor's row in sight: the top of
     // the grid while the row fits there, else the bottom rows, where a prompt sits. A mirror
     // has no cursor; xterm's own rests on the last row with text, which serves the same.
+    // borrowed: an interact client drawing the grid another device left the shared pty at,
+    // until this device comes back (focus, its own resize, the lens switch) and takes it back.
+    // It is not adopted: the wheel and a finger's drag still scroll the pane through herdr.
     const adopted = (): boolean => observeRef.current || fixedGridRef.current;
     let panned = false;
     const followCursor = (): void => {
-      host.toggleAttribute("data-adopted-grid", adopted());
+      // a borrowed grid larger than the mount scrolls too, instead of clipping
+      host.toggleAttribute("data-adopted-grid", adopted() || borrowedRef.current);
       const screen = term.element?.querySelector<HTMLElement>(".xterm-screen");
       if (!adopted() || panned || !screen) return;
       const row = screen.offsetHeight / term.rows;
@@ -736,6 +741,7 @@ export function PaneTerminal({
         term.options.disableStdin = nowObserving || secretRef.current !== null || heldRef.current;
         onRoleAckRef.current?.(message.mode);
         if (!nowObserving && !fixedGridRef.current && !chatViewRef.current) {
+          borrowedRef.current = false;
           try {
             fit.fit();
           } catch {
@@ -755,8 +761,31 @@ export function PaneTerminal({
         // chat lens entered later must draw its hidden screen for that grid, not this device's
         sharedGridRef.current = { cols: message.cols, rows: message.rows };
         // the chat lens adopts the shared grid too: the screen it reads (a masked prompt) is drawn for it
-        if (!observeRef.current && !fixedGridRef.current && !chatViewRef.current) return;
-        if (term.cols !== message.cols || term.rows !== message.rows) term.resize(message.cols, message.rows);
+        if (chatViewRef.current && !observeRef.current && !fixedGridRef.current) {
+          if (term.cols !== message.cols || term.rows !== message.rows) term.resize(message.cols, message.rows);
+        } else if (!observeRef.current && !fixedGridRef.current) {
+          // Another device resized the shared pty. Drawing it at this device's grid clipped,
+          // squeezed or overlapped the text, so draw the pty's grid until this device is used
+          // again. A grid that does not fit this screen (wider, or as wide and taller) is taken
+          // back instead. The order is total, so two open devices settle on the smaller grid
+          // and never take it in turns.
+          if (term.cols === message.cols && term.rows === message.rows) return;
+          const own = fit.proposeDimensions();
+          const pane = paneRef.current;
+          // only a screen in sight takes it back: a phone in a pocket must not narrow the desk
+          if (pane && own && own.cols > 0 && own.rows > 0 && document.visibilityState === "visible"
+            && (message.cols > own.cols || (message.cols === own.cols && message.rows > own.rows))) {
+            borrowedRef.current = false;
+            if (term.cols !== own.cols || term.rows !== own.rows) term.resize(own.cols, own.rows);
+            host.toggleAttribute("data-adopted-grid", false);
+            socket.resize(pane, own.cols, own.rows, true);
+            return;
+          }
+          borrowedRef.current = true;
+          term.resize(message.cols, message.rows);
+          host.toggleAttribute("data-adopted-grid", true);
+          return;
+        } else if (term.cols !== message.cols || term.rows !== message.rows) term.resize(message.cols, message.rows);
         panned = false;
         followCursor();
       } else if (message.type === "error") {
@@ -918,13 +947,17 @@ export function PaneTerminal({
         // the chat lens covers the grid: a phone's viewport or keyboard must not resize the
         // shared pty under another device (#361); the switch back to the terminal refits
         if (chatViewRef.current) return;
+        // a borrowed grid is not the size this socket last sent: re-assert it, or it is skipped
+        const wasBorrowed = borrowedRef.current;
+        borrowedRef.current = false;
         try {
           fit.fit();
         } catch {
           return;
         }
+        followCursor();
         const current = paneRef.current;
-        if (current) socket.resize(current, term.cols, term.rows);
+        if (current) socket.resize(current, term.cols, term.rows, wasBorrowed);
       }, RESIZE_SETTLE_MS);
     });
     observer.observe(host);
@@ -984,11 +1017,14 @@ export function PaneTerminal({
     const refit = (): void => {
       const current = paneRef.current;
       if (!current || observeRef.current || fixedGridRef.current || chatViewRef.current) return;
+      borrowedRef.current = false;
       try {
         fit.fit();
       } catch {
         return;
       }
+      panned = false;
+      followCursor();
       socket.resize(current, term.cols, term.rows, true);
     };
     const onVisible = (): void => {
@@ -1065,6 +1101,7 @@ export function PaneTerminal({
       term.options.fontFamily = fontFamily;
       term.refresh(0, term.rows - 1);
       if (observeRef.current || fixedGridRef.current || chatViewRef.current) return;
+      borrowedRef.current = false;
       try {
         fitRef.current?.fit();
       } catch {
@@ -1090,6 +1127,8 @@ export function PaneTerminal({
       return;
     }
     if (observeRef.current || fixedGridRef.current) return;
+    borrowedRef.current = false;
+    hostRef.current?.removeAttribute("data-adopted-grid");
     const term = termRef.current;
     try {
       fitRef.current?.fit();
@@ -1116,6 +1155,7 @@ export function PaneTerminal({
     setHeld(false);
     setUnsupported(false);
     fixedGridRef.current = false;
+    borrowedRef.current = false;
     sharedGridRef.current = null;
     // the next pane's grid is this browser's again unless it says otherwise (pane-geometry)
     hostRef.current?.toggleAttribute("data-adopted-grid", observeRef.current);

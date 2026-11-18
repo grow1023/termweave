@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Browser, BrowserContext, Page } from "playwright-core";
-import { herdrRpc, paneRead, paneSendKeys, paneSendText, workspaceClose, workspaceCreate } from "../server/herdr/client.ts";
+import { herdrRpc, paneRead, paneScroll, paneScrollInfo, paneSendKeys, paneSendText, workspaceClose, workspaceCreate } from "../server/herdr/client.ts";
 
 /**
  * The chat lens leaves the shared terminal's size alone (#361): a desktop tab drives a pane's grid
@@ -55,7 +55,8 @@ export async function checkChatKeepsTerminalSize(browser: Browser, origin: strin
       }, settings);
       const page = await context.newPage();
       await page.goto(`${origin}/?pane=${encodeURIComponent(paneId)}`);
-      await page.locator(".conn-live").waitFor();
+      // the header's status, not the phone menu's dot that shares its class
+      await page.locator(".conn.conn-live").waitFor({ state: "attached" });
       return page;
     };
     // the server answers an attach with input-ready, and resizes in the same step: once it is in,
@@ -87,12 +88,22 @@ export async function checkChatKeepsTerminalSize(browser: Browser, origin: strin
     assert.ok(Number(phoneSize.split(" ")[1]) < Number(desktopSize.split(" ")[1]), `phone ${phoneSize} narrower than desktop ${desktopSize}`);
     console.log(`PASS the phone's terminal lens fits the grid to ${phoneSize}`);
 
-    // the desktop's terminal lens ignored that resize: it drives the grid itself. Entering the chat
-    // lens, its hidden screen takes the grid the pty has now, since what the chat reads there (a
-    // masked prompt) is drawn for the phone's grid. xterm's DOM renderer keeps one element a row.
+    // the desktop's terminal lens draws the grid the phone left the pty at: drawn at its own grid,
+    // the phone's text was squeezed, clipped or overlapped. It does not resize back on its own
+    // (two open devices would take the grid in turns forever). xterm's DOM renderer keeps one
+    // element a row.
     const hiddenRows = () => desktop.locator(".pane-terminal .xterm-rows > div").count();
     const phoneRows = Number(phoneSize.split(" ")[0]);
-    assert.notEqual(await hiddenRows(), phoneRows, "the desktop's terminal lens kept its own grid");
+    const borrowed = Date.now() + 10_000;
+    while (await hiddenRows() !== phoneRows && Date.now() < borrowed) await Bun.sleep(100);
+    assert.equal(await hiddenRows(), phoneRows, "the desktop's terminal lens draws the phone's grid");
+    await Bun.sleep(1_500);
+    assert.equal(await size(), phoneSize, "neither device takes the grid back unasked");
+    console.log(`PASS the desktop's terminal lens draws the phone's grid of ${phoneSize} and leaves it`);
+
+
+    // Entering the chat lens, its hidden screen keeps the grid the pty has now, since what the chat
+    // reads there (a masked prompt) is drawn for the phone's grid.
     await desktop.getByTitle("Chat transcript (⌘⇧J)", { exact: true }).click();
     await desktop.locator(".terminal-stack.is-chat").waitFor({ state: "attached" });
     const adopted = Date.now() + 10_000;
@@ -100,6 +111,52 @@ export async function checkChatKeepsTerminalSize(browser: Browser, origin: strin
     assert.equal(await hiddenRows(), phoneRows, "the desktop's chat lens draws its hidden screen for the shared grid");
     assert.equal(await size(), phoneSize, "entering the chat lens resizes nothing");
     console.log(`PASS the desktop's chat lens draws its hidden screen for the shared grid of ${phoneSize}`);
+
+    // the desktop's terminal lens takes its grid back; the desktop's grid does not fit the phone,
+    // so the phone takes it back at once and draws nothing wider than its screen. The two settle
+    // on the phone's grid, the smaller one, and stay there: no device takes it in turns.
+    // what clips is the grid drawn wider than the pane: compare the screen with its mount
+    const phoneOverflow = () => phone.evaluate(() => {
+      const host = document.querySelector<HTMLElement>(".terminal-stack:not(.is-chat) .pane-terminal") ?? document.querySelector<HTMLElement>(".pane-terminal");
+      const screen = host?.querySelector<HTMLElement>(".xterm-screen");
+      return host && screen ? Math.round(screen.getBoundingClientRect().width - host.clientWidth) : 999;
+    });
+    await desktop.getByTitle("Live terminal (⌘⇧J)", { exact: true }).click();
+    await Bun.sleep(2_000);
+    assert.equal(await size(), phoneSize, "a grid wider than the phone is taken back by the phone");
+    await Bun.sleep(1_500);
+    assert.equal(await size(), phoneSize, "the two devices settle on the smaller grid");
+    assert.equal(await hiddenRows(), phoneRows, "the desktop draws the settled grid");
+    const overflow = await phoneOverflow();
+    assert.ok(overflow <= 0, `the phone draws no grid wider than its pane: ${overflow}px past it`);
+    console.log(`PASS a wider grid is taken back by the phone and both settle on ${phoneSize}`);
+
+    // typing on the desktop leaves the settled grid: a resize a key would repaint the program each time
+    await desktop.locator(".pane-terminal .xterm-helper-textarea").focus();
+    await desktop.keyboard.type(" ");
+    await desktop.keyboard.press("Backspace");
+    await Bun.sleep(1_000);
+    assert.equal(await size(), phoneSize, "typing resizes nothing");
+    console.log("PASS typing on the desktop resizes nothing");
+
+    // the desktop draws the phone's grid again: a wheel over it still scrolls the pane through
+    // herdr (focusing the window may take the grid back, which is this device being used)
+    await paneSendText(paneId, "seq 1 300");
+    await paneSendKeys(paneId, ["Enter"]);
+    await Bun.sleep(500);
+    const rows = desktop.locator(".pane-terminal .xterm-screen");
+    const box = (await rows.boundingBox())!;
+    await desktop.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    const scrolled = Date.now() + 10_000;
+    let offset = 0;
+    while (offset === 0 && Date.now() < scrolled) {
+      await desktop.mouse.wheel(0, -400);
+      await Bun.sleep(150);
+      offset = (await paneScrollInfo(paneId))?.offset_from_bottom ?? 0;
+    }
+    assert.ok(offset > 0, "a wheel over the borrowed grid scrolls the pane");
+    await paneScroll(paneId, 0);
+    console.log(`PASS a wheel over the borrowed grid scrolls the pane ${offset} rows`);
   } finally {
     for (const context of contexts) await context.close();
     await workspaceClose(created.workspace.workspace_id).catch(() => undefined);

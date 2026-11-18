@@ -3,6 +3,10 @@
 TermWeave(herdr web ui 포크)의 변경 기록입니다. 원본 프로젝트의 기록은 `CHANGELOG.md`에 있습니다.
 이 파일에는 실제 동작이나 게이트로 확인된 완료 항목만 적습니다. 일부만 끝난 항목은 "남은 일"에 따로 적습니다.
 
+## [0.3.46] - 2026-11-18
+
+- fix(terminal): draw the shared pty's grid, and settle two devices on the smaller one
+
 ## [0.3.45] - 2026-11-16
 
 - 자동 릴리스가 저장소의 공개 범위를 바꾸지 않습니다. 비공개 저장소는 비공개로, 공개 저장소는 공개로 그대로 릴리스됩니다.
