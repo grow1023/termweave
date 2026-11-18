@@ -45,6 +45,18 @@ export function workspaceScrollStep(scrollTop: number, velocity: number, max: nu
 }
 
 /**
+ * Edge scrolling only while the section can still follow: at its first or last slot, scrolling
+ * on that way carried the section away from the pointer, frame after frame, while content below
+ * the list (or above it) still let the scroller move.
+ */
+export function workspaceEdgeVelocity(velocity: number, delta: number, bounds: { min: number; max: number }): number {
+  // a step scrolls the content by velocity and the section follows by as much: never past its room
+  if (velocity > 0) return Math.min(velocity, Math.max(0, bounds.max - delta));
+  if (velocity < 0) return Math.max(velocity, Math.min(0, bounds.min - delta));
+  return 0;
+}
+
+/**
  * The nearest ancestor that really scrolls, or none when the list fits. Never the document: the
  * shell does not scroll, and a document that some stray element made taller would carry the
  * whole app away with the drag. Asked before the drag moves anything, so the overflow is real.
@@ -60,6 +72,8 @@ type Drag = {
   id: string; pointer: number; handle: HTMLButtonElement; section: HTMLElement; list: HTMLElement;
   scroll: HTMLElement | null; maxScroll: number; startX: number; startY: number; y: number; offset: number;
   index: number; active: boolean; settling: boolean; frame: number; animation?: Animation;
+  /** the section's offset and its limits at the last preview, for the edge scrolling */
+  delta: number; bounds: { min: number; max: number };
 };
 
 /** The real sections stay mounted and focused; preview transforms never change stored order. */
@@ -100,6 +114,8 @@ export function useWorkspaceReorder(structure: string, busy: boolean, commit: (i
     const base = state.section.getBoundingClientRect().top - (parseFloat(state.section.style.transform.match(/translateY\(([-.\d]+)px\)/)?.[1] ?? "0"));
     const bounds = workspaceDragBounds(boxes, state.id);
     const delta = Math.max(bounds.min, Math.min(bounds.max, state.y - state.offset - base));
+    state.delta = delta;
+    state.bounds = bounds;
     state.index = workspaceInsertion(boxes, state.id, own.top + delta, state.index);
     const slots = workspaceSlots(boxes, state.id, state.index);
     for (const section of state.list.querySelectorAll<HTMLElement>(":scope > .workspace")) {
@@ -115,8 +131,8 @@ export function useWorkspaceReorder(structure: string, busy: boolean, commit: (i
     if (state.scroll) {
       const rect = state.scroll.getBoundingClientRect();
       const edge = 36;
-      const velocity = state.y < rect.top + edge ? -Math.min(12, (rect.top + edge - state.y) / 3)
-        : state.y > rect.bottom - edge ? Math.min(12, (state.y - rect.bottom + edge) / 3) : 0;
+      const velocity = workspaceEdgeVelocity(state.y < rect.top + edge ? -Math.min(12, (rect.top + edge - state.y) / 3)
+        : state.y > rect.bottom - edge ? Math.min(12, (state.y - rect.bottom + edge) / 3) : 0, state.delta, state.bounds);
       const next = workspaceScrollStep(state.scroll.scrollTop, velocity, state.maxScroll);
       if (next !== state.scroll.scrollTop) state.scroll.scrollTop = next;
     }
@@ -136,7 +152,8 @@ export function useWorkspaceReorder(structure: string, busy: boolean, commit: (i
     drag.current = { id, pointer: event.pointerId, handle, section, list, scroll, maxScroll: scroll ? Math.max(0, scroll.scrollHeight - scroll.clientHeight) : 0,
       startX: event.clientX, startY: event.clientY, y: event.clientY,
       offset: event.clientY - section.getBoundingClientRect().top,
-      index: Array.from(list.children).indexOf(section), active: false, settling: false, frame: 0 };
+      index: Array.from(list.children).indexOf(section), active: false, settling: false, frame: 0,
+      delta: 0, bounds: { min: 0, max: 0 } };
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {

@@ -145,6 +145,18 @@ try {
  await page.keyboard.press('Escape');await page.mouse.up();assert.equal(requests.length,0);
  console.log('PASS machine-list auto-scroll and pointer attachment');
 
+ // held below the list, the section reaches its last slot and the edge scrolling stops there:
+ // scrolling on carried it up and away from the pointer, frame after frame
+ await fresh();
+ await page.locator('.machine-list').evaluate(e=>(e as HTMLElement).style.height='250px');
+ const listBottom=await page.locator('.machine-list').evaluate(e=>e.getBoundingClientRect().bottom);
+ const heldPoint=await start();await page.mouse.move(heldPoint.x,listBottom+80,{steps:10});await page.waitForTimeout(300);
+ const held=await page.evaluate(()=>new Promise<number[]>(done=>{const tops:number[]=[];const a=document.querySelector('[data-reorder-workspace="a"]')!;
+  const frame=()=>{tops.push(Math.round(a.getBoundingClientRect().top));if(tops.length<60)requestAnimationFrame(frame);else done(tops);};requestAnimationFrame(frame);}));
+ assert.equal(new Set(held).size,1,`a held section stays still at its last slot: ${held.join(' ')}`);
+ await page.keyboard.press('Escape');await page.mouse.up();assert.equal(requests.length,0);
+ console.log('PASS a section held past the list end stays at its last slot');
+
  await fresh();await section('a').locator('[data-workspace-id]').click();assert.equal(await page.locator('output').innerText(),'a');
  await section('a').locator('.workspace-disclosure').click();assert.equal(await section('a').locator('.workspace-terminals').isVisible(),false);
  await section('a').locator('.row-menu-toggle').click();await page.getByRole('menu').waitFor();await page.keyboard.press('Escape');

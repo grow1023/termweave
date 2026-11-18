@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { workspaceDragBounds, workspaceInsertion, workspaceScrollStep, workspaceSlots, type WorkspaceBox } from "./workspaceReorder.ts";
+import { workspaceDragBounds, workspaceEdgeVelocity, workspaceInsertion, workspaceScrollStep, workspaceSlots, type WorkspaceBox } from "./workspaceReorder.ts";
 
 const boxes: WorkspaceBox[] = [{ id: "a", top: 8, height: 80, gap: 8 },
   { id: "b", top: 96, height: 200, gap: 8 }, { id: "c", top: 304, height: 40, gap: 8 }];
@@ -36,5 +36,19 @@ describe("a drag stays inside its list", () => {
     // a list that fits has nothing to scroll
     expect(workspaceScrollStep(0, 12, 0)).toBe(0);
     expect(workspaceScrollStep(40, 0, 157)).toBe(40);
+  });
+  test("edge scrolling stops once the section cannot move further that way: it stays under the pointer", () => {
+    const bounds = { min: -88, max: 48 };
+    // at the last slot, scrolling on would carry the section away from the pointer
+    expect(workspaceEdgeVelocity(12, 48, bounds)).toBe(0);
+    expect(workspaceEdgeVelocity(-12, -88, bounds)).toBe(0);
+    // short of the bound, or scrolling back, the edge still scrolls
+    expect(workspaceEdgeVelocity(12, 20, bounds)).toBe(12);
+    expect(workspaceEdgeVelocity(-12, 48, bounds)).toBe(-12);
+    expect(workspaceEdgeVelocity(12, -88, bounds)).toBe(12);
+    expect(workspaceEdgeVelocity(0, 48, bounds)).toBe(0);
+    // the last step scrolls only the room left, so the section stops exactly at the pointer
+    expect(workspaceEdgeVelocity(12, 44, bounds)).toBe(4);
+    expect(workspaceEdgeVelocity(-12, -80, bounds)).toBe(-8);
   });
 });

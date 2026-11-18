@@ -3,6 +3,10 @@
 TermWeave(herdr web ui 포크)의 변경 기록입니다. 원본 프로젝트의 기록은 `CHANGELOG.md`에 있습니다.
 이 파일에는 실제 동작이나 게이트로 확인된 완료 항목만 적습니다. 일부만 끝난 항목은 "남은 일"에 따로 적습니다.
 
+## [0.3.47] - 2026-11-18
+
+- 왼쪽 목록에서 프로젝트 폴더를 끝까지 끌어내릴 때 폴더가 포인터에서 떨어져 덜덜 밀리던 문제를 고쳤습니다.
+
 ## [0.3.46] - 2026-11-18
 
 - fix(terminal): draw the shared pty's grid, and settle two devices on the smaller one
