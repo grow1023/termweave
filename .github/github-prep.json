@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "repoType": "app",
   "mode": "update",
-  "baselineCommit": "095b2010b9d6a081e9c3f60cee0045d2204b272e",
-  "reviewedHead": "ddd1f72634379febc62dc5333e64fde2d00b7f3f",
+  "baselineCommit": "ddd1f72634379febc62dc5333e64fde2d00b7f3f",
+  "reviewedHead": "1ae2547ae2c2a4156df9afbd5f6253e7c104ce5a",
   "references": [
     {
       "repo": "tsl0922/ttyd",
@@ -75,11 +75,11 @@
     "gaps": []
   },
   "diffReview": {
-    "since": "095b2010b9d6a081e9c3f60cee0045d2204b272e",
+    "since": "ddd1f72634379febc62dc5333e64fde2d00b7f3f",
     "files": [
-      "scripts/terminal-render-regression.ts"
+      ".github/workflows/termweave-ci.yml"
     ],
-    "summary": "Automated review for v0.3.51 by tools/public-release/auto_release.sh. 1 file(s) changed since 095b2010b9d6. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- test(render): check the v0.3.46 grid policy instead of the one it replaced"
+    "summary": "Automated review for v0.3.51 by tools/public-release/auto_release.sh. 1 file(s) changed since ddd1f7263437. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- ci: run the macOS lane only on a manual dispatch\n- test(render): check the v0.3.46 grid policy instead of the one it replaced"
   },
   "readiness": {
     "verified": [
