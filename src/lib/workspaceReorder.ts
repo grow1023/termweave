@@ -44,6 +44,18 @@ export function workspaceScrollStep(scrollTop: number, velocity: number, max: nu
   return Math.max(0, Math.min(max, scrollTop + velocity));
 }
 
+/** fastest edge scroll, in px per second: per frame it raced at 120Hz twice as fast as at 60Hz */
+export const EDGE_SCROLL_MAX = 480;
+
+/**
+ * One frame's edge scroll in px: `depth` px into an `edge` px band (past it counts as all the way
+ * in), over `dt` ms. Measured in time, not frames, and eased in, so the list never streams away.
+ */
+export function workspaceEdgeStep(depth: number, edge: number, dt: number): number {
+  const ratio = Math.min(1, Math.max(0, depth / edge));
+  return EDGE_SCROLL_MAX * ratio * ratio * Math.min(50, Math.max(0, dt)) / 1000;
+}
+
 /**
  * Edge scrolling only while the section can still follow: at its first or last slot, scrolling
  * on that way carried the section away from the pointer, frame after frame, while content below
@@ -74,6 +86,8 @@ type Drag = {
   index: number; active: boolean; settling: boolean; frame: number; animation?: Animation;
   /** the section's offset and its limits at the last preview, for the edge scrolling */
   delta: number; bounds: { min: number; max: number };
+  /** the previous frame's time, so the edge scroll is measured in time */
+  last: number;
 };
 
 /** The real sections stay mounted and focused; preview transforms never change stored order. */
@@ -125,14 +139,16 @@ export function useWorkspaceReorder(structure: string, busy: boolean, commit: (i
     }
   };
 
-  const tick = () => {
+  const tick = (now: number) => {
     const state = drag.current;
     if (!state?.active || state.settling) return;
+    const dt = state.last ? now - state.last : 0;
+    state.last = now;
     if (state.scroll) {
       const rect = state.scroll.getBoundingClientRect();
       const edge = 36;
-      const velocity = workspaceEdgeVelocity(state.y < rect.top + edge ? -Math.min(12, (rect.top + edge - state.y) / 3)
-        : state.y > rect.bottom - edge ? Math.min(12, (state.y - rect.bottom + edge) / 3) : 0, state.delta, state.bounds);
+      const velocity = workspaceEdgeVelocity(state.y < rect.top + edge ? -workspaceEdgeStep(rect.top + edge - state.y, edge, dt)
+        : state.y > rect.bottom - edge ? workspaceEdgeStep(state.y - rect.bottom + edge, edge, dt) : 0, state.delta, state.bounds);
       const next = workspaceScrollStep(state.scroll.scrollTop, velocity, state.maxScroll);
       if (next !== state.scroll.scrollTop) state.scroll.scrollTop = next;
     }
@@ -153,7 +169,7 @@ export function useWorkspaceReorder(structure: string, busy: boolean, commit: (i
       startX: event.clientX, startY: event.clientY, y: event.clientY,
       offset: event.clientY - section.getBoundingClientRect().top,
       index: Array.from(list.children).indexOf(section), active: false, settling: false, frame: 0,
-      delta: 0, bounds: { min: 0, max: 0 } };
+      delta: 0, bounds: { min: 0, max: 0 }, last: 0 };
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {

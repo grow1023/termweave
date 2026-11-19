@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { workspaceDragBounds, workspaceEdgeVelocity, workspaceInsertion, workspaceScrollStep, workspaceSlots, type WorkspaceBox } from "./workspaceReorder.ts";
+import { EDGE_SCROLL_MAX, workspaceDragBounds, workspaceEdgeStep, workspaceEdgeVelocity, workspaceInsertion, workspaceScrollStep, workspaceSlots, type WorkspaceBox } from "./workspaceReorder.ts";
 
 const boxes: WorkspaceBox[] = [{ id: "a", top: 8, height: 80, gap: 8 },
   { id: "b", top: 96, height: 200, gap: 8 }, { id: "c", top: 304, height: 40, gap: 8 }];
@@ -50,5 +50,17 @@ describe("a drag stays inside its list", () => {
     // the last step scrolls only the room left, so the section stops exactly at the pointer
     expect(workspaceEdgeVelocity(12, 44, bounds)).toBe(4);
     expect(workspaceEdgeVelocity(-12, -80, bounds)).toBe(-8);
+  });
+  test("edge scrolling runs on time, not frames: a 120Hz screen scrolls no faster than a 60Hz one", () => {
+    const at60 = 60 * workspaceEdgeStep(100, 36, 1000 / 60);
+    const at120 = 120 * workspaceEdgeStep(100, 36, 1000 / 120);
+    expect(at60).toBeCloseTo(EDGE_SCROLL_MAX, 6);
+    expect(at120).toBeCloseTo(at60, 6);
+    // eased in: halfway into the band scrolls a quarter as fast, outside it nothing
+    expect(workspaceEdgeStep(18, 36, 20)).toBeCloseTo(EDGE_SCROLL_MAX / 4 * 0.02, 6);
+    expect(workspaceEdgeStep(0, 36, 16)).toBe(0);
+    // the first frame (no previous time) and a stalled one never jump
+    expect(workspaceEdgeStep(100, 36, 0)).toBe(0);
+    expect(workspaceEdgeStep(100, 36, 5000)).toBe(EDGE_SCROLL_MAX * 50 / 1000);
   });
 });

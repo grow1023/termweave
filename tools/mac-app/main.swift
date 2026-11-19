@@ -47,6 +47,8 @@ final class App: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDele
         web.navigationDelegate = self
         web.uiDelegate = self
         web.allowsBackForwardNavigationGestures = false
+        let saved = UserDefaults.standard.double(forKey: "pageZoom")
+        if saved > 0 { web.pageZoom = CGFloat(saved) }
 
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1400, height: 900),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -66,7 +68,11 @@ final class App: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDele
     // loaded page every 10s and reload only after 5s without keyboard or mouse input, so typing is never cut.
     func watchForDeploys() {
         NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown, .rightMouseDown, .scrollWheel]) { [weak self] event in
-            self?.lastInput = Date(); return event
+            self?.lastInput = Date()
+            // Cmd++ (Shift+=) zooms in too, as in Safari and Chrome
+            if event.type == .keyDown, event.modifierFlags.intersection([.command, .control, .option]) == .command,
+               event.charactersIgnoringModifiers == "+" { self?.zoomIn(); return nil }
+            return event
         }
         Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in self?.checkBuild() }
     }
@@ -132,6 +138,17 @@ final class App: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDele
 
     @objc func reload() { web.load(URLRequest(url: home)) }
 
+    // Cmd+= / Cmd+- / Cmd+0 scale the whole page as a browser does; a WKWebView has no zoom of its own.
+    // Safari's steps; the choice is kept across launches.
+    static let zoomSteps: [CGFloat] = [0.5, 0.67, 0.75, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
+    func setZoom(_ z: CGFloat) {
+        web.pageZoom = z
+        UserDefaults.standard.set(Double(z), forKey: "pageZoom")
+    }
+    @objc func zoomIn() { setZoom(Self.zoomSteps.first { $0 > web.pageZoom + 0.001 } ?? Self.zoomSteps.last!) }
+    @objc func zoomOut() { setZoom(Self.zoomSteps.last { $0 < web.pageZoom - 0.001 } ?? Self.zoomSteps.first!) }
+    @objc func zoomReset() { setZoom(1.0) }
+
     // Without an Edit menu, Cmd+C / Cmd+V do nothing inside a WKWebView.
     func buildMenu() {
         let main = NSMenu()
@@ -149,7 +166,10 @@ final class App: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDele
                     ("", nil, ""),
                     ("잘라내기", #selector(NSText.cut(_:)), "x"), ("복사", #selector(NSText.copy(_:)), "c"),
                     ("붙여넣기", #selector(NSText.paste(_:)), "v"), ("모두 선택", #selector(NSText.selectAll(_:)), "a")])
-        sub("보기", [("새로고침", #selector(reload), "r")])
+        sub("보기", [("새로고침", #selector(reload), "r"),
+                    ("", nil, ""),
+                    ("확대", #selector(zoomIn), "="), ("축소", #selector(zoomOut), "-"),
+                    ("실제 크기", #selector(zoomReset), "0")])
         sub("윈도우", [("최소화", #selector(NSWindow.miniaturize(_:)), "m"),
                      ("닫기", #selector(NSWindow.performClose(_:)), "w")])
         NSApp.mainMenu = main
