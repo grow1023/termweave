@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "repoType": "app",
   "mode": "update",
-  "baselineCommit": "ab19f12f941366d08d2e9ec5ff9e6edbd733c4b0",
-  "reviewedHead": "8f222ee4b99df7c36980919c8eea3c9c62284144",
+  "baselineCommit": "8f222ee4b99df7c36980919c8eea3c9c62284144",
+  "reviewedHead": "095b2010b9d6a081e9c3f60cee0045d2204b272e",
   "references": [
     {
       "repo": "tsl0922/ttyd",
@@ -75,18 +75,22 @@
     "gaps": []
   },
   "diffReview": {
-    "since": "ab19f12f941366d08d2e9ec5ff9e6edbd733c4b0",
+    "since": "8f222ee4b99df7c36980919c8eea3c9c62284144",
     "files": [
       "CHANGELOG.termweave.md",
       "CITATION.cff",
       "herdr-plugin.toml",
+      "mobile/android/app/src/main/java/dev/termweave/companion/Updater.java",
       "package.json",
+      "server/owned-updater.test.ts",
+      "server/owned-updater.ts",
       "shared/product.ts",
-      "tools/public-release/attach_apk.sh",
       "tools/public-release/auto_release.sh",
-      "tools/public-release/stage_release.sh"
+      "tools/public-release/build_public.sh",
+      "tools/public-release/privacy_review.sh",
+      "tools/public-release/test_auto_release_lock.sh"
     ],
-    "summary": "Automated review for v0.3.50 by tools/public-release/auto_release.sh. 8 file(s) changed since ab19f12f9413. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- fix(release): stage the APK on a draft, record the prep review, and report a stopped release"
+    "summary": "Automated review for v0.3.51 by tools/public-release/auto_release.sh. 12 file(s) changed since 8f222ee4b99d. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- fix(release): resume an unpublished version, rerun queued commits, and spare the GitHub rate limit"
   },
   "readiness": {
     "verified": [
