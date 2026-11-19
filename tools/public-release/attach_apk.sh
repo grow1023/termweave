@@ -21,6 +21,7 @@ actual=$(shasum -a 256 "$apk" | cut -d' ' -f1)
 [[ $actual == $expected ]] || { print -u2 "FAIL[apk-asset]: $apk does not match apk.json"; exit 1; }
 gh release upload "$version" "$apk" --repo "$slug" --clobber
 # what GitHub now serves must be the bytes that were built
-remote=$(gh api "repos/$slug/releases/tags/$version" --jq '.assets[] | select(.name == "termweave-companion.apk") | .digest')
+# the list, not releases/tags/<tag>: that one does not answer for a draft
+remote=$(gh api "repos/$slug/releases?per_page=30" --jq ".[] | select(.tag_name == \"$version\") | .assets[] | select(.name == \"termweave-companion.apk\") | .digest")
 [[ $remote == sha256:$expected ]] || { print -u2 "FAIL[apk-asset]: GitHub reports ${remote:-no digest}"; exit 1; }
 print "PASS[apk-asset]: $version termweave-companion.apk sha256 ${expected[1,12]}"

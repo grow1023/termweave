@@ -21,7 +21,28 @@ print "== $(date '+%F %T') commit $(git -C "$repo" rev-parse --short HEAD)"
 # a SIGKILL or reboot skips the EXIT trap: a lock older than an hour is left over, not a live run
 [[ -d $lock && -n $(find "$lock" -maxdepth 0 -mmin +60 2>/dev/null) ]] && { print "removing stale lock"; rmdir "$lock"; }
 mkdir "$lock" 2>/dev/null || { print "skip: another release is running"; exit 0; }
-trap 'rmdir "$lock" 2>/dev/null' EXIT
+# The hook's output goes to this log only, and four releases in a row stopped there unseen. Every run
+# that takes the lock leaves release-status.json, and a run with a FAIL or AWAIT line posts a notification.
+# TERMWEAVE_RELEASE_NOTIFY=0 keeps the notification off (tests).
+start=$(wc -l < "$log")
+finish() {
+  local rc=$? problems
+  rmdir "$lock" 2>/dev/null
+  problems=$(tail -n +$((start + 1)) "$log" | grep -E '^(FAIL|AWAIT)' || true)
+  python3 - "${log:h}/release-status.json" "$(git -C "$repo" rev-parse --short HEAD)" "${version:-}" "$rc" "$problems" <<'EOF'
+import json, os, sys, datetime
+path, commit, version, rc, problems = sys.argv[1:]
+ok = rc == "0" and not problems
+record = {"time": datetime.datetime.now().isoformat(timespec="seconds"), "commit": commit, "version": version,
+          "result": "ok" if ok else "failed", "exitCode": int(rc), "problems": problems.splitlines()}
+json.dump(record, open(path + ".tmp", "w"), ensure_ascii=False, indent=2); os.replace(path + ".tmp", path)
+EOF
+  if [[ -n $problems || $rc != 0 ]] && [[ ${TERMWEAVE_RELEASE_NOTIFY:-1} != 0 ]]; then
+    osascript -e 'on run a' -e 'display notification (item 1 of a) with title "TermWeave 릴리스 실패" subtitle (item 2 of a)' -e 'end run' \
+      "${${problems%%$'\n'*}:-exit $rc}" "${version:-$(git -C "$repo" rev-parse --short HEAD)} · 로그 ~/.local/state/termweave/auto-release.log" >/dev/null 2>&1
+  fi
+}
+trap finish EXIT
 
 # An automatic release publishes to the release repository as it is: it never changes who can
 # see it. Asked before the version bump, so an unreachable GitHub leaves no version commit behind.
@@ -91,18 +112,49 @@ else
 fi
 
 "$repo/tools/public-release/build_public.sh" --version "$version" || { print "FAIL: export or leakscan"; exit 1; }
+pub=$repo/.local/public
+# a new version: its release waits as a draft that already holds the APK (see stage_release.sh)
+if [[ -n $bump ]]; then
+  "$repo/tools/public-release/stage_release.sh" "$version" || { print "FAIL: stage $version (rerun tools/public-release/stage_release.sh $version)"; exit 1; }
+fi
+# The harness stops each release at AWAIT[prep] until someone records a review of the export's diff.
+# The record is written here from what was checked: the commits since the last release, the leakscan
+# that build_public.sh just passed, and the changed files. The flow's own gates still run after it.
+if [[ -f $pub/.github/github-prep.json ]]; then
+  python3 "${harness:h:h}/lib/prep_contract.py" update "$pub" >/dev/null || { print "FAIL: prep update"; exit 1; }
+  since_src=$(git -C "$repo" log -1 --format=%H -E --grep='^(chore\(release\)|release): v' HEAD~1 2>/dev/null)
+  python3 - "$pub/.github/github-prep.json" "$(git -C "$pub" rev-parse HEAD)" "$version" \
+    "$(git -C "$repo" log --format='- %s' --no-merges ${since_src:+$since_src..}HEAD | grep -v '^- chore(release)' | head -20)" <<'EOF'
+import json, sys
+path, head, version, commits = sys.argv[1:]
+record = json.load(open(path))
+review = record["diffReview"]
+review["summary"] = (f"Automated review for {version} by tools/public-release/auto_release.sh. "
+    f"{len(review['files'])} file(s) changed since {review['since'][:12]}. "
+    "build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. "
+    "Source commits:\n" + (commits or "- (none)"))
+record["reviewedHead"] = head
+json.dump(record, open(path, "w"), ensure_ascii=False, indent=2); open(path, "a").write("\n")
+EOF
+  [[ $? -eq 0 ]] || { print "FAIL: prep record"; exit 1; }
+  author_email=$(cat "$HOME/.config/termweave/public-author-email")
+  git -C "$pub" add .github
+  GIT_AUTHOR_NAME=VoidLight00 GIT_AUTHOR_EMAIL=$author_email GIT_COMMITTER_NAME=VoidLight00 GIT_COMMITTER_EMAIL=$author_email \
+    git -C "$pub" -c core.hooksPath=/dev/null commit -q -m "docs(github): review the $version changes" || { print "FAIL: prep record commit"; exit 1; }
+fi
 "$harness" flow "$repo/.local/public" --profile public-full --languages en,ko,ja,zh \
   --approve-images --approve-publish --$visibility --release --approve-release || { print "FAIL: harness flow"; exit 1; }
 print "PASS: published $version"
 "$repo/tools/public-release/post_release_notes.sh" "$version" \
   || print "FAIL: release notes not posted (run tools/public-release/post_release_notes.sh $version)"
+# the staged draft goes public last, with its notes and APK in place
+if [[ -n $bump ]]; then
+  gh release edit "$version" --repo grow1023/termweave --draft=false --latest >/dev/null \
+    && [[ $(gh api repos/grow1023/termweave/releases/latest --jq .tag_name) == $version ]] \
+    && print "PASS[release-public]: $version is the latest release" \
+    || { print "FAIL: publish the $version draft (gh release edit $version --draft=false --latest)"; exit 1; }
+fi
 # a version bump also moves the live app (launchd com.voidlight.termweave) to this release, health-checked
 if [[ -n $bump ]] && launchctl print gui/$(id -u)/com.voidlight.termweave >/dev/null 2>&1; then
   "$repo/tools/operations/deploy-release.sh" || { print "FAIL: live deploy (previous release kept)"; exit 1; }
-fi
-# the companion APK carries the same version, so each bump is offered to phones as an update
-if [[ -n $bump && -f $HOME/.local/state/termweave-mobile-relay/apk.json ]]; then
-  # the Release carries the same APK: phones without this Mac's relay update from GitHub
-  "$repo/tools/mobile-relay/publish_apk.sh" && "$repo/tools/public-release/attach_apk.sh" "$version" \
-    || print "FAIL: APK publish (phones keep the previous version; rerun tools/public-release/attach_apk.sh $version)"
 fi
