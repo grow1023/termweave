@@ -3,6 +3,10 @@
 TermWeave(herdr web ui 포크)의 변경 기록입니다. 원본 프로젝트의 기록은 `CHANGELOG.md`에 있습니다.
 이 파일에는 실제 동작이나 게이트로 확인된 완료 항목만 적습니다. 일부만 끝난 항목은 "남은 일"에 따로 적습니다.
 
+## [0.3.49] - 2026-11-19
+
+- The Android companion now checks the public GitHub Release for updates, so it stays current without the Mac relay.
+
 ## [0.3.48] - 2026-11-19
 
 - 왼쪽 목록에서 프로젝트 폴더를 아래로 끌 때 목록이 너무 빠르게 흘러 덜덜 떨려 보이던 문제를 고쳤습니다. 화면 주사율과 관계없이 일정한 속도로 부드럽게 스크롤됩니다.

@@ -14,28 +14,41 @@ import android.content.Intent;
 import android.content.pm.PackageInstaller;
 import android.net.Uri;
 import android.provider.Settings;
+import android.util.Log;
 import android.widget.Toast;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.MessageDigest;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
-/** Checks the paired relay for a newer signed APK, notifies, and installs it through PackageInstaller after a SHA-256 check. */
+/**
+ * Checks for a newer signed APK, notifies, and installs it through PackageInstaller after a SHA-256 check.
+ * The APK comes from the public GitHub Release (tools/public-release/attach_apk.sh), so a phone needs no
+ * relay to stay current; the paired relay is asked only when GitHub offers nothing.
+ */
 final class Updater {
     static final String PREFS = "termweave", ORIGIN = "relayOrigin", ACTION_INSTALL = "dev.termweave.companion.INSTALL_UPDATE", ACTION_STATUS = "dev.termweave.companion.INSTALL_STATUS";
     private static final String CHANNEL = "updates";
     private static final long MAX_BYTES = 32L * 1024 * 1024;
+    private static final String RELEASES = "https://api.github.com/repos/grow1023/termweave/releases/latest";
+    /** the only place a GitHub download may come from: this repository's own release assets */
+    private static final String DOWNLOADS = "https://github.com/grow1023/termweave/releases/download/";
+    private static final String ASSET = "termweave-companion.apk";
+    private static final Pattern TAG = Pattern.compile("v(\\d{1,4})\\.(\\d{1,3})\\.(\\d{1,3})");
     private static final OkHttpClient client = new OkHttpClient.Builder().callTimeout(120, TimeUnit.SECONDS).build();
 
     /** One download and install session at a time; cleared when the installer reports back or staging fails. */
     static volatile boolean installing;
 
-    static final class Latest { long versionCode; String versionName, sha256; long bytes; }
+    static final class Latest { long versionCode; String versionName, sha256, url; long bytes; }
 
     static String origin(Context context) { return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(ORIGIN, null); }
     static void saveOrigin(Context context, String origin) { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(ORIGIN, origin).apply(); }
@@ -51,8 +64,47 @@ final class Updater {
         } catch (RuntimeException ignored) { /* e.g. a missing permission on a future Android version */ }
     }
 
-    /** Blocking; returns the served release only when it is newer than the installed one. */
+    /** Blocking; returns the newest served release only when it is newer than the installed one. */
     static Latest newer(Context context) throws Exception {
+        Latest latest = null;
+        // unreachable or rate-limited: a paired relay may still serve one. The reason goes to logcat, nothing else would show it.
+        try { latest = fromGitHub(); } catch (Exception failure) { Log.w("TermWeaveUpdate", "GitHub release check failed: " + failure); }
+        if (latest == null) latest = fromRelay(context);
+        if (latest == null) return null;
+        long installed = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).getLongVersionCode();
+        return latest.versionCode > installed ? latest : null;
+    }
+
+    private static boolean valid(Latest latest) {
+        return latest.sha256.matches("[a-f0-9]{64}") && latest.bytes >= 1 && latest.bytes <= MAX_BYTES && latest.versionCode > 0;
+    }
+
+    /** The latest GitHub Release, when it carries the APK: its tag is the version, the asset's digest the expected hash. */
+    private static Latest fromGitHub() throws Exception {
+        try (Response response = client.newCall(new Request.Builder().url(RELEASES).header("Accept", "application/vnd.github+json").build()).execute()) {
+            if (!response.isSuccessful() || response.body() == null) { Log.w("TermWeaveUpdate", "GitHub answered " + response.code()); return null; }
+            // a body cut at the limit does not parse, and the caller treats that as no answer
+            JSONObject release = new JSONObject(response.peekBody(262144).string());
+            Matcher tag = TAG.matcher(release.optString("tag_name"));
+            JSONArray assets = release.optJSONArray("assets");
+            if (!tag.matches() || assets == null) return null;
+            for (int index = 0; index < assets.length(); index++) {
+                JSONObject asset = assets.getJSONObject(index);
+                if (!ASSET.equals(asset.optString("name"))) continue;
+                String digest = asset.optString("digest"), url = asset.optString("browser_download_url");
+                if (!digest.startsWith("sha256:") || !url.startsWith(DOWNLOADS)) return null;
+                Latest latest = new Latest();
+                // the same rule as build.gradle.kts: x.y.z -> x*1000000 + y*1000 + z
+                latest.versionCode = Long.parseLong(tag.group(1)) * 1000000 + Long.parseLong(tag.group(2)) * 1000 + Long.parseLong(tag.group(3));
+                latest.versionName = release.optString("tag_name").substring(1);
+                latest.sha256 = digest.substring(7); latest.bytes = asset.optLong("size"); latest.url = url;
+                return valid(latest) ? latest : null;
+            }
+            return null;
+        }
+    }
+
+    private static Latest fromRelay(Context context) throws Exception {
         String base = origin(context);
         if (base == null) return null;
         try (Response response = client.newCall(new Request.Builder().url(base + "/download/termweave-companion.json").build()).execute()) {
@@ -64,9 +116,8 @@ final class Updater {
             Latest latest = new Latest();
             latest.versionCode = json.getLong("versionCode"); latest.versionName = json.optString("versionName");
             latest.sha256 = json.getString("sha256"); latest.bytes = json.getLong("bytes");
-            if (!latest.sha256.matches("[a-f0-9]{64}") || latest.bytes < 1 || latest.bytes > MAX_BYTES) return null;
-            long installed = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).getLongVersionCode();
-            return latest.versionCode > installed ? latest : null;
+            latest.url = base + "/download/termweave-companion.apk";
+            return valid(latest) ? latest : null;
         }
     }
 
@@ -112,7 +163,7 @@ final class Updater {
         int id = installer.createSession(params);
         boolean committed = false;
         try (PackageInstaller.Session session = installer.openSession(id);
-             Response response = client.newCall(new Request.Builder().url(origin(context) + "/download/termweave-companion.apk").build()).execute()) {
+             Response response = client.newCall(new Request.Builder().url(latest.url).build()).execute()) {
             if (!response.isSuccessful() || response.body() == null) throw new IOException("다운로드 실패 " + response.code());
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             long total = 0;

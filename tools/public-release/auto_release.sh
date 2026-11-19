@@ -102,5 +102,7 @@ if [[ -n $bump ]] && launchctl print gui/$(id -u)/com.voidlight.termweave >/dev/
 fi
 # the companion APK carries the same version, so each bump is offered to phones as an update
 if [[ -n $bump && -f $HOME/.local/state/termweave-mobile-relay/apk.json ]]; then
-  "$repo/tools/mobile-relay/publish_apk.sh" || print "FAIL: APK publish (phones keep the previous version)"
+  # the Release carries the same APK: phones without this Mac's relay update from GitHub
+  "$repo/tools/mobile-relay/publish_apk.sh" && "$repo/tools/public-release/attach_apk.sh" "$version" \
+    || print "FAIL: APK publish (phones keep the previous version; rerun tools/public-release/attach_apk.sh $version)"
 fi
