@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "repoType": "app",
   "mode": "update",
-  "baselineCommit": "e942d121a9a9d723ae5d540493bf621b6e41a45a",
-  "reviewedHead": "43623277a4fbdde5693853774b11302965898c54",
+  "baselineCommit": "43623277a4fbdde5693853774b11302965898c54",
+  "reviewedHead": "ab19f12f941366d08d2e9ec5ff9e6edbd733c4b0",
   "references": [
     {
       "repo": "tsl0922/ttyd",
@@ -75,18 +75,18 @@
     "gaps": []
   },
   "diffReview": {
-    "since": "e942d121a9a9d723ae5d540493bf621b6e41a45a",
+    "since": "43623277a4fbdde5693853774b11302965898c54",
     "files": [
       "CHANGELOG.termweave.md",
       "CITATION.cff",
       "herdr-plugin.toml",
+      "mobile/android/app/src/main/java/dev/termweave/companion/Updater.java",
       "package.json",
       "shared/product.ts",
-      "src/lib/workspaceReorder.test.ts",
-      "src/lib/workspaceReorder.ts",
-      "tools/mac-app/main.swift"
+      "tools/public-release/attach_apk.sh",
+      "tools/public-release/auto_release.sh"
     ],
-    "summary": "v0.3.48: the sidebar folder drag edge-scrolls on elapsed time with an eased edge band (max 480px/s) instead of a fixed 12px per frame that ran twice as fast on 120Hz screens (src/lib/workspaceReorder.ts, with a unit test); tools/mac-app/main.swift adds View menu zoom in/out/actual size on WKWebView.pageZoom (Cmd+=, Cmd++, Cmd+-, Cmd+0), kept in UserDefaults; the other five files only bump the version to 0.3.48 and add its changelog lines. No secrets, personal paths or account data added."
+    "summary": "v0.3.49: the Android companion reads releases/latest of grow1023/termweave and installs the termweave-companion.apk asset after a SHA-256 check against the GitHub asset digest; downloads are accepted only from this repository's release download URL, and the paired relay is used only when GitHub offers nothing. attach_apk.sh uploads the APK to the release and checks the served digest; auto_release.sh runs it after publish_apk.sh. Version files bump to 0.3.49. Reviewed diff 43623277..ab19f12: no secrets, no personal paths."
   },
   "readiness": {
     "verified": [
