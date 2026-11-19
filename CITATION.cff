@@ -5,6 +5,6 @@ abstract: "A cmux-style web and Mac client for herdr: docked, numbered panes per
 authors:
   - name: "VoidLight00"
 license: MIT
-version: "0.3.50"
-date-released: "2026-11-19"
+version: "0.3.51"
+date-released: "2026-11-20"
 url: "https://github.com/grow1023/termweave"

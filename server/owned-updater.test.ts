@@ -26,4 +26,31 @@ describe("owned updater", () => {
     expect(down.status().latest_notes ?? null).toBeNull();
     updater.stop(); down.stop();
   });
+  it("asks again with the ETag, keeps the answer on 304, and names the rate limit's reset", async () => {
+    const [major, minor, patch] = PRODUCT_VERSION.split(".").map(Number);
+    const next = `v${major}.${minor}.${patch! + 1}`;
+    const sent: (string | null)[] = [];
+    const replies = [
+      new Response(JSON.stringify({ tag_name: next, body: "notes" }), { status: 200, headers: { etag: '"abc"' } }),
+      new Response(null, { status: 304 }),
+      new Response("{}", { status: 403, headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "1800000000" } }),
+    ];
+    const fetcher = (async (_url: string, init?: RequestInit) => {
+      sent.push(new Headers(init?.headers).get("if-none-match"));
+      return replies.shift()!;
+    }) as unknown as typeof fetch;
+    const updater = ownedUpdater("/nowhere", fetcher);
+    updater.request("check"); await Bun.sleep(10);
+    updater.request("check"); await Bun.sleep(10);
+    // 304: GitHub does not count it, and the release found before still stands
+    expect(sent).toEqual([null, '"abc"']);
+    expect(updater.status()).toMatchObject({ phase: "idle", available: true, latest_version: next.slice(1), latest_notes: "notes" });
+    updater.request("check"); await Bun.sleep(10);
+    expect(updater.status().phase).toBe("error");
+    expect(updater.status().error).toContain("rate limit");
+    expect(updater.status().error).toContain(new Date(1800000000 * 1000).toISOString().slice(0, 16));
+    // the release found before is not forgotten while GitHub refuses
+    expect(updater.status().latest_version).toBe(next.slice(1));
+    updater.stop();
+  });
 });

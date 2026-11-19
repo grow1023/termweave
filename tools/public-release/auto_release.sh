@@ -8,9 +8,11 @@
 set -uo pipefail
 # git exports GIT_DIR, GIT_INDEX_FILE and friends (relative paths) to hooks; they break worktrees and nested git calls
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES 2>/dev/null
-repo=${0:A:h:h:h}
-log=$HOME/.local/state/termweave/auto-release.log
-lock=$HOME/.local/state/termweave/auto-release.lock
+self=${0:A}
+repo=${self:h:h:h}
+state=${TERMWEAVE_RELEASE_STATE:-$HOME/.local/state/termweave}
+log=$state/auto-release.log
+lock=$state/auto-release.lock
 harness=$HOME/projects/github-harness/bin/github
 mkdir -p "${log:h}"
 exec >>"$log" 2>&1
@@ -18,28 +20,39 @@ print "== $(date '+%F %T') commit $(git -C "$repo" rev-parse --short HEAD)"
 
 [[ -e $HOME/.config/termweave/auto-release.off ]] && { print "skip: kill switch is on"; exit 0; }
 [[ $(git -C "$repo" branch --show-current) == main ]] || { print "skip: not on main"; exit 0; }
-# a SIGKILL or reboot skips the EXIT trap: a lock older than an hour is left over, not a live run
-[[ -d $lock && -n $(find "$lock" -maxdepth 0 -mmin +60 2>/dev/null) ]] && { print "removing stale lock"; rmdir "$lock"; }
-mkdir "$lock" 2>/dev/null || { print "skip: another release is running"; exit 0; }
+# A SIGKILL or reboot skips the EXIT trap. The lock holds its owner's PID: a lock whose owner is gone is
+# left over, a live owner keeps it however long it runs (an age limit broke slow runs). No PID yet means
+# the owner is between mkdir and writing it, unless that was over a minute ago.
+owner=$(cat "$lock/pid" 2>/dev/null)
+if [[ -d $lock ]] && { [[ -n $owner ]] && ! kill -0 "$owner" 2>/dev/null || [[ -z $owner && -n $(find "$lock" -maxdepth 0 -mmin +1 2>/dev/null) ]]; }; then
+  print "removing stale lock (owner ${owner:-unknown} is gone)"; rm -rf "$lock"
+fi
+# a commit during a run is not dropped: the running release starts once more for HEAD when it ends
+mkdir "$lock" 2>/dev/null || { touch "$lock.again"; print "queued: another release is running; it runs again for this commit"; exit 0; }
+print $$ > "$lock/pid"
 # The hook's output goes to this log only, and four releases in a row stopped there unseen. Every run
 # that takes the lock leaves release-status.json, and a run with a FAIL or AWAIT line posts a notification.
 # TERMWEAVE_RELEASE_NOTIFY=0 keeps the notification off (tests).
 start=$(wc -l < "$log")
 finish() {
   local rc=$? problems
-  rmdir "$lock" 2>/dev/null
-  problems=$(tail -n +$((start + 1)) "$log" | grep -E '^(FAIL|AWAIT)' || true)
+  rm -rf "$lock"
+  # queued commits: one more run covers all of them, since the notes and the export take everything up to HEAD
+  if [[ -e $lock.again ]]; then rm -f "$lock.again"; print "rerun: a commit arrived during this run"; nohup zsh "$self" >/dev/null 2>&1 &!; fi
+  problems=$(tail -n +$((start + 1)) "$log" | grep -E '^(FAIL|AWAIT|REVIEW)' || true)
   python3 - "${log:h}/release-status.json" "$(git -C "$repo" rev-parse --short HEAD)" "${version:-}" "$rc" "$problems" <<'EOF'
 import json, os, sys, datetime
 path, commit, version, rc, problems = sys.argv[1:]
-ok = rc == "0" and not problems
+failed = rc != "0" or any(not line.startswith("REVIEW") for line in problems.splitlines())
+result = "failed" if failed else "review" if problems else "ok"
 record = {"time": datetime.datetime.now().isoformat(timespec="seconds"), "commit": commit, "version": version,
-          "result": "ok" if ok else "failed", "exitCode": int(rc), "problems": problems.splitlines()}
+          "result": result, "exitCode": int(rc), "problems": problems.splitlines()}
 json.dump(record, open(path + ".tmp", "w"), ensure_ascii=False, indent=2); os.replace(path + ".tmp", path)
 EOF
   if [[ -n $problems || $rc != 0 ]] && [[ ${TERMWEAVE_RELEASE_NOTIFY:-1} != 0 ]]; then
-    osascript -e 'on run a' -e 'display notification (item 1 of a) with title "TermWeave 릴리스 실패" subtitle (item 2 of a)' -e 'end run' \
-      "${${problems%%$'\n'*}:-exit $rc}" "${version:-$(git -C "$repo" rev-parse --short HEAD)} · 로그 ~/.local/state/termweave/auto-release.log" >/dev/null 2>&1
+    osascript -e 'on run a' -e 'display notification (item 1 of a) with title (item 3 of a) subtitle (item 2 of a)' -e 'end run' \
+      "${${problems%%$'\n'*}:-exit $rc}" "${version:-$(git -C "$repo" rev-parse --short HEAD)} · 로그 ~/.local/state/termweave/auto-release.log" \
+      "$([[ $rc != 0 || -n $(print -r -- "$problems" | grep -v '^REVIEW') ]] && print 'TermWeave 릴리스 실패' || print 'TermWeave 공개본 검토 필요')" >/dev/null 2>&1
   fi
 }
 trap finish EXIT
@@ -58,6 +71,15 @@ case $subject in
   feat*|fix*|perf*|refactor*) bump=patch ;;
 esac
 [[ $body == *"BREAKING CHANGE"* && -n $bump ]] && bump=minor
+
+# A run that stopped after its version commit left a version with no public release. Finish that
+# version with this commit instead of skipping a number. ponytail: this commit's own note is not
+# added to that version's changelog entry; the release still carries the code.
+current=$(python3 -c "import json;print(json.load(open('$repo/package.json'))['version'])")
+public=$(gh api "repos/grow1023/termweave/releases?per_page=30" --jq "[.[] | select(.tag_name == \"v$current\" and (.draft | not))] | length" 2>/dev/null)
+[[ $public == <-> ]] || { print "FAIL: cannot list the releases (gh auth status)"; exit 1; }
+pending=""
+if [[ $public == 0 ]]; then pending=1; bump=""; print "resume: v$current has no public release yet; this run finishes it"; fi
 
 vfiles=(package.json shared/product.ts herdr-plugin.toml CITATION.cff CHANGELOG.termweave.md)
 # the bump rewrites and restores these files: never touch them while they hold the user's own edits
@@ -114,7 +136,7 @@ fi
 "$repo/tools/public-release/build_public.sh" --version "$version" || { print "FAIL: export or leakscan"; exit 1; }
 pub=$repo/.local/public
 # a new version: its release waits as a draft that already holds the APK (see stage_release.sh)
-if [[ -n $bump ]]; then
+if [[ -n $bump$pending ]]; then
   "$repo/tools/public-release/stage_release.sh" "$version" || { print "FAIL: stage $version (rerun tools/public-release/stage_release.sh $version)"; exit 1; }
 fi
 # The harness stops each release at AWAIT[prep] until someone records a review of the export's diff.
@@ -148,13 +170,16 @@ print "PASS: published $version"
 "$repo/tools/public-release/post_release_notes.sh" "$version" \
   || print "FAIL: release notes not posted (run tools/public-release/post_release_notes.sh $version)"
 # the staged draft goes public last, with its notes and APK in place
-if [[ -n $bump ]]; then
+if [[ -n $bump$pending ]]; then
   gh release edit "$version" --repo grow1023/termweave --draft=false --latest >/dev/null \
     && [[ $(gh api repos/grow1023/termweave/releases/latest --jq .tag_name) == $version ]] \
     && print "PASS[release-public]: $version is the latest release" \
     || { print "FAIL: publish the $version draft (gh release edit $version --draft=false --latest)"; exit 1; }
 fi
 # a version bump also moves the live app (launchd com.voidlight.termweave) to this release, health-checked
-if [[ -n $bump ]] && launchctl print gui/$(id -u)/com.voidlight.termweave >/dev/null 2>&1; then
+if [[ -n $bump$pending ]] && launchctl print gui/$(id -u)/com.voidlight.termweave >/dev/null 2>&1; then
   "$repo/tools/operations/deploy-release.sh" || { print "FAIL: live deploy (previous release kept)"; exit 1; }
 fi
+# report only, after the release is public: new privacy.py findings post a notification (privacy_review.sh)
+[[ -n $bump$pending ]] && "$repo/tools/public-release/privacy_review.sh" "$repo/.local/public"
+exit 0

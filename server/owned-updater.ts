@@ -38,14 +38,26 @@ export function ownedUpdater(root: string, fetcher: typeof fetch = fetch): Updat
   };
   const patch = (next: Partial<UpdateStatus>) => { status = { ...status, ...next }; };
 
+  // GitHub allows 60 unauthenticated calls an hour per address, shared by everyone behind it.
+  // A 304 to If-None-Match does not count, so a check that finds nothing new costs nothing.
+  let etag: string | null = null;
+  let cached: { tag_name?: unknown; body?: unknown } | null = null;
+
   const check = async () => {
     patch({ phase: "checking", error: null });
     try {
       const response = await fetcher(`https://api.github.com/repos/${RELEASE_REPO}/releases/latest`, {
-        headers: { accept: "application/vnd.github+json", "user-agent": "termweave-updater" }, signal: AbortSignal.timeout(15_000),
+        headers: { accept: "application/vnd.github+json", "user-agent": "termweave-updater", ...(etag && cached ? { "if-none-match": etag } : {}) },
+        signal: AbortSignal.timeout(15_000),
       });
-      if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
-      const release = (await response.json()) as { tag_name?: unknown; body?: unknown };
+      const limited = (response.status === 403 || response.status === 429) && response.headers.get("x-ratelimit-remaining") === "0";
+      if (limited) {
+        const reset = Number(response.headers.get("x-ratelimit-reset"));
+        throw new Error(`GitHub rate limit reached${reset ? `; it resets at ${new Date(reset * 1000).toISOString()}` : ""}`);
+      }
+      if (response.status !== 304 && !response.ok) throw new Error(`GitHub answered ${response.status}`);
+      const release = response.status === 304 && cached ? cached : (await response.json()) as { tag_name?: unknown; body?: unknown };
+      if (response.status !== 304) { etag = response.headers.get("etag"); cached = release; }
       const tag = String(release.tag_name ?? "");
       if (!RELEASE_TAG.test(tag)) throw new Error("The latest release has no vX.Y.Z tag");
       // the update post (tools/public-release/post_release_notes.sh), shown before the user installs

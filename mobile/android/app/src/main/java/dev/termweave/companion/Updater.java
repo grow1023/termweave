@@ -68,7 +68,7 @@ final class Updater {
     static Latest newer(Context context) throws Exception {
         Latest latest = null;
         // unreachable or rate-limited: a paired relay may still serve one. The reason goes to logcat, nothing else would show it.
-        try { latest = fromGitHub(); } catch (Exception failure) { Log.w("TermWeaveUpdate", "GitHub release check failed: " + failure); }
+        try { latest = fromGitHub(context); } catch (Exception failure) { Log.w("TermWeaveUpdate", "GitHub release check failed: " + failure); }
         if (latest == null) latest = fromRelay(context);
         if (latest == null) return null;
         long installed = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).getLongVersionCode();
@@ -80,11 +80,29 @@ final class Updater {
     }
 
     /** The latest GitHub Release, when it carries the APK: its tag is the version, the asset's digest the expected hash. */
-    private static Latest fromGitHub() throws Exception {
-        try (Response response = client.newCall(new Request.Builder().url(RELEASES).header("Accept", "application/vnd.github+json").build()).execute()) {
+    private static Latest fromGitHub(Context context) throws Exception {
+        // 60 unauthenticated calls an hour per address, and a mobile network puts many phones behind one.
+        // A 304 to If-None-Match does not count: the release kept from the last full answer stands.
+        android.content.SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String etag = prefs.getString("githubEtag", null), kept = prefs.getString("githubRelease", null);
+        Request.Builder request = new Request.Builder().url(RELEASES).header("Accept", "application/vnd.github+json");
+        if (etag != null && kept != null) request.header("If-None-Match", etag);
+        try (Response response = client.newCall(request.build()).execute()) {
+            if (response.code() == 304 && kept != null) return parseRelease(kept);
+            if ((response.code() == 403 || response.code() == 429) && "0".equals(response.header("x-ratelimit-remaining"))) {
+                Log.w("TermWeaveUpdate", "GitHub rate limit reached; it resets at epoch " + response.header("x-ratelimit-reset")); return null;
+            }
             if (!response.isSuccessful() || response.body() == null) { Log.w("TermWeaveUpdate", "GitHub answered " + response.code()); return null; }
             // a body cut at the limit does not parse, and the caller treats that as no answer
-            JSONObject release = new JSONObject(response.peekBody(262144).string());
+            String text = response.peekBody(262144).string();
+            Latest latest = parseRelease(text);
+            if (response.header("ETag") != null) prefs.edit().putString("githubEtag", response.header("ETag")).putString("githubRelease", text).apply();
+            return latest;
+        }
+    }
+
+    private static Latest parseRelease(String text) throws Exception {
+            JSONObject release = new JSONObject(text);
             Matcher tag = TAG.matcher(release.optString("tag_name"));
             JSONArray assets = release.optJSONArray("assets");
             if (!tag.matches() || assets == null) return null;
@@ -101,7 +119,6 @@ final class Updater {
                 return valid(latest) ? latest : null;
             }
             return null;
-        }
     }
 
     private static Latest fromRelay(Context context) throws Exception {

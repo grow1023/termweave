@@ -30,9 +30,8 @@ cp "$denylist" "$out/.github/publish-denylist.txt"
 grep -qx '.github/publish-denylist.txt' "$out/.gitignore" 2>/dev/null || printf '\n.github/publish-denylist.txt\n' >> "$out/.gitignore"
 
 git -C "$out" add -A
-# privacy.py is not wired in yet: it fails every export on dependency-notice author emails, test
-# fixtures and every PNG (binary_unverified). Run it by hand until those have reviewed exceptions.
-# python3 "$repo/tools/public-release/privacy.py" "$out"
+# privacy.py does not gate the export: it flags every dependency-notice author email, test
+# fixture and PNG. auto_release.sh runs it after each release as a report (privacy_review.sh).
 src=$(git -C "$repo" rev-parse --short HEAD)
 if git -C "$out" diff --cached --quiet; then
   print "no public changes since the last export"
