@@ -115,10 +115,28 @@ const measure = async (label: string, settled = true) => {
   const sharedBefore = await page.evaluate(() => (window as any).renderFrames.filter((frame: any) => frame.type === 'resize').length);
   await page.evaluate(() => { for (const socket of (window as any).renderSockets) { socket.emit({ type: 'pane-geometry', pane_id: 'synthetic-b', cols: 160, rows: 45 }); socket.emit({ type: 'pty-data', pane_id: 'synthetic-b', data: '\x1b[2J\x1b[45;1HLAST-ROW\x1b[45;160H#' }); } });
   await page.waitForTimeout(200);
+  // Since v0.3.46 an interact client does not ignore another device's grid. A grid wider than this
+  // screen is taken back: this device keeps a grid that fits it and re-asserts it with one resize, so
+  // two devices settle on the smaller grid. measure() proves the grid fits and matches the frame sent.
   const interactShared = await page.evaluate(() => ({ cols: (window as any).renderTerms.find((term: any) => term.element?.isConnected)?.cols,
     frames: (window as any).renderFrames.filter((frame: any) => frame.type === 'resize').length }));
-  assert.equal(interactShared.cols, localCols); assert.equal(interactShared.frames, sharedBefore);
-  measurements.push({ label: 'interact-shared-geometry-policy', interactShared });
+  assert.ok(interactShared.cols < 160 && Math.abs(interactShared.cols - localCols) <= 1, `took back ${interactShared.cols}, had ${localCols}`);
+  assert.equal(interactShared.frames, sharedBefore + 1);
+  measurements.push({ label: 'interact-shared-geometry-policy', interactShared, localCols });
+  await measure('interact-shared-larger-taken-back');
+  // A grid that fits this screen is borrowed: drawn as the pty's grid, with no resize sent.
+  const borrowBefore = interactShared.frames;
+  await page.evaluate(() => { for (const socket of (window as any).renderSockets) { socket.emit({ type: 'pane-geometry', pane_id: 'synthetic-b', cols: 30, rows: 20 }); socket.emit({ type: 'pty-data', pane_id: 'synthetic-b', data: '\x1b[2J\x1b[20;1HLAST-ROW\x1b[20;30H#' }); } });
+  await page.waitForTimeout(200);
+  const borrowed = await page.evaluate(() => ({ cols: (window as any).renderTerms.find((term: any) => term.element?.isConnected)?.cols,
+    rows: (window as any).renderTerms.find((term: any) => term.element?.isConnected)?.rows,
+    frames: (window as any).renderFrames.filter((frame: any) => frame.type === 'resize').length,
+    adopted: document.querySelector('.pane-terminal')!.hasAttribute('data-adopted-grid') }));
+  assert.deepEqual(borrowed, { cols: 30, rows: 20, frames: borrowBefore, adopted: true });
+  measurements.push({ label: 'interact-shared-smaller-borrowed', borrowed });
+  // the larger grid again, so the observe step below starts from this device's own grid
+  await page.evaluate(() => { for (const socket of (window as any).renderSockets) { socket.emit({ type: 'pane-geometry', pane_id: 'synthetic-b', cols: 160, rows: 45 }); socket.emit({ type: 'pty-data', pane_id: 'synthetic-b', data: '\x1b[2J\x1b[45;1HLAST-ROW\x1b[45;160H#' }); } });
+  await measure('interact-shared-taken-back-again');
   await page.getByRole('button', { name: 'Role', exact: true }).click();
   const before = await page.evaluate(() => (window as any).renderFrames.filter((frame: any) => frame.type === 'resize').length);
   await page.evaluate(() => { for (const socket of (window as any).renderSockets) { socket.emit({ type: 'pane-geometry', pane_id: 'synthetic-b', cols: 160, rows: 45 }); socket.emit({ type: 'pty-data', pane_id: 'synthetic-b', data: '\x1b[2J\x1b[45;1HLAST-ROW\x1b[45;160H#' }); } });
