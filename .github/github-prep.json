@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "repoType": "app",
   "mode": "update",
-  "baselineCommit": "79d971c1c41683b0ea8ccdcdfefce45c8849d9e5",
-  "reviewedHead": "e942d121a9a9d723ae5d540493bf621b6e41a45a",
+  "baselineCommit": "e942d121a9a9d723ae5d540493bf621b6e41a45a",
+  "reviewedHead": "43623277a4fbdde5693853774b11302965898c54",
   "references": [
     {
       "repo": "tsl0922/ttyd",
@@ -75,18 +75,18 @@
     "gaps": []
   },
   "diffReview": {
-    "since": "79d971c1c41683b0ea8ccdcdfefce45c8849d9e5",
+    "since": "e942d121a9a9d723ae5d540493bf621b6e41a45a",
     "files": [
       "CHANGELOG.termweave.md",
       "CITATION.cff",
       "herdr-plugin.toml",
       "package.json",
-      "scripts/workspace-reorder-regression.ts",
       "shared/product.ts",
       "src/lib/workspaceReorder.test.ts",
-      "src/lib/workspaceReorder.ts"
+      "src/lib/workspaceReorder.ts",
+      "tools/mac-app/main.swift"
     ],
-    "summary": "v0.3.47: the sidebar drag stops edge scrolling once a dragged folder reaches its first or last slot (src/lib/workspaceReorder.ts), with a unit test and a browser regression that holds a drag past the list end; the other five files only bump the version to 0.3.47 and add its changelog line."
+    "summary": "v0.3.48: the sidebar folder drag edge-scrolls on elapsed time with an eased edge band (max 480px/s) instead of a fixed 12px per frame that ran twice as fast on 120Hz screens (src/lib/workspaceReorder.ts, with a unit test); tools/mac-app/main.swift adds View menu zoom in/out/actual size on WKWebView.pageZoom (Cmd+=, Cmd++, Cmd+-, Cmd+0), kept in UserDefaults; the other five files only bump the version to 0.3.48 and add its changelog lines. No secrets, personal paths or account data added."
   },
   "readiness": {
     "verified": [
