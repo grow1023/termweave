@@ -653,6 +653,9 @@ try {
   // and a tap on the message box does
   const typing = (target: typeof mobilePage) => target.evaluate(() => document.activeElement?.matches("textarea, input, [contenteditable]") ?? false);
   await mobilePage.getByRole("textbox", { name: "Message", exact: true }).blur();
+  // a pane opens in chat only while it has an agent: refresh the manual reports, which herdr can
+  // drop on a slow machine before this step (it then opened in the terminal, with no Message box)
+  for (const pane_id of [paneA, paneB]) await herdrRpc("pane.report_agent", { pane_id, source: "manual", agent: "claude", state: "idle" });
   await mobilePage.locator('button[aria-controls="workspace-drawer"]').click();
   await mobilePage.locator(`.pane-select[data-workspace-id="${workspaces[0]}"]`).click();
   await mobilePage.getByRole("textbox", { name: "Message", exact: true }).waitFor();

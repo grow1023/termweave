@@ -66,8 +66,15 @@ export async function checkTerminalInput(browser: Browser, origin: string, pane:
     await line.dispatchEvent("compositionstart", { data: "" });
     await page.getByRole("button", { name: "Send to the terminal", exact: true }).click();
     await page.waitForTimeout(100);
-    assert.equal(sent.length, 0, "unfinished composition must not submit via button");
+    assert.equal(sent.length, 0, "a tap mid-composition waits for the commit");
+    // 0c32fe2: the tap commits the syllable, then sends once (250ms fallback when no compositionend arrives)
+    await until(() => sent.length === 1 && !!acknowledge);
+    acknowledge!();
+    acknowledge = undefined;
+    await until(async () => (await line.inputValue()) === "");
+    await line.fill("draft 한글 😀");
     // Leaving during composition must not leave the composition guard stuck.
+    await line.dispatchEvent("compositionstart", { data: "" });
     await page.getByTitle("Chat transcript (⌘⇧J)", { exact: true }).click();
     await page.getByTitle("Live terminal (⌘⇧J)", { exact: true }).click();
     await remountLine();
@@ -81,7 +88,7 @@ export async function checkTerminalInput(browser: Browser, origin: string, pane:
     acknowledge!();
     await until(async () => !(await page.getByRole("button", { name: "Send to the terminal", exact: true }).isDisabled()));
     assert.equal(await line.inputValue(), "draft 한글 😀", "late ack cannot erase replacement text");
-    assert.equal(sent.length, 1);
+    assert.equal(sent.length, 2);
 
     await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+Comma" : "Control+Shift+Comma");
     const shortcut = page.getByRole("combobox", { name: "Command palette", exact: true });
@@ -92,12 +99,13 @@ export async function checkTerminalInput(browser: Browser, origin: string, pane:
     await page.keyboard.press("Escape");
     await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+Comma" : "Control+Shift+Comma");
     await shortcut.selectOption("off");
-    await page.getByRole("combobox", { name: "Next pane", exact: true }).selectOption("p");
+    // a one-pane test workspace makes Next pane a no-op, so rebind an action that shows on screen
+    await page.getByRole("combobox", { name: "Switch chat / terminal", exact: true }).selectOption("p");
     await page.getByRole("button", { name: "Close settings", exact: true }).click();
     await line.focus();
-    const selectionBefore = await page.evaluate(() => localStorage.getItem("termweave:selection"));
     await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+p" : "Control+Shift+p");
-    await until(async () => (await page.evaluate(() => localStorage.getItem("termweave:selection"))) !== selectionBefore);
+    await line.waitFor({ state: "hidden" }); // the rebound key works from the focused input line: the chat lens hides it
+    await page.getByTitle("Live terminal (⌘⇧J)", { exact: true }).click(); // the pane remembers its lens across the reload
     await page.goto(`${origin}/?pane=${encodeURIComponent(pane)}`);
     await line.waitFor();
     await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+Comma" : "Control+Shift+Comma");
