@@ -43,6 +43,7 @@ import { ensurePushSubscription, pushSupported, removePushSubscription } from ".
 import { onNotificationTarget } from "./lib/notificationTarget.ts";
 import { useUpdates } from "./lib/updates.ts";
 import { FrontendControls } from "./components/FrontendControls.tsx";
+import { ZoomControls } from "./components/ZoomControls.tsx";
 import { UpdateButton } from "./components/UpdateControls.tsx";
 import { FilesDialog } from "./components/FilesDialog.tsx";
 import { FileViewer } from "./components/FileViewer.tsx";
@@ -795,6 +796,7 @@ export function App() {
         </button>
         <div className="header-meta" id="header-meta" data-open={moreOpen || undefined}>
           <FrontendControls />
+          <ZoomControls />
           <span
             className={`conn ${connected ? "conn-live" : "conn-reconnecting"}`}
             role="status"

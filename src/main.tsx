@@ -9,6 +9,8 @@ import { App } from "./App.tsx";
 import { TmuxConsole } from "./components/TmuxConsole.tsx";
 import { SettingsProvider } from "./lib/settings.ts";
 import "./lib/viewport.ts";
+import { startZoom } from "./lib/pageZoom.ts";
+startZoom();
 
 const container = document.getElementById("root");
 if (!container) throw new Error("#root is missing from index.html");

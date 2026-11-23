@@ -549,6 +549,9 @@ button {
   flex: 0 0 auto;
 }
 
+.zoom-controls { display: inline-flex; align-items: center; gap: 2px; }
+.zoom-controls .zoom-level { min-width: 3.5em; font-variant-numeric: tabular-nums; }
+
 .header-meta {
   display: inline-flex;
   align-items: center;
