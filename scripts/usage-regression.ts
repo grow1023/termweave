@@ -209,7 +209,8 @@ export async function checkUsageMeters(browser: Browser, origin: string): Promis
     await page.locator(".sidebar-footer-row .sidebar-footer-action").click();
     await page.getByRole("button", { name: "Beside Settings", exact: true }).click();
     await page.keyboard.press("Escape");
-    await page.locator(".usage-strip").waitFor();
+    // Escape also closes the phone drawer that holds the strip: it has to be there, not on screen
+    await page.locator(".usage-strip").waitFor({ state: "attached" });
     assert.equal(await page.locator(".usage-panel").count(), 0);
     assert.deepEqual(errors, []);
   } finally {

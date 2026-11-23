@@ -103,7 +103,7 @@ try {
     });
   });
   await page.goto(`${origin}/?pane=${encodeURIComponent(paneA)}`);
-  await page.locator(".conn.conn-live").waitFor();
+  await page.locator(".conn.conn-live").waitFor({ state: "attached" });
   await until(() => painted.has(paneA), "owned pane paint");
   const composer = page.getByRole("textbox", { name: "Message", exact: true });
   await composer.waitFor();
@@ -310,7 +310,7 @@ try {
   if (process.env.UI_EVIDENCE_DIR) await page.screenshot({ path: join(process.env.UI_EVIDENCE_DIR, "multiple-queue.png") });
   await page.locator(".composer-queue-text").nth(1).fill("# edited second message");
   await page.reload();
-  await page.locator(".conn.conn-live").waitFor();
+  await page.locator(".conn.conn-live").waitFor({ state: "attached" });
   await until(async () => await page.locator(".composer-queue-text").count() === 3, "queue restored");
   assert.equal(await page.locator(".composer-queue-text").nth(1).inputValue(), "# edited second message");
   // the queue belongs to the chat lens: the terminal lens hides it and keeps it for the return
@@ -440,7 +440,7 @@ try {
   await page.getByTitle("Live terminal (⌘⇧J)", { exact: true }).click();
   await page.getByLabel('Existing terminals', { exact: true }).selectOption(paneB);
   await page.waitForFunction(id => document.querySelector('.dock-group')?.getAttribute('data-pane-id') === id, paneB);
-  await page.reload(); await page.locator('.conn.conn-live').waitFor();
+  await page.reload(); await page.locator('.conn.conn-live').waitFor({ state: "attached" });
   await page.waitForFunction(id => Array.from(document.querySelectorAll('.dock-group')).some(node => node.getAttribute('data-pane-id') === id), paneB);
   await herdrRpc("pane.report_agent", { pane_id: paneA, source: "manual", agent: "claude", state: "blocked" });
   await inputIndicator.waitFor();
@@ -484,11 +484,11 @@ try {
     await createGate;
     await route.continue();
   });
-  await page.getByRole("button", { name: /^New session on / }).click();
-  const dialog = page.getByRole("dialog", { name: /^New session/ });
+  await page.getByRole("button", { name: /^New folder session on / }).click();
+  const dialog = page.getByRole("dialog", { name: /^New folder session/ });
   await dialog.getByLabel(/^Directory/).fill(root);
   await dialog.getByLabel(/^Name/).fill("herdr-web-ui-test-browser-created");
-  await dialog.getByRole("button", { name: "Start session", exact: true }).click();
+  await dialog.getByRole("button", { name: "Create folder session", exact: true }).click();
   await until(() => createRequests === 1, "creation started");
   await page.keyboard.press("Escape");
   assert.equal(await dialog.isVisible(), true, "in-flight creation cannot be dismissed");
@@ -633,7 +633,7 @@ try {
   const mobilePage = await mobile.newPage();
   mobilePage.on("pageerror", (error) => errors.push(error.message));
   await mobilePage.goto(`${origin}/?pane=${encodeURIComponent(paneB)}`);
-  await mobilePage.locator(".conn.conn-live").waitFor();
+  await mobilePage.locator(".conn.conn-live").waitFor({ state: "attached" });
   const tapHighlight = await mobilePage.locator(".view-switch button").first().evaluate((node) => getComputedStyle(node).webkitTapHighlightColor);
   assert.equal(tapHighlight, "rgba(0, 0, 0, 0)", "native tap overlays do not obscure selection");
   await mobilePage.getByTitle("Chat transcript (⌘⇧J)", { exact: true }).click();
@@ -686,7 +686,7 @@ try {
   chipPage.on("pageerror", (error) => errors.push(error.message));
   await chipPage.route(promptRoute, (route) => route.fulfill(suggest));
   await chipPage.goto(`${origin}/?pane=${encodeURIComponent(paneB)}`);
-  await chipPage.locator(".conn.conn-live").waitFor();
+  await chipPage.locator(".conn.conn-live").waitFor({ state: "attached" });
   await chipPage.getByTitle("Chat transcript (⌘⇧J)", { exact: true }).click();
   await chipPage.getByTitle("Use the suggestion", { exact: true }).click();
   assert.equal(await chipPage.getByRole("textbox", { name: "Message", exact: true }).inputValue(), "run the tests", "the chip puts the suggestion in the box");
@@ -706,7 +706,7 @@ try {
     if (message.type === "input" || message.type === "submit") touchSent.push(message);
   }));
   await touchPage.goto(`${origin}/?pane=${encodeURIComponent(paneB)}`);
-  await touchPage.locator(".conn.conn-live").waitFor();
+  await touchPage.locator(".conn.conn-live").waitFor({ state: "attached" });
   await touchPage.getByTitle("Live terminal (⌘⇧J)", { exact: true }).click();
   const line = touchPage.getByRole("textbox", { name: "Terminal input line", exact: true });
   await line.waitFor();
