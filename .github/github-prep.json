@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "repoType": "app",
   "mode": "update",
-  "baselineCommit": "e1e47ebcf0596ba019d2aba9dfe0431c2d2a7c26",
-  "reviewedHead": "efc847a2bdcc001d849dfe7221a64b664dc80758",
+  "baselineCommit": "efc847a2bdcc001d849dfe7221a64b664dc80758",
+  "reviewedHead": "bd37f414cba285e4704e6c848a4308f07fb92d95",
   "references": [
     {
       "repo": "tsl0922/ttyd",
@@ -75,9 +75,40 @@
     "gaps": []
   },
   "diffReview": {
-    "since": "e1e47ebcf0596ba019d2aba9dfe0431c2d2a7c26",
-    "files": [],
-    "summary": "Automated review for v0.3.52 by tools/public-release/auto_release.sh. 0 file(s) changed since e1e47ebcf059. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- feat(mobile): zoom the whole page from the more menu, like Cmd+- and Cmd+= on the Mac\n- test(ui): wait for the header status, not any .conn-live\n- ci: run the macOS lane only on a manual dispatch\n- test(render): check the v0.3.46 grid policy instead of the one it replaced"
+    "since": "efc847a2bdcc001d849dfe7221a64b664dc80758",
+    "files": [
+      "scripts/chat-browser-qa.ts",
+      "scripts/composer-reconnect-regression.ts",
+      "scripts/default-view-regression.ts",
+      "scripts/dock-header-regression.ts",
+      "scripts/dock-regression.ts",
+      "scripts/dock-title-drag-regression.ts",
+      "scripts/droplet-regression.ts",
+      "scripts/file-viewer-regression.ts",
+      "scripts/height-regression.ts",
+      "scripts/machines-browser-qa.ts",
+      "scripts/mobile-viewport-regression.ts",
+      "scripts/needs-input-regression.ts",
+      "scripts/pane-move-regression.ts",
+      "scripts/preview-app-regression.ts",
+      "scripts/product-browser-regression.ts",
+      "scripts/public-feature-capture.ts",
+      "scripts/push-settings-regression.ts",
+      "scripts/session-color-regression.ts",
+      "scripts/session-isolation-regression.ts",
+      "scripts/spatial-focus-regression.ts",
+      "scripts/split-regression.ts",
+      "scripts/terminal-command-backspace-regression.ts",
+      "scripts/terminal-file-input-regression.ts",
+      "scripts/terminal-file-links-regression.ts",
+      "scripts/ui-regression.ts",
+      "scripts/update-browser-qa.ts",
+      "scripts/usage-regression.ts",
+      "scripts/wake-lock-regression.ts",
+      "scripts/windows-lens-browser-qa.ts",
+      "scripts/workspace-sync-regression.ts"
+    ],
+    "summary": "Automated review for v0.3.52 by tools/public-release/auto_release.sh. 30 file(s) changed since efc847a2bdcc. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- test(ui): follow the folded phone header and the renamed folder session dialog"
   },
   "readiness": {
     "verified": [
