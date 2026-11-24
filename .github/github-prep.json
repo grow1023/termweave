@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "repoType": "app",
   "mode": "update",
-  "baselineCommit": "bd37f414cba285e4704e6c848a4308f07fb92d95",
-  "reviewedHead": "3941ad79914aa8f248ddfc0441e1ed4ab791856c",
+  "baselineCommit": "3941ad79914aa8f248ddfc0441e1ed4ab791856c",
+  "reviewedHead": "2a74f2d3f757d616611dd8e93ae99eb2f6bda110",
   "references": [
     {
       "repo": "tsl0922/ttyd",
@@ -75,12 +75,24 @@
     "gaps": []
   },
   "diffReview": {
-    "since": "bd37f414cba285e4704e6c848a4308f07fb92d95",
+    "since": "3941ad79914aa8f248ddfc0441e1ed4ab791856c",
     "files": [
-      "scripts/terminal-input-regression.ts",
-      "scripts/ui-regression.ts"
+      "CHANGELOG.termweave.md",
+      "CITATION.cff",
+      "herdr-plugin.toml",
+      "package.json",
+      "scripts/ui-regression.ts",
+      "shared/product.ts",
+      "src/components/KeyBar.tsx",
+      "src/components/PaneTerminal.tsx",
+      "src/components/TerminalInput.tsx",
+      "src/lib/i18n.ja.ts",
+      "src/lib/i18n.ko.ts",
+      "src/lib/i18n.zh.ts",
+      "src/lib/keys.test.ts",
+      "src/lib/keys.ts"
     ],
-    "summary": "Automated review for v0.3.52 by tools/public-release/auto_release.sh. 2 file(s) changed since bd37f414cba2. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- test(ui): follow the IME send-after-commit and keep panes in chat for the phone step\n- test(ui): follow the folded phone header and the renamed folder session dialog"
+    "summary": "Automated review for v0.3.53 by tools/public-release/auto_release.sh. 14 file(s) changed since 3941ad79914a. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- fix(mobile): erase what the terminal already has from the input line\n- test(ui): follow the IME send-after-commit and keep panes in chat for the phone step\n- test(ui): follow the folded phone header and the renamed folder session dialog"
   },
   "readiness": {
     "verified": [
