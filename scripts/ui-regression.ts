@@ -732,10 +732,24 @@ try {
   await line.dispatchEvent("compositionstart", { data: "" });
   const beforeComposeSend = touchSent.length;
   await touchPage.getByRole("button", { name: "Send to the terminal", exact: true }).click();
-  await touchPage.waitForTimeout(NO_SEND_WAIT_MS);
-  assert.equal(touchSent.length, beforeComposeSend, "button cannot submit an unfinished composition");
+  await touchPage.waitForTimeout(100);
+  assert.equal(touchSent.length, beforeComposeSend, "a tap mid-composition waits for the commit");
+  // the commit ends the composition, then the line goes (0c32fe2)
   await line.dispatchEvent("compositionend", { data: "한글" });
-  await line.fill("");
+  await until(() => touchSent.length > beforeComposeSend && touchSent.at(-1)?.text === "echo 한글", "send after the commit");
+  await until(async () => (await line.inputValue()) === "", "input line cleared after the committed send");
+  // what the shell already has (a sent line, a Tab completion) is erased from an empty line or the key bar
+  const erases = touchSent.length;
+  await line.press("Backspace");
+  await until(() => touchSent.length > erases && touchSent.at(-1)?.type === "input" && touchSent.at(-1)?.text === "\x7f", "backspace from the empty line");
+  await touchPage.getByRole("button", { name: "Backspace", exact: true }).click();
+  await until(() => touchSent.length > erases + 1 && touchSent.at(-1)?.text === "\x7f", "backspace from the key bar");
+  await line.fill("x");
+  const typed = touchSent.length;
+  await line.press("Backspace");
+  await touchPage.waitForTimeout(NO_SEND_WAIT_MS);
+  assert.equal(touchSent.length, typed, "backspace in a non-empty line edits the line only");
+  assert.equal(await line.inputValue(), "");
   // an empty line's button is Enter alone
   const enters = touchSent.length;
   await touchPage.getByRole("button", { name: "Press Enter in the terminal", exact: true }).click();

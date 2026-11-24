@@ -100,6 +100,10 @@ export function KeyBar({ onKey, ctrlArmed, onToggleCtrl, directTyping, onToggleD
       <Key disabled={disabled} dataKey="Tab" onPress={() => onKey("Tab")}>
         Tab
       </Key>
+      {/* text already sent (a line, a Tab completion) sits in the shell: the input line cannot erase it */}
+      <Key disabled={disabled} dataKey="Backspace" label={t("Backspace")} onPress={() => onKey("Backspace")}>
+        ⌫
+      </Key>
       <Key disabled={disabled} dataKey="Control" pressed={ctrlArmed} onPress={onToggleCtrl}>
         Ctrl
       </Key>

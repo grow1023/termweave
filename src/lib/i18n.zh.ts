@@ -406,6 +406,7 @@ export const ZH: Record<string, string> = {
   "Left": "左",
   "Right": "右",
   "Control C": "Control C",
+  "Backspace": "退格",
 
   // ---- prompt card ----
   "Submit": "提交",

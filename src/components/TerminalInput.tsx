@@ -19,6 +19,8 @@ export interface TerminalInputProps {
   onSend: (text: string) => false | Promise<true | string>;
   /** an empty line's send: Enter alone, for a menu's default or a prompt that asks to continue */
   onEnter: () => boolean;
+  /** Backspace in an empty line: erase the character the terminal already has (a sent line, a Tab completion) */
+  onBackspace: () => void;
 }
 
 /** Lines the box grows to before it scrolls. */
@@ -30,7 +32,7 @@ const MAX_ROWS = 4;
  * cannot take back keys it already sent: every revision arrived as more text. Here the line
  * is written with the keyboard's own editing and goes to the pane whole, then Enter.
  */
-export function TerminalInput({ owner, paneId, connected, onSend, onEnter, onComposing }: TerminalInputProps) {
+export function TerminalInput({ owner, paneId, connected, onSend, onEnter, onBackspace, onComposing }: TerminalInputProps) {
   const t = useT();
   const text = useSyncExternalStore(subscribeTerminalDraft, () => readTerminalDraft(owner));
   const setText = useCallback((value: string | ((previous: string) => string)) => {
@@ -137,6 +139,11 @@ export function TerminalInput({ owner, paneId, connected, onSend, onEnter, onCom
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
     // Enter sends; Shift+Enter breaks the line; an IME keeps its Enter, including the committing
     // one WebKit can send after compositionend as key code 229
+    if (event.key === "Backspace" && event.currentTarget.value === "" && connected && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      onBackspace();
+      return;
+    }
     if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
     event.preventDefault();
     send();

@@ -39,6 +39,7 @@ describe("keySequence", () => {
   it("sends the fixed bytes for Escape, Tab and Ctrl+C", () => {
     expect(keySequence("Escape", false)).toBe("\u001b");
     expect(keySequence("Tab", false)).toBe("\t");
+    expect(keySequence("Backspace", false)).toBe("\x7f");
     expect(keySequence("ctrl-c", true)).toBe("\u0003");
   });
 
