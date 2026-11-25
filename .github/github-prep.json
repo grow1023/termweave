@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "repoType": "app",
   "mode": "update",
-  "baselineCommit": "8acbbf411ae3548cd177e876a6b700aa72c3d41b",
-  "reviewedHead": "b3aec1136200093e68b7e11b3c82b2269837099e",
+  "baselineCommit": "b3aec1136200093e68b7e11b3c82b2269837099e",
+  "reviewedHead": "86460a8bf7258af279e256bd816615fd1a0a5639",
   "references": [
     {
       "repo": "tsl0922/ttyd",
@@ -75,29 +75,26 @@
     "gaps": []
   },
   "diffReview": {
-    "since": "8acbbf411ae3548cd177e876a6b700aa72c3d41b",
+    "since": "b3aec1136200093e68b7e11b3c82b2269837099e",
     "files": [
       "CHANGELOG.termweave.md",
       "CITATION.cff",
       "herdr-plugin.toml",
       "package.json",
       "scripts/bots-panel-regression.ts",
+      "scripts/ui-regression.ts",
       "shared/product.ts",
       "src/App.tsx",
+      "src/components/BotBar.tsx",
+      "src/components/BotsPanel.css",
       "src/components/BotsPanel.tsx",
-      "src/components/BotsSidebar.tsx",
-      "src/components/MachineSidebar.tsx",
-      "src/components/Sidebar.css",
-      "src/components/Sidebar.tsx",
-      "src/lib/bots.test.ts",
+      "src/components/PaneTerminal.tsx",
       "src/lib/bots.ts",
       "src/lib/i18n.ja.ts",
       "src/lib/i18n.ko.ts",
-      "src/lib/i18n.test.ts",
-      "src/lib/i18n.zh.ts",
-      "src/lib/workspaceReorder.ts"
+      "src/lib/i18n.zh.ts"
     ],
-    "summary": "Automated review for v0.3.55 by tools/public-release/auto_release.sh. 19 file(s) changed since 8acbbf411ae3. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- feat(sidebar): a bots group at the top of the sidebar"
+    "summary": "Automated review for v0.3.56 by tools/public-release/auto_release.sh. 16 file(s) changed since b3aec1136200. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- feat(bots): a bot opens as a chat with its questions answered in place"
   },
   "readiness": {
     "verified": [
