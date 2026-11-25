@@ -214,6 +214,8 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(() => new URLSearchParams(window.location.search).get("panel") === "android");
   const [openRigOpen, setOpenRigOpen] = useState(() => new URLSearchParams(window.location.search).get("panel") === "openrig");
   const [botsOpen, setBotsOpen] = useState(() => new URLSearchParams(window.location.search).get("panel") === "bots");
+  /** which bot the bots page opens on: one from the sidebar, or null for the page's own pick */
+  const [botsStart, setBotsStart] = useState<{ bot: string | null; create: boolean }>({ bot: null, create: false });
   const closeOpenRig = useCallback(() => {
     setOpenRigOpen(false);
     const url = new URL(window.location.href);
@@ -811,7 +813,7 @@ export function App() {
           {!targetHerdr && <span className="pill pill-offline">{t("herdr offline")}</span>}
           <button type="button" className="icon-button" aria-label={t("Agent fleet")} title={t("Agent fleet")} onClick={() => setFleetOpen(true)}><Orbit aria-hidden="true" /></button>
           <button type="button" className="icon-button" aria-label={t("OpenRig teams")} title={t("OpenRig teams")} onClick={() => setOpenRigOpen(true)}><Users aria-hidden="true" /></button>
-          <button type="button" className="icon-button" aria-label={t("Bots")} title={t("Bots")} onClick={() => setBotsOpen(true)}><BotIcon aria-hidden="true" /></button>
+          <button type="button" className="icon-button" aria-label={t("Bots")} title={t("Bots")} onClick={() => { setBotsStart({ bot: null, create: false }); setBotsOpen(true); }}><BotIcon aria-hidden="true" /></button>
           <TerminalNotificationCenter readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onSelect={target => selectTargetRef.current("local", target.paneId)} />
           {selectedPane && (
             <button type="button" className="icon-button files-button" aria-label={t("Browse files")} title={t("Browse files")} onClick={() => setFilesOpen(true)}>
@@ -844,7 +846,7 @@ export function App() {
       <div className="app-body">
         <aside id="workspace-drawer" className={`sidebar${drawerOpen ? " is-open" : ""}`}>
           {error && <div className="error-state" role="alert"><p>{error}</p><button className="btn" onClick={() => void load()}>{t("Retry")}</button></div>}
-          <MachineSidebar version={health?.herdr?.version ?? null} machines={machines} selectedMachineId={selectedMachineId} selectedPaneId={selectedPaneId} selectedWorkspaceId={sidebarOwnerId} onSelectWorkspace={selectWorkspace} actions={actions} onSelect={selectTarget} onSetup={(machine, update = false) => { setUpdateRemote(update); setMachineDialog(machine); }} onNew={(id) => { setNewSessionMachineId(id); setNewSessionOpen(true); setDrawerOpen(false); }} />
+          <MachineSidebar onOpenBots={(bot) => { setDrawerOpen(false); setBotsStart({ bot, create: bot === null }); setBotsOpen(true); }} version={health?.herdr?.version ?? null} machines={machines} selectedMachineId={selectedMachineId} selectedPaneId={selectedPaneId} selectedWorkspaceId={sidebarOwnerId} onSelectWorkspace={selectWorkspace} actions={actions} onSelect={selectTarget} onSetup={(machine, update = false) => { setUpdateRemote(update); setMachineDialog(machine); }} onNew={(id) => { setNewSessionMachineId(id); setNewSessionOpen(true); setDrawerOpen(false); }} />
         </aside>
 
         {drawerOpen && <div className="scrim" aria-hidden="true" onClick={() => setDrawerOpen(false)} />}
@@ -920,7 +922,7 @@ export function App() {
         selectTargetRef.current(machineId, paneId);
       }} />
       {fleetOpen && <FleetPanel machines={machines} onClose={closeFleet} onOpen={(machineId, paneId) => { setDrawerOpen(false); selectTargetRef.current(machineId, paneId); }} onSetup={(machine) => { setDrawerOpen(false); setUpdateRemote(false); setMachineDialog(machine); }} onConnections={() => { setSettingsSection("remote"); setSettingsOpen(true); }} />}
-      {botsOpen && <BotsPanel readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onClose={() => setBotsOpen(false)} onOpenPane={(paneId) => { setDrawerOpen(false); setMoreOpen(false); selectTargetRef.current("local", paneId); }} />}
+      {botsOpen && <BotsPanel initialBot={botsStart.bot} initialCreate={botsStart.create} readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onClose={() => setBotsOpen(false)} onOpenPane={(paneId) => { setDrawerOpen(false); setMoreOpen(false); selectTargetRef.current("local", paneId); }} />}
       {openRigOpen && <OpenRigPanel canManageService={auth?.authenticated === true && auth.role !== "watch" && role !== "observe"} readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onClose={closeOpenRig} onOpened={() => { void load(); }} />}
       <SettingsDialog auth={auth} open={settingsOpen} onClose={closeSettings} actions={actions} updates={updates} onEnableNotifications={enableNotifications} section={settingsSection} />
       {filesOpen && selectedPane && (

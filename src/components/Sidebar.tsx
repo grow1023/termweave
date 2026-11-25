@@ -2,7 +2,7 @@ import { AgentMark } from "./AgentMark.tsx";
 import { TeamFolders } from "./TeamFolders.tsx";
 import { paneNumber } from "../lib/paneNumber.ts";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent } from "react";
-import { useWorkspaceReorder } from "../lib/workspaceReorder.ts";
+import { fullOrderIndex, useWorkspaceReorder } from "../lib/workspaceReorder.ts";
 import { ChevronRight, Ellipsis, Folder, GripVertical, Layers, Palette, Pencil, Plus, X } from "lucide-react";
 import { readCollapsedWorkspaces, workspaceCollapseId, writeCollapsedWorkspaces } from "../lib/workspaceCollapse.ts";
 
@@ -92,9 +92,11 @@ export interface SidebarProps {
   actions: AppActions;
   selectedWorkspaceId?: string | null;
   onSelectWorkspace?: (id: string) => void;
+  /** workspaces shown elsewhere (the bots group): left out of this list, and reordering skips them */
+  hiddenWorkspaceIds?: ReadonlySet<string>;
 }
 
-export function Sidebar({ snapshot, selectedPaneId, selectedWorkspaceId, onSelectWorkspace, actions }: SidebarProps) {
+export function Sidebar({ snapshot, selectedPaneId, selectedWorkspaceId, onSelectWorkspace, actions, hiddenWorkspaceIds }: SidebarProps) {
   const t = useT();
   const machineId = useMachineId();
   // cmux-style session color: per browser, per PC and workspace, shown on the folder mark
@@ -175,6 +177,8 @@ export function Sidebar({ snapshot, selectedPaneId, selectedWorkspaceId, onSelec
     const byId = new Map(snapshot.workspaces.map((workspace) => [workspace.workspace_id, workspace]));
     return workspaceOrder.map((id) => byId.get(id)).filter((workspace): workspace is WorkspaceInfo => workspace !== undefined);
   }, [snapshot, workspaceOrder]);
+  const visibleWorkspaces = useMemo(() => hiddenWorkspaceIds?.size
+    ? orderedWorkspaces.filter((workspace) => !hiddenWorkspaceIds.has(workspace.workspace_id)) : orderedWorkspaces, [orderedWorkspaces, hiddenWorkspaceIds]);
   const workspacePaneCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const pane of snapshot?.panes ?? []) counts.set(pane.workspace_id, (counts.get(pane.workspace_id) ?? 0) + 1);
@@ -259,13 +263,18 @@ export function Sidebar({ snapshot, selectedPaneId, selectedWorkspaceId, onSelec
       if (mounted.current) setReorderPending(false);
     });
   };
-  const workspaceDrag = useWorkspaceReorder(`${structure}:${JSON.stringify([...collapsed])}`, reorderPending, reorderWorkspace);
+  /** a place in the shown list, as herdr's order counts it: the shown workspace there gives up its index */
+  const reorderShown = (workspaceId: string, shownIndex: number): void => {
+    const index = fullOrderIndex(workspaceOrder, visibleWorkspaces.map(workspace => workspace.workspace_id), shownIndex);
+    if (index !== null) reorderWorkspace(workspaceId, index);
+  };
+  const workspaceDrag = useWorkspaceReorder(`${structure}:${JSON.stringify([...collapsed])}`, reorderPending, reorderShown);
 
   const onHandleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, workspaceId: string): void => {
     if (workspaceDrag.dragging() || !event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
     event.preventDefault();
-    const current = workspaceOrder.indexOf(workspaceId);
-    reorderWorkspace(workspaceId, current + (event.key === "ArrowUp" ? -1 : 1));
+    const current = visibleWorkspaces.findIndex(workspace => workspace.workspace_id === workspaceId);
+    reorderShown(workspaceId, current + (event.key === "ArrowUp" ? -1 : 1));
   };
 
   const dragHandle = (workspace: WorkspaceInfo) => (
@@ -404,7 +413,7 @@ export function Sidebar({ snapshot, selectedPaneId, selectedWorkspaceId, onSelec
             <button type="button" className="btn" onClick={actions.openNewSession}><Plus aria-hidden="true" />{t("New session")}</button>
           </div>
         )}
-        {orderedWorkspaces.map(workspace => renderWorkspace(workspace, snapshot?.panes.filter(pane => pane.workspace_id === workspace.workspace_id) ?? []))}
+        {visibleWorkspaces.map(workspace => renderWorkspace(workspace, snapshot?.panes.filter(pane => pane.workspace_id === workspace.workspace_id) ?? []))}
         {inlineError && inlineError.paneId === undefined && (
           <p className="sidebar-inline-error" role="alert">{inlineError.message}</p>
         )}

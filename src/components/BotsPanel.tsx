@@ -7,14 +7,14 @@ import { useT } from "../lib/i18n.ts";
 import { BOT_ITEM_OPEN, type Bot, type BotAgent, type BotItem, type BotItemStatus, type BotsView, type BotWorkerStatus } from "../../shared/bots/types.ts";
 
 /** Bots: agents that take jobs from their chat and schedules and hand code work to workers (server/bots). */
-export function BotsPanel({ readOnly, onClose, onOpenPane }: { readOnly: boolean; onClose: () => void; onOpenPane: (paneId: string) => void }) {
+export function BotsPanel({ readOnly, onClose, onOpenPane, initialBot = null, initialCreate = false }: { readOnly: boolean; onClose: () => void; onOpenPane: (paneId: string) => void; initialBot?: string | null; initialCreate?: boolean }) {
   const t = useT();
   const id = useId();
   const dialog = useRef<HTMLDialogElement>(null);
   const [view, setView] = useState<BotsView | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [selected, setSelected] = useState<string | null>(initialBot);
+  const [creating, setCreating] = useState(initialCreate);
   const [busy, setBusy] = useState(false);
 
   useLayoutEffect(() => {

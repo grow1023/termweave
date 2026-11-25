@@ -633,3 +633,30 @@
   line-height: 1.6;
   white-space: nowrap;
 }
+
+/* the bots group above the PCs (BotsSidebar.tsx): a bot opens its chat, its running workers sit
+   under it; state is the same badges the terminals use, so no new color carries meaning here */
+.bots-sidebar { padding: var(--space-2) var(--space-3) var(--space-1); border-bottom: var(--hairline) solid var(--border); }
+.bots-sidebar-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-1); padding-left: var(--space-2); }
+.bots-sidebar-heading { font-size: var(--fs-sm); font-weight: 600; color: var(--text-dim); }
+.bots-sidebar-empty { display: block; width: 100%; margin: var(--space-1) 0 var(--space-2); padding: var(--space-2); border: var(--hairline) dashed var(--border); border-radius: var(--radius-md); background: transparent; color: var(--text-dim); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; word-break: keep-all; overflow-wrap: anywhere; text-wrap: pretty; }
+.bots-sidebar-empty:hover, .bots-sidebar-empty:focus-visible { color: var(--text-strong); background: var(--bg-hover); }
+.bots-sidebar-list, .bots-sidebar-workers { margin: 0; padding: 0; list-style: none; }
+.bots-sidebar-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.bots-sidebar-open { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; height: var(--row-h); padding: 0 var(--space-2); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.bots-sidebar-open:hover { background: var(--bg-hover); }
+.bots-sidebar-open[aria-current="true"] { background: var(--bg-hover); color: var(--text-strong); }
+.bots-sidebar-open:focus-visible, .bots-sidebar-worker:focus-visible, .bots-sidebar-needs:focus-visible { outline: 1px solid var(--text-dim); }
+.bots-sidebar-icon { flex: 0 0 auto; width: var(--icon-size); height: var(--icon-size); color: var(--text-dim); }
+.bots-sidebar-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bots-sidebar-word { flex: 0 0 auto; font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+.bots-sidebar-needs { flex: 0 0 auto; border: 0; cursor: pointer; font: inherit; font-size: 11px; white-space: nowrap; }
+.bots-sidebar-workers { padding-left: 22px; margin-bottom: var(--space-1); }
+.bots-sidebar-worker { display: flex; align-items: center; gap: 7px; width: 100%; min-width: 0; padding: 6px; border: 0; border-radius: 5px; background: transparent; color: var(--text-dim); font: inherit; font-size: 11px; text-align: left; cursor: pointer; }
+.bots-sidebar-worker:hover { background: var(--bg-hover); }
+.bots-sidebar-worker[aria-current="true"] { background: var(--bg-hover); color: var(--text-strong); }
+.bots-sidebar-worker-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (pointer: coarse), (max-width: 768px) {
+  .bots-sidebar-open, .bots-sidebar-worker, .bots-sidebar-needs { min-height: 44px; }
+  .bots-sidebar-worker { font-size: 12px; }
+}

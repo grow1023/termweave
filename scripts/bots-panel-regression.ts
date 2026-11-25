@@ -21,8 +21,14 @@ export async function checkBotsPanel(browser: Browser, origin: string): Promise<
       const calls = await standIn(page);
       await page.goto(origin);
       await page.locator(".conn.conn-live").waitFor({ state: "attached" });
-      if (phone) await page.getByRole("button", { name: "More tools", exact: true }).click();
-      await page.getByRole("button", { name: "Bots", exact: true }).click();
+      const group = page.locator("section.bots-sidebar");
+      if (phone) {
+        await page.getByRole("button", { name: "More tools", exact: true }).click();
+        await page.getByRole("button", { name: "Bots", exact: true }).click();
+      } else {
+        // the sidebar's bots group, before any bot: its one line opens the page on New bot
+        await group.getByRole("button", { name: /No bots yet/ }).click();
+      }
       const dialog = page.getByRole("dialog", { name: "Bots" });
       await dialog.waitFor();
 
@@ -66,12 +72,22 @@ export async function checkBotsPanel(browser: Browser, origin: string): Promise<
       }
       await page.keyboard.press("Escape");
       await dialog.waitFor({ state: "detached" });
+      if (!phone) {
+        // the group lists the bot; its manage button opens the page on that bot
+        await page.evaluate(() => window.dispatchEvent(new Event("termweave:bots-changed")));
+        await group.getByRole("button", { name: "Fixer", exact: true }).waitFor();
+        await group.getByRole("button", { name: "Manage Fixer" }).click();
+        await dialog.getByRole("tab", { name: "Fixer", selected: true }).waitFor();
+        await page.keyboard.press("Escape");
+        await dialog.waitFor({ state: "detached" });
+        if (process.env.UI_EVIDENCE_DIR) await group.screenshot({ path: join(process.env.UI_EVIDENCE_DIR, "bots-sidebar.png") });
+      }
       assert.deepEqual(errors, []);
     } finally {
       await context.close();
     }
   }
-  console.log("PASS bots page: create, answer a needs-you item, add a schedule, a refusal, phone layout");
+  console.log("PASS bots page and sidebar group: create, answer a needs-you item, add a schedule, a refusal, manage from the sidebar, phone layout");
 }
 
 async function until(check: () => boolean, ms = 5000): Promise<void> {

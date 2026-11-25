@@ -1,3 +1,3 @@
 export const PRODUCT_NAME = "TermWeave";
-export const PRODUCT_VERSION = "0.3.54";
+export const PRODUCT_VERSION = "0.3.55";
 export const PRODUCT_LABEL = `${PRODUCT_NAME} v${PRODUCT_VERSION}`;

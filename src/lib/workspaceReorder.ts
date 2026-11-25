@@ -216,3 +216,12 @@ export function useWorkspaceReorder(structure: string, busy: boolean, commit: (i
     onLostPointerCapture: () => { if (!drag.current?.settling) clear(); },
     dragging: () => drag.current !== null };
 }
+
+/**
+ * A place in a list that leaves some workspaces out (the bots group shows those), as an index in
+ * herdr's full order: the shown workspace at that place gives up its index. null past either end.
+ */
+export function fullOrderIndex(order: readonly string[], shown: readonly string[], shownIndex: number): number | null {
+  const target = shown[shownIndex];
+  return target === undefined ? null : order.indexOf(target);
+}

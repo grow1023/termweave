@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Download, Monitor, Plus, Settings, SlidersHorizontal } from "lucide-react";
 import type { Machine, MachineState, MachineUpdate } from "../../shared/machines.ts";
 import { MachineContext } from "../lib/machineContext.tsx";
@@ -7,6 +7,8 @@ import { describeProgress } from "../lib/bridgeProgress.ts";
 import type { AppActions } from "../lib/actions.ts";
 import { useInstallPrompt } from "../lib/install.ts";
 import { Sidebar } from "./Sidebar.tsx";
+import { BotsSidebar } from "./BotsSidebar.tsx";
+import { botWorkspaceIds, useBotsView } from "../lib/bots.ts";
 import { NeedsInput } from "./NeedsInput.tsx";
 import { UsageMeters, UsagePanel } from "./UsageMeters.tsx";
 import "./Machines.css";
@@ -23,17 +25,23 @@ export const STATE_WORD: Readonly<Record<MachineState, string>> = {
   error: "Connection error",
 };
 
-interface Props { machines: Machine[]; selectedMachineId: string; selectedPaneId: string | null; selectedWorkspaceId?: string | null; onSelectWorkspace?: (machine: string, workspace: string) => void; actions: AppActions; version: string | null; onSelect(machineId: string, paneId: string | null): void; onNew(machineId: string): void; onSetup(machine: Machine, update?: boolean): void }
+interface Props { onOpenBots(botId: string | null): void; machines: Machine[]; selectedMachineId: string; selectedPaneId: string | null; selectedWorkspaceId?: string | null; onSelectWorkspace?: (machine: string, workspace: string) => void; actions: AppActions; version: string | null; onSelect(machineId: string, paneId: string | null): void; onNew(machineId: string): void; onSetup(machine: Machine, update?: boolean): void }
 export function MachineSidebar(props: Props) {
   const t = useT();
   const { canInstall, installed, install, help } = useInstallPrompt();
   const [installHelpOpen, setInstallHelpOpen] = useState(false);
+  const bots = useBotsView();
+  const host = props.machines.find((machine) => machine.kind === "local");
+  const botWorkspaces = useMemo(() => botWorkspaceIds(bots, host?.snapshot?.panes ?? []), [bots, host?.snapshot?.panes]);
   // no top bar: a session starts from its PC's header, and Add PC lives in Settings → Remote PCs
   return <div className="sidebar-shell">
     <UsagePanel />
     <div className="machine-list" aria-label={t("PCs and workspaces")}>
       <NeedsInput machines={props.machines} selectedMachineId={props.selectedMachineId} selectedPaneId={props.selectedPaneId} onSelect={props.onSelect} />
-      {props.machines.map((machine) => <MachineGroup key={machine.id} {...props} machine={machine} />)}
+      {/* the bots group comes right after what waits on the user now */}
+      {bots && host && <BotsSidebar view={bots} snapshot={host.snapshot} selectedPaneId={props.selectedMachineId === host.id ? props.selectedPaneId : null}
+        onOpenPane={(paneId) => props.onSelect(host.id, paneId)} onManage={props.onOpenBots} />}
+      {props.machines.map((machine) => <MachineGroup key={machine.id} {...props} machine={machine} hidden={machine.kind === "local" ? botWorkspaces : undefined} />)}
       {!props.machines.length && <p className="tree-state" role="status">{t("Loading PCs…")}</p>}
     </div>
     <footer className="sidebar-footer">
@@ -52,7 +60,7 @@ export function MachineSidebar(props: Props) {
   </div>;
 }
 
-function MachineGroup({ machine, ...props }: Props & { machine: Machine }) {
+function MachineGroup({ machine, hidden, ...props }: Props & { machine: Machine; hidden: ReadonlySet<string> | undefined }) {
   const t = useT();
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem(`termweave:pc-collapsed:${machine.id}`) === "1"; } catch { return false; } });
   const [editing, setEditing] = useState(false);
@@ -94,7 +102,7 @@ function MachineGroup({ machine, ...props }: Props & { machine: Machine }) {
     </div>}
     {error && <p className="machine-error" role="alert">{error}</p>}
     {!collapsed && <div className={online ? "" : "machine-offline"} {...(!online ? { inert: "" } : {})}>
-      {!online && !machine.snapshot ? <p className="tree-state machine-empty" role="status">{t("No saved sessions")}</p> : <MachineContext.Provider value={machine.id}><Sidebar snapshot={machine.snapshot} selectedPaneId={props.selectedMachineId === machine.id ? props.selectedPaneId : null} selectedWorkspaceId={props.selectedMachineId === machine.id ? props.selectedWorkspaceId : null} onSelectWorkspace={id => props.onSelectWorkspace?.(machine.id, id)} actions={actions} /></MachineContext.Provider>}
+      {!online && !machine.snapshot ? <p className="tree-state machine-empty" role="status">{t("No saved sessions")}</p> : <MachineContext.Provider value={machine.id}><Sidebar snapshot={machine.snapshot} selectedPaneId={props.selectedMachineId === machine.id ? props.selectedPaneId : null} selectedWorkspaceId={props.selectedMachineId === machine.id ? props.selectedWorkspaceId : null} onSelectWorkspace={id => props.onSelectWorkspace?.(machine.id, id)} actions={actions} hiddenWorkspaceIds={hidden} /></MachineContext.Provider>}
     </div>}
   </section>;
 }
