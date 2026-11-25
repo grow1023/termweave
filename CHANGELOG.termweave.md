@@ -3,6 +3,10 @@
 TermWeave(herdr web ui 포크)의 변경 기록입니다. 원본 프로젝트의 기록은 `CHANGELOG.md`에 있습니다.
 이 파일에는 실제 동작이나 게이트로 확인된 완료 항목만 적습니다. 일부만 끝난 항목은 "남은 일"에 따로 적습니다.
 
+## [0.3.56] - 2026-11-25
+
+- feat(bots): a bot opens as a chat with its questions answered in place
+
 ## [0.3.55] - 2026-11-25
 
 - feat(sidebar): a bots group at the top of the sidebar

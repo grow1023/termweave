@@ -281,7 +281,7 @@ try {
   console.log("PASS the bell turns alerts off and on again");
 
   await checkPageZoom(browser, origin, paneB);
-  await checkBotsPanel(browser, origin);
+  await checkBotsPanel(browser, origin, paneA);
   await checkPushSettings(browser, origin);
   await checkWakeLock(browser, origin, paneA);
   await checkNeedsInput(browser, origin, paneA);

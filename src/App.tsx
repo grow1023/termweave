@@ -45,6 +45,7 @@ import { useUpdates } from "./lib/updates.ts";
 import { FrontendControls } from "./components/FrontendControls.tsx";
 import { ZoomControls } from "./components/ZoomControls.tsx";
 import { BotsPanel } from "./components/BotsPanel.tsx";
+import { useBotsView } from "./lib/bots.ts";
 import { UpdateButton } from "./components/UpdateControls.tsx";
 import { FilesDialog } from "./components/FilesDialog.tsx";
 import { FileViewer } from "./components/FileViewer.tsx";
@@ -589,11 +590,25 @@ export function App() {
   // a server that repaints the pane's screen instead (terminal_mirror) has a terminal lens too
   const terminalAttach = targetHerdr?.terminal_attach !== false || targetHerdr?.terminal_mirror === true;
 
+  // a bot is talked to: its chat opens in the chat lens whatever the default, unless this pane was switched by hand
+  const botsView = useBotsView();
+  const botPanes = useMemo(() => new Set(selectedMachineId === "local" ? (botsView?.bots ?? []).flatMap((bot) => bot.paneId ? [bot.paneId] : []) : []), [botsView, selectedMachineId]);
+  const defaultViewFor = (paneId: string) => botPanes.has(paneId) ? "chat" as const : settings.defaultView;
+  // the bot bar's worker rows open their terminal here
+  useEffect(() => {
+    const open = (event: Event): void => {
+      const detail = (event as CustomEvent<{ machineId: string; paneId: string }>).detail;
+      if (detail?.paneId) selectTargetRef.current(detail.machineId, detail.paneId);
+    };
+    window.addEventListener("termweave:open-pane", open);
+    return () => window.removeEventListener("termweave:open-pane", open);
+  }, []);
+
   // the lens follows the selected pane: each pane remembers its own
   useEffect(() => {
     if (selectedPaneId === null) return;
-    setViewState(storedView(selectedPaneId, selectedMachineId, selectedPane ? selectedAgent !== null : null, terminalAttach, settings.defaultView));
-  }, [selectedPaneId, selectedMachineId, selectedPane !== null, selectedAgent !== null, terminalAttach, settings.defaultView]);
+    setViewState(storedView(selectedPaneId, selectedMachineId, selectedPane ? selectedAgent !== null : null, terminalAttach, defaultViewFor(selectedPaneId)));
+  }, [selectedPaneId, selectedMachineId, selectedPane !== null, selectedAgent !== null, terminalAttach, settings.defaultView, botPanes.has(selectedPaneId ?? "")]);
 
   const setView = useCallback(
     (next: PaneView) => {
@@ -860,7 +875,7 @@ export function App() {
             panes={snapshot?.panes ?? []}
             primaryId={selectedPaneId}
             ownerId={snapshot ? sidebarOwnerId : null}
-            viewForPane={pane => pane.pane_id === selectedPaneId ? view : storedView(pane.pane_id, selectedMachineId, pane.agent !== null, terminalAttach, settings.defaultView)}
+            viewForPane={pane => pane.pane_id === selectedPaneId ? view : storedView(pane.pane_id, selectedMachineId, pane.agent !== null, terminalAttach, defaultViewFor(pane.pane_id))}
             onPaneView={(id, next) => {
               try { writePaneView(selectedMachineId, id, next); } catch {}
               if (id === selectedPaneId) setView(next);

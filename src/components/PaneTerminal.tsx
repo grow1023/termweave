@@ -19,6 +19,7 @@ import { ApiError, fetchPaneScroll, fetchPaneSelection, scrollPane } from "../li
 import { parseOsc52 } from "../lib/osc52.ts";
 import { matchHerdrWidths } from "../lib/terminalWidths.ts";
 import { useMachineApi, useMachineId } from "../lib/machineContext.tsx";
+import { BotBar } from "./BotBar.tsx";
 import { paneStorageId } from "../../shared/machines.ts";
 import { KeyBar } from "./KeyBar.tsx";
 import { TerminalInput } from "./TerminalInput.tsx";
@@ -1462,6 +1463,8 @@ export function PaneTerminal({
           </div>
         )}
       </div>
+      {/* a bot's chat: what waits on the owner, answered here, above the conversation */}
+      {paneId !== null && chatView && machineId === "local" && <BotBar paneId={paneId} readOnly={observing} />}
       <div className="terminal-surface">
         <div className={`pane-terminal${paneId === null ? " is-idle" : ""}`} ref={hostRef} />
         {paneId !== null && chatView && (

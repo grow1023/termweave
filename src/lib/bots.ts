@@ -1,27 +1,42 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 import type { BotsView } from "../../shared/bots/types.ts";
 
 /**
- * The bots of this app's own server, kept current by the `bots-changed` push (App.tsx turns it
+ * The bots of this app's own server, shared by every surface that shows them (sidebar group,
+ * bot bar, chat-first view): one fetch, refreshed by the `bots-changed` push (App.tsx turns it
  * into a window event). null until the first answer, and stays null on a server without bots.
  */
+let current: BotsView | null = null;
+const listeners = new Set<() => void>();
+let loading = false;
+let again = false;
+
+export async function reloadBots(): Promise<void> {
+  if (loading) { again = true; return; }
+  loading = true;
+  try {
+    const response = await fetch("/api/bots", { cache: "no-store" });
+    if (response.ok) { current = await response.json() as BotsView; for (const listener of listeners) listener(); }
+  } catch { /* the sidebar shows no bots; the bots page says why */ } finally {
+    loading = false;
+    if (again) { again = false; void reloadBots(); }
+  }
+}
+
+const onChanged = (): void => { void reloadBots(); };
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  if (listeners.size === 1) { window.addEventListener("termweave:bots-changed", onChanged); void reloadBots(); }
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) window.removeEventListener("termweave:bots-changed", onChanged);
+  };
+}
+
 export function useBotsView(): BotsView | null {
-  const [view, setView] = useState<BotsView | null>(null);
-  useEffect(() => {
-    let live = true;
-    const load = async (): Promise<void> => {
-      try {
-        const response = await fetch("/api/bots", { cache: "no-store" });
-        if (response.ok && live) setView(await response.json() as BotsView);
-      } catch { /* the sidebar shows no bots; the bots page says why */ }
-    };
-    void load();
-    const reload = (): void => { void load(); };
-    window.addEventListener("termweave:bots-changed", reload);
-    return () => { live = false; window.removeEventListener("termweave:bots-changed", reload); };
-  }, []);
-  return view;
+  return useSyncExternalStore(subscribe, () => current, () => null);
 }
 
 /** Workspaces the sidebar's bots group stands for: each bot's chat, and the workers still at work. */
@@ -36,3 +51,8 @@ export function botWorkspaceIds(view: BotsView | null, panes: ReadonlyArray<{ pa
 
 /** a finished worker's workspace goes back to the normal list, where it is read and closed as any other */
 export const ACTIVE_WORKER: ReadonlySet<string> = new Set(["starting", "working", "blocked"]);
+
+/** Asks App to open a pane of this PC (the bot bar's worker rows). */
+export function openLocalPane(paneId: string): void {
+  window.dispatchEvent(new CustomEvent("termweave:open-pane", { detail: { machineId: "local", paneId } }));
+}

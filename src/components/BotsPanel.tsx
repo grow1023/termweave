@@ -124,7 +124,7 @@ const ITEM_LABEL: Record<BotItemStatus, string> = {
   done: "Done",
   canceled: "Canceled",
 };
-const WORKER_LABEL: Record<BotWorkerStatus, string> = {
+export const WORKER_LABEL: Record<BotWorkerStatus, string> = {
   starting: "Starting",
   working: "Working",
   blocked: "Waiting for you",
@@ -209,7 +209,7 @@ function BotDetail({ bot, view, locked, readOnly, act, onOpenChat, onOpenPane, o
   );
 }
 
-function ItemRow({ item, locked, onAnswer }: { item: BotItem; locked: boolean; onAnswer: (answer: string) => void }) {
+export function ItemRow({ item, locked, onAnswer }: { item: BotItem; locked: boolean; onAnswer: (answer: string) => void }) {
   const t = useT();
   const [answer, setAnswer] = useState("");
   const last = item.comments.at(-1);

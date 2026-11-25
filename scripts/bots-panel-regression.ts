@@ -10,7 +10,7 @@ import type { BotsView } from "../shared/bots/types.ts";
  * agent session is started. Creating, answering a needs-you item, adding a schedule, and the
  * phone layout.
  */
-export async function checkBotsPanel(browser: Browser, origin: string): Promise<void> {
+export async function checkBotsPanel(browser: Browser, origin: string, botPane: string): Promise<void> {
   for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
     const phone = viewport.width < 600;
     const context = await browser.newContext({ viewport, locale: "en-US", ...(phone ? { isMobile: true, hasTouch: true } : {}) });
@@ -18,7 +18,7 @@ export async function checkBotsPanel(browser: Browser, origin: string): Promise<
       const page = await context.newPage();
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
-      const calls = await standIn(page);
+      const { calls, ask } = await standIn(page, botPane);
       await page.goto(origin);
       await page.locator(".conn.conn-live").waitFor({ state: "attached" });
       const group = page.locator("section.bots-sidebar");
@@ -75,12 +75,24 @@ export async function checkBotsPanel(browser: Browser, origin: string): Promise<
       if (!phone) {
         // the group lists the bot; its manage button opens the page on that bot
         await page.evaluate(() => window.dispatchEvent(new Event("termweave:bots-changed")));
-        await group.getByRole("button", { name: "Fixer", exact: true }).waitFor();
+        await group.getByRole("button", { name: /^Fixer\b/ }).waitFor();
         await group.getByRole("button", { name: "Manage Fixer" }).click();
         await dialog.getByRole("tab", { name: "Fixer", selected: true }).waitFor();
         await page.keyboard.press("Escape");
         await dialog.waitFor({ state: "detached" });
         if (process.env.UI_EVIDENCE_DIR) await group.screenshot({ path: join(process.env.UI_EVIDENCE_DIR, "bots-sidebar.png") });
+        // the bot's chat opens in the chat lens with its bar: a new question is answered right there
+        ask();
+        await page.evaluate(() => window.dispatchEvent(new Event("termweave:bots-changed")));
+        await group.getByRole("button", { name: /^Fixer\b/ }).click();
+        const bar = page.getByRole("region", { name: "Fixer bot" });
+        await bar.getByText("Merge now?", { exact: true }).waitFor();
+        assert.equal(await page.locator(".chat-view").count(), 1, "a bot opens in the chat lens");
+        if (process.env.UI_EVIDENCE_DIR) await page.screenshot({ path: join(process.env.UI_EVIDENCE_DIR, "bot-chat-desktop.png") });
+        await bar.getByRole("button", { name: "merge", exact: true }).click();
+        await until(() => calls.at(-1)?.path === "/api/bots/b1/items/2");
+        assert.deepEqual(calls.at(-1)?.body, { answer: "merge" });
+        await bar.getByText("Merge now?", { exact: true }).waitFor({ state: "detached" });
       }
       assert.deepEqual(errors, []);
     } finally {
@@ -98,7 +110,7 @@ async function until(check: () => boolean, ms = 5000): Promise<void> {
   }
 }
 
-async function standIn(page: Page): Promise<Array<{ method: string; path: string; body: unknown }>> {
+async function standIn(page: Page, botPane: string): Promise<{ calls: Array<{ method: string; path: string; body: unknown }>; ask: () => void }> {
   const calls: Array<{ method: string; path: string; body: unknown }> = [];
   const at = "2026-11-24T00:00:00.000Z";
   let view: BotsView = { bots: [], items: [], automations: [], workers: [] };
@@ -108,7 +120,7 @@ async function standIn(page: Page): Promise<Array<{ method: string; path: string
     const body = request.postData() ? JSON.parse(request.postData()!) : undefined;
     if (request.method() !== "GET") calls.push({ method: request.method(), path, body });
     if (request.method() === "POST" && path === "/api/bots") {
-      const bot = { id: "b1", name: body.name, agent: body.agent, home: "/tmp/b1", repo: null, paused: false, paneId: "p9", createdAt: at };
+      const bot = { id: "b1", name: body.name, agent: body.agent, home: "/tmp/b1", repo: null, paused: false, paneId: botPane, createdAt: at };
       view = {
         ...view,
         bots: [bot],
@@ -116,8 +128,9 @@ async function standIn(page: Page): Promise<Array<{ method: string; path: string
       };
       return route.fulfill({ json: bot });
     }
-    if (request.method() === "POST" && path === "/api/bots/b1/items/1") {
-      view = { ...view, items: view.items.map((item) => ({ ...item, status: "working" as const, ask: null, options: [] })) };
+    const answered = /^\/api\/bots\/b1\/items\/(\d+)$/.exec(path);
+    if (request.method() === "POST" && answered) {
+      view = { ...view, items: view.items.map((item) => item.n === Number(answered[1]) ? { ...item, status: "working" as const, ask: null, options: [] } : item) };
       return route.fulfill({ json: { ok: true } });
     }
     if (request.method() === "POST" && path === "/api/bots/b1/automations") {
@@ -128,5 +141,8 @@ async function standIn(page: Page): Promise<Array<{ method: string; path: string
     }
     return route.fulfill({ json: view });
   });
-  return calls;
+  const ask = (): void => {
+    view = { ...view, items: [...view.items, { botId: "b1", n: 2, title: "Merge the fix", doneMeans: null, status: "needs_you", ask: "Merge now?", options: ["merge", "wait"], waitingOn: null, comments: [], createdAt: at, updatedAt: at }] };
+  };
+  return { calls, ask };
 }
