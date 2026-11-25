@@ -37,6 +37,8 @@ function setup() {
   const notified: string[] = [];
   const alive = new Set<string>();
   const lostEnter = new Map<string, number>();
+  const pressed: Array<{ paneId: string; keys: string[] }> = [];
+  const closed: string[] = [];
   const store = new BotStore(join(root, "state"));
   const turn = (paneId: string): void => {
     const lost = lostEnter.get(paneId) ?? 0;
@@ -54,6 +56,12 @@ function setup() {
     pressEnter: async (paneId) => { entered.push(paneId); turn(paneId); },
     paneAlive: async (paneId) => alive.has(paneId),
     readTail: async () => "all tests pass\nbranch pushed",
+    snapshot: async () => ({
+      workspaces: [...alive].map((paneId) => ({ workspace_id: `w-${paneId}`, label: `ws ${paneId}` })) as never,
+      panes: [...alive].map((paneId) => ({ pane_id: paneId, workspace_id: `w-${paneId}`, agent_status: "idle", cwd: "/x" })) as never,
+    }),
+    sendKeys: async (paneId, keys) => { pressed.push({ paneId, keys }); },
+    closePane: async (paneId) => { closed.push(paneId); alive.delete(paneId); },
     git: async (args) => { git.push(args); return args[0] === "rev-parse" ? `${repo}\n` : ""; },
     notify: async (title, body) => { notified.push(`${title}: ${body}`); },
     changed: () => {},
@@ -67,7 +75,7 @@ function setup() {
     runtime.onPaneStatus(store.bot(made.id)!.paneId!, "done");
     return store.bot(made.id)!;
   };
-  return { root, repo, store, runtime, submitted, entered, started, git, notified, alive, lostEnter, bot, tick: (ms: number) => { clock = new Date(clock.getTime() + ms); } };
+  return { root, repo, store, runtime, submitted, entered, started, git, notified, alive, lostEnter, pressed, closed, bot, tick: (ms: number) => { clock = new Date(clock.getTime() + ms); } };
 }
 
 describe("bots", () => {
@@ -176,7 +184,7 @@ describe("bots", () => {
   });
 
   it("lets the bot CLI in from this computer with its own secret only", async () => {
-    const { runtime, repo, store, bot } = setup();
+    const { runtime, repo, store, alive, bot } = setup();
     const made = await bot("Cli");
     const secret = JSON.parse(readFileSync(join(made.home, ".termweave-bot.json"), "utf8")).secret as string;
     const call = (loopback: boolean, key: string, command: string, body: object) => handleBotCliRequest(
@@ -190,5 +198,63 @@ describe("bots", () => {
     const set = await call(true, secret, "item-set", { n: 1, status: "needs_you", ask: "OK?", options: ["yes"] });
     expect(await set.json()).toMatchObject({ status: "needs_you", ask: "OK?" });
     expect((await call(true, secret, "item-set", { n: 1, status: "bogus" })).status).toBe(400);
+    alive.add("own3");
+    expect(await (await call(true, secret, "pane-send", { id: "own3", text: "ls" })).json()).toEqual({ approval: 2 });
+    // the bot cannot rewrite the question its owner approves
+    const rewrite = await call(true, secret, "item-set", { n: 2, ask: "harmless?" });
+    expect(rewrite.status).toBe(400);
+    expect(store.item(made.id, 2)?.ask).toContain("ls");
+  });
+  it("lists and reads every terminal, and types into the owner's only after APPROVE", async () => {
+    const { runtime, submitted, store, alive, bot } = setup();
+    const made = await bot("Ops");
+    alive.add("own1"); // a terminal the owner opened
+    const listed = await runtime.listPanes(made.id);
+    expect(listed.find((pane) => pane.paneId === "p1")?.owner).toBe("you");
+    expect(listed.find((pane) => pane.paneId === "own1")).toMatchObject({ owner: null, workspace: "ws own1" });
+    expect((await runtime.readPane(made.id, "own1", 10)).text).toContain("all tests pass");
+    await expect(runtime.readPane(made.id, "nope", 10)).rejects.toThrow("no terminal nope");
+    await expect(runtime.paneAction(made.id, { paneId: "p1", kind: "close" })).rejects.toThrow("your own chat");
+    await expect(runtime.paneAction(made.id, { paneId: "own1", kind: "keys", keys: ["rm -rf"] })).rejects.toThrow("key names");
+
+    const denied = await runtime.paneAction(made.id, { paneId: "own1", kind: "send", text: "npm test" });
+    expect(denied).toEqual({ approval: 1 });
+    expect(store.item(made.id, 1)).toMatchObject({ status: "needs_you", options: ["Approve", "Deny"], ask: expect.stringContaining("npm test") });
+    await runtime.answerItem(made.id, 1, "Deny");
+    expect(store.item(made.id, 1)?.status).toBe("canceled");
+    expect(submitted.some((entry) => entry.paneId === "own1")).toBe(false);
+
+    const asked = await runtime.paneAction(made.id, { paneId: "own1", kind: "send", text: "npm test" });
+    expect(submitted.some((entry) => entry.paneId === "own1")).toBe(false);
+    await runtime.answerItem(made.id, (asked as { approval: number }).approval, "Approve");
+    expect(submitted.filter((entry) => entry.paneId === "own1")).toEqual([{ paneId: "own1", text: "npm test" }]);
+    expect(store.item(made.id, 2)?.status).toBe("done");
+    await expect(runtime.answerItem(made.id, 2, "Approve")).rejects.toThrow("already answered");
+    expect(submitted.filter((entry) => entry.paneId === "own1")).toHaveLength(1);
+  });
+
+  it("acts on its own workers at once, and closes an owner's terminal only when approved", async () => {
+    const { runtime, store, alive, pressed, closed, bot } = setup();
+    const made = await bot("Ops2");
+    const worker = await runtime.startWorker(made.id, { repo: null, agent: null, itemN: null, spec: "x" });
+    expect(await runtime.paneAction(made.id, { paneId: worker.paneId!, kind: "keys", keys: ["Escape"] })).toEqual({ done: true });
+    expect(pressed).toEqual([{ paneId: worker.paneId!, keys: ["Escape"] }]);
+    alive.add("own2");
+    const asked = await runtime.paneAction(made.id, { paneId: "own2", kind: "close" }) as { approval: number };
+    expect(closed).toEqual([]);
+    await runtime.answerItem(made.id, asked.approval, "Approve");
+    expect(closed).toEqual(["own2"]);
+    expect(store.item(made.id, asked.approval)?.status).toBe("done");
+  });
+
+  it("opens a workspace with an agent and gives it its first prompt", async () => {
+    const { runtime, root, started, submitted, bot } = setup();
+    const made = await bot("Opener");
+    await expect(runtime.openWorkspace(made.id, { cwd: join(root, "missing"), agent: null, label: null, prompt: null })).rejects.toThrow("not a folder");
+    await expect(runtime.openWorkspace(made.id, { cwd: root, agent: null, label: null, prompt: "hi" })).rejects.toThrow("needs --agent");
+    const opened = await runtime.openWorkspace(made.id, { cwd: root, agent: "codex", label: null, prompt: "Look at the logs." });
+    expect(started.at(-1)).toEqual({ paneId: opened.paneId, cwd: root });
+    await until(() => submitted.at(-1)?.paneId === opened.paneId);
+    expect(submitted.at(-1)?.text).toBe("Look at the logs.");
   });
 });

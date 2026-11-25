@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { basename, join, resolve } from "node:path";
 
-import type { AgentStatus } from "../../shared/protocol.ts";
+import type { AgentStatus, SessionSnapshot } from "../../shared/protocol.ts";
 import { nextRunAfter, validateBotSchedule } from "../../shared/bots/schedule/index.ts";
-import type { Bot, BotAgent, BotAutomation, BotItem, BotSchedule, BotWorker } from "../../shared/bots/types.ts";
+import { APPROVE, DENY, type Bot, type BotAgent, type BotAutomation, type BotItem, type BotPaneAction, type BotPaneEntry, type BotSchedule, type BotWorker } from "../../shared/bots/types.ts";
 import { buildBotInstructions, workerPrompt } from "./preamble.ts";
 import type { BotStore } from "./store.ts";
 
@@ -26,6 +26,10 @@ export interface BotDeps {
   pressEnter(paneId: string): Promise<void>;
   paneAlive(paneId: string): Promise<boolean>;
   readTail(paneId: string, lines: number): Promise<string>;
+  /** this computer's terminals, for the bot's pane commands */
+  snapshot(): Promise<Pick<SessionSnapshot, "panes" | "workspaces">>;
+  sendKeys(paneId: string, keys: string[]): Promise<void>;
+  closePane(paneId: string): Promise<void>;
   git(args: string[], cwd: string): Promise<string>;
   notify(title: string, body: string, paneId: string | null, tag: string): Promise<void>;
   /** the bots page should read again */
@@ -329,8 +333,104 @@ export class BotRuntime {
     const item = this.deps.store.item(botId, n);
     if (!item) throw new BotError("unknown_item", `no item #${n}`);
     if (answer.trim() === "") throw new BotError("missing_answer", "an answer cannot be empty");
+    if (item.action) return this.answerAction(botId, item, item.action, answer.trim());
     this.setItem(botId, n, { status: "working" }, { by: "owner", text: answer.trim() });
     await this.tell(botId, `[TermWeave] Your owner answered on item #${n} (${item.title})${item.ask ? `, "${item.ask}"` : ""}: ${answer.trim()}`);
+  }
+
+  // ---- every terminal of this computer ----
+
+  async listPanes(botId: string): Promise<BotPaneEntry[]> {
+    const bot = this.mustBot(botId);
+    const { panes, workspaces } = await this.deps.snapshot();
+    return panes.map((pane) => ({
+      paneId: pane.pane_id,
+      workspace: workspaces.find((workspace) => workspace.workspace_id === pane.workspace_id)?.label ?? pane.workspace_id,
+      title: pane.label || pane.terminal_title_stripped || pane.title || null,
+      cwd: pane.foreground_cwd ?? pane.cwd ?? null,
+      agent: pane.display_agent ?? pane.agent ?? null,
+      status: pane.agent_status,
+      owner: this.ownerOf(bot, pane.pane_id),
+    }));
+  }
+
+  async readPane(botId: string, paneId: string, lines: number): Promise<{ paneId: string; text: string }> {
+    await this.findPane(botId, paneId);
+    return { paneId, text: await this.deps.readTail(paneId, Math.min(Math.max(Math.trunc(lines) || 80, 1), 500)) };
+  }
+
+  /**
+   * Text, keys or a close for a terminal. On the bot's own workers it runs now; on any other
+   * terminal it becomes a needs-you item and runs only when the owner picks APPROVE.
+   */
+  async paneAction(botId: string, input: { paneId: string; kind: BotPaneAction["kind"]; text?: string; keys?: string[] }): Promise<{ done: true } | { approval: number }> {
+    const bot = this.mustBot(botId);
+    const pane = await this.findPane(bot.id, input.paneId);
+    if (pane.owner === "you") throw new BotError("own_pane", "that terminal is your own chat");
+    const where = `"${pane.workspace}"${pane.title ? ` · ${pane.title}` : ""} (${pane.paneId})`;
+    const action = paneActionOf(input, where);
+    if (this.deps.store.workerByPane(pane.paneId)?.botId === bot.id) { await this.runAction(action); return { done: true }; }
+    const at = this.now().toISOString();
+    const item = this.deps.store.addItem({ botId: bot.id, title: actionTitle(action), doneMeans: null, status: "planned", ask: null, options: [], waitingOn: null, comments: [], action, createdAt: at, updatedAt: at });
+    this.setItem(bot.id, item.n, { status: "needs_you", ask: actionAsk(action), options: [APPROVE, DENY] });
+    return { approval: item.n };
+  }
+
+  private async answerAction(botId: string, item: BotItem, action: BotPaneAction, answer: string): Promise<void> {
+    if (item.status !== "needs_you") throw new BotError("already_answered", `item #${item.n} was already answered`);
+    if (answer !== APPROVE) {
+      this.setItem(botId, item.n, { status: "canceled" }, { by: "owner", text: answer });
+      await this.tell(botId, `[TermWeave] Your owner did not approve item #${item.n} (${item.title}), so nothing was done. Their answer: ${answer}`);
+      return;
+    }
+    // working first: a second click while this runs finds it answered
+    this.setItem(botId, item.n, { status: "working" }, { by: "owner", text: APPROVE });
+    try {
+      await this.findPane(botId, action.paneId);
+      await this.runAction(action);
+    } catch (error) {
+      const why = error instanceof Error ? error.message : String(error);
+      this.setItem(botId, item.n, { status: "canceled" }, { by: "bot", text: `failed: ${why}` });
+      await this.tell(botId, `[TermWeave] Your owner approved item #${item.n} (${item.title}), but it failed: ${why}`).catch(() => {});
+      throw new BotError("action_failed", why);
+    }
+    this.setItem(botId, item.n, { status: "done" });
+    await this.tell(botId, `[TermWeave] Your owner approved item #${item.n} (${item.title}) and it was done.`);
+  }
+
+  private async runAction(action: BotPaneAction): Promise<void> {
+    if (action.kind === "send") await this.deps.submit(action.paneId, action.text);
+    else if (action.kind === "keys") await this.deps.sendKeys(action.paneId, action.keys);
+    else await this.deps.closePane(action.paneId);
+  }
+
+  /** A new workspace in `cwd`, with an agent and its first prompt when asked. */
+  async openWorkspace(botId: string, input: { cwd: string; agent: BotAgent | null; label: string | null; prompt: string | null }): Promise<{ workspaceId: string; paneId: string }> {
+    const bot = this.mustBot(botId);
+    const cwd = resolve(input.cwd);
+    if (!existsSync(cwd) || !statSync(cwd).isDirectory()) throw new BotError("invalid_cwd", `${input.cwd} is not a folder`);
+    const prompt = input.prompt?.trim() || null;
+    if (prompt && !input.agent) throw new BotError("missing_agent", "a prompt needs --agent");
+    const opened = await this.deps.createWorkspace(cwd, input.label?.trim() || `${bot.name} · ${basename(cwd)}`);
+    if (input.agent) {
+      await this.deps.startAgent(input.agent, opened.paneId, cwd);
+      if (prompt) void this.ready(opened.paneId).then(() => this.deliver(opened.paneId, prompt)).catch(() => {});
+    }
+    return opened;
+  }
+
+  private async findPane(botId: string, paneId: string): Promise<BotPaneEntry> {
+    const pane = (await this.listPanes(botId)).find((entry) => entry.paneId === paneId);
+    if (!pane) throw new BotError("unknown_pane", `no terminal ${paneId}: run pane list`);
+    return pane;
+  }
+
+  private ownerOf(bot: Bot, paneId: string): string | null {
+    if (paneId === bot.paneId) return "you";
+    const worker = this.deps.store.workerByPane(paneId);
+    if (worker) return worker.botId === bot.id ? `worker ${worker.id}` : "another bot's worker";
+    const other = this.deps.store.botByPane(paneId);
+    return other ? `bot ${other.name}` : null;
   }
 
   // ---- automations ----
@@ -410,3 +510,23 @@ export class BotRuntime {
 }
 
 const itemNote = (worker: BotWorker): string => (worker.itemN === null ? "" : ` (item #${worker.itemN})`);
+
+const KEY = /^[A-Za-z0-9+-]{1,24}$/;
+const MAX_TEXT = 4000;
+
+function paneActionOf(input: { paneId: string; kind: BotPaneAction["kind"]; text?: string; keys?: string[] }, where: string): BotPaneAction {
+  if (input.kind === "close") return { kind: "close", paneId: input.paneId, where };
+  if (input.kind === "keys") {
+    const keys = input.keys ?? [];
+    if (keys.length === 0 || keys.length > 10 || !keys.every((key) => KEY.test(key))) throw new BotError("invalid_keys", "give 1-10 key names such as Enter, Escape, Up or C-c");
+    return { kind: "keys", paneId: input.paneId, where, keys };
+  }
+  const text = input.text ?? "";
+  if (text.trim() === "" || text.length > MAX_TEXT) throw new BotError("invalid_text", `the text is 1-${MAX_TEXT} characters`);
+  return { kind: "send", paneId: input.paneId, where, text };
+}
+
+const actionTitle = (action: BotPaneAction): string =>
+  action.kind === "send" ? `Type into ${action.where}` : action.kind === "keys" ? `Press ${action.keys.join(" ")} in ${action.where}` : `Close ${action.where}`;
+
+const actionAsk = (action: BotPaneAction): string => (action.kind === "send" ? `${actionTitle(action)}?\n\n${action.text}` : `${actionTitle(action)}?`);

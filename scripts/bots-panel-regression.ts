@@ -93,6 +93,13 @@ export async function checkBotsPanel(browser: Browser, origin: string, botPane: 
         await until(() => calls.at(-1)?.path === "/api/bots/b1/items/2");
         assert.deepEqual(calls.at(-1)?.body, { answer: "merge" });
         await bar.getByText("Merge now?", { exact: true }).waitFor({ state: "detached" });
+        const approval = bar.locator("li", { hasText: "npm test" });
+        await approval.getByText('Type this into "api" (w1:p2) and press Enter?', { exact: true }).waitFor();
+        assert.equal(await approval.getByText("a bot's own wording").count(), 0, "an approval shows the action, not the bot's words");
+        assert.equal(await approval.getByRole("textbox").count(), 0, "an approval takes Approve or Deny only");
+        await approval.getByRole("button", { name: "Approve", exact: true }).click();
+        await until(() => calls.at(-1)?.path === "/api/bots/b1/items/3");
+        assert.deepEqual(calls.at(-1)?.body, { answer: "Approve" });
       }
       assert.deepEqual(errors, []);
     } finally {
@@ -142,7 +149,9 @@ async function standIn(page: Page, botPane: string): Promise<{ calls: Array<{ me
     return route.fulfill({ json: view });
   });
   const ask = (): void => {
-    view = { ...view, items: [...view.items, { botId: "b1", n: 2, title: "Merge the fix", doneMeans: null, status: "needs_you", ask: "Merge now?", options: ["merge", "wait"], waitingOn: null, comments: [], createdAt: at, updatedAt: at }] };
+    view = { ...view, items: [...view.items, { botId: "b1", n: 2, title: "Merge the fix", doneMeans: null, status: "needs_you", ask: "Merge now?", options: ["merge", "wait"], waitingOn: null, comments: [], createdAt: at, updatedAt: at },
+      // an approval: the bar words it from the action, not from the bot's ask
+      { botId: "b1", n: 3, title: "Type into \"api\" (w1:p2)", doneMeans: null, status: "needs_you", ask: "a bot's own wording", options: ["Approve", "Deny"], waitingOn: null, comments: [], action: { kind: "send", paneId: "w1:p2", where: "\"api\" (w1:p2)", text: "npm test" }, createdAt: at, updatedAt: at }] };
   };
   return { calls, ask };
 }

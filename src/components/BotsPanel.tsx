@@ -4,7 +4,7 @@ import { Bot as BotIcon, MessageSquare, Pause, Play, Plus, SquareTerminal, Trash
 
 import "./BotsPanel.css";
 import { useT } from "../lib/i18n.ts";
-import { BOT_ITEM_OPEN, type Bot, type BotAgent, type BotItem, type BotItemStatus, type BotsView, type BotWorkerStatus } from "../../shared/bots/types.ts";
+import { BOT_ITEM_OPEN, type Bot, type BotAgent, type BotItem, type BotItemStatus, type BotPaneAction, type BotsView, type BotWorkerStatus } from "../../shared/bots/types.ts";
 
 /** Bots: agents that take jobs from their chat and schedules and hand code work to workers (server/bots). */
 export function BotsPanel({ readOnly, onClose, onOpenPane, initialBot = null, initialCreate = false }: { readOnly: boolean; onClose: () => void; onOpenPane: (paneId: string) => void; initialBot?: string | null; initialCreate?: boolean }) {
@@ -219,20 +219,33 @@ export function ItemRow({ item, locked, onAnswer }: { item: BotItem; locked: boo
         <span className={`bots-label is-${item.status}`}>{t(ITEM_LABEL[item.status])}</span>
         <span className="bots-title ko-text">#{item.n} {item.title}</span>
       </div>
-      {item.status === "needs_you" && item.ask && <p className="bots-ask ko-text">{item.ask}</p>}
+      {item.status === "needs_you" && item.action && <ActionAsk action={item.action} />}
+      {item.status === "needs_you" && !item.action && item.ask && <p className="bots-ask ko-text">{item.ask}</p>}
       {item.status === "needs_you" && !locked && (
         <div className="bots-answers">
-          {item.options.map((option) => <button key={option} type="button" className="btn" onClick={() => onAnswer(option)}>{option}</button>)}
-          <form onSubmit={(event) => { event.preventDefault(); if (answer.trim()) { onAnswer(answer.trim()); setAnswer(""); } }}>
+          {item.options.map((option) => <button key={option} type="button" className="btn" onClick={() => onAnswer(option)}>{item.action ? (option === "Approve" ? t("Approve") : t("Deny")) : option}</button>)}
+          {!item.action && <form onSubmit={(event) => { event.preventDefault(); if (answer.trim()) { onAnswer(answer.trim()); setAnswer(""); } }}>
             <input value={answer} onChange={(event) => setAnswer(event.target.value)} aria-label={t("Your answer")} placeholder={t("Or write an answer…")} />
             <button type="submit" className="btn" disabled={answer.trim() === ""}>{t("Send")}</button>
-          </form>
+          </form>}
         </div>
       )}
       {item.status === "waiting" && item.waitingOn && <small className="ko-text">{t("Waiting on: {what}", { what: item.waitingOn })}</small>}
       {item.status !== "needs_you" && last && <small className="ko-text">{last.text}</small>}
     </li>
   );
+}
+
+/** What an approval runs, shown from the action itself: the bot cannot word it differently. */
+function ActionAsk({ action }: { action: BotPaneAction }) {
+  const t = useT();
+  const question = action.kind === "send" ? t("Type this into {where} and press Enter?", { where: action.where })
+    : action.kind === "keys" ? t("Press {keys} in {where}?", { keys: action.keys.join(" "), where: action.where })
+    : t("Close {where}?", { where: action.where });
+  return <div className="bots-ask">
+    <p className="ko-text">{question}</p>
+    {action.kind === "send" && <pre className="bots-action-text">{action.text}</pre>}
+  </div>;
 }
 
 function AddSchedule({ disabled, onAdd }: { disabled: boolean; onAdd: (input: { name: string; prompt: string; schedule: string; timezone: string; once: boolean }) => Promise<unknown> }) {

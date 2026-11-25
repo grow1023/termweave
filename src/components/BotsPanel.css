@@ -39,6 +39,8 @@
 .bots-label.is-done { background: color-mix(in srgb, #16a34a 16%, transparent); }
 .bots-label.is-failed, .bots-label.is-canceled { background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text-muted); }
 .bots-ask { margin: 0; font-size: 13px; text-wrap: pretty; }
+.bots-ask p { margin: 0; }
+.bots-action-text { margin: 6px 0 0; padding: 6px 8px; max-height: 160px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; font-family: var(--font-mono); border-radius: var(--radius-md); background: var(--bg-raised); }
 .bots-answers { display: flex; flex-wrap: wrap; gap: 6px; }
 .bots-answers form { display: flex; gap: 6px; flex: 1 1 220px; min-width: 0; }
 .bots-answers input { flex: 1; min-width: 0; }

@@ -84,8 +84,8 @@ function matches(given: string, expected: string): boolean {
 }
 
 /**
- * The bot's own CLI (server/bots/cli.ts): from this computer only, with that bot's secret, and
- * only for that bot's work. It never reaches panes, files or other bots.
+ * The bot's own CLI (server/bots/cli.ts): from this computer only, with that bot's secret. It
+ * reads every terminal, but types into or closes one it did not start only after the owner approves.
  */
 export async function handleBotCliRequest(request: Request, pathname: string, loopback: boolean, runtime: BotRuntime, store: BotStore, repos: () => Promise<string[]>): Promise<Response> {
   if (!loopback) return jsonResponse({ error: { code: "forbidden", message: "the bot CLI works from this computer only" } }, 403);
@@ -118,6 +118,8 @@ export async function handleBotCliRequest(request: Request, pathname: string, lo
       return answer(() => runtime.addItem(bot.id, { title: str(input.title) ?? "", doneMeans: str(input.doneMeans) }));
     case "item-set": {
       if (!Number.isInteger(n)) return badRequest("invalid_item", "give the item number");
+      // an approval item's question is TermWeave's own: the owner must see exactly what will run
+      if (store.item(bot.id, n)?.action) return badRequest("approval_item", "an approval item changes only by your owner's answer");
       if (input.status !== undefined && !isStatus(input.status)) return badRequest("invalid_status", `status is one of ${BOT_ITEM_STATUSES.join(", ")}`);
       const options = Array.isArray(input.options) ? input.options.filter((option): option is string => typeof option === "string") : undefined;
       const comment = str(input.comment)?.trim();
@@ -134,6 +136,19 @@ export async function handleBotCliRequest(request: Request, pathname: string, lo
       return jsonResponse(view().automations.filter((automation) => automation.botId === bot.id));
     case "automation-remove":
       return answer(() => runtime.removeAutomation(bot.id, str(input.id) ?? ""));
+    case "pane-list":
+      return answer(() => runtime.listPanes(bot.id));
+    case "pane-read":
+      return answer(() => runtime.readPane(bot.id, str(input.id) ?? "", Number(input.lines)));
+    case "pane-send":
+      return answer(() => runtime.paneAction(bot.id, { paneId: str(input.id) ?? "", kind: "send", text: str(input.text) ?? "" }));
+    case "pane-keys":
+      return answer(() => runtime.paneAction(bot.id, { paneId: str(input.id) ?? "", kind: "keys", keys: Array.isArray(input.keys) ? input.keys.filter((key): key is string => typeof key === "string") : [] }));
+    case "pane-close":
+      return answer(() => runtime.paneAction(bot.id, { paneId: str(input.id) ?? "", kind: "close" }));
+    case "workspace-open":
+      if (input.agent !== null && input.agent !== undefined && !isAgent(input.agent)) return badRequest("invalid_agent", "agent is claude or codex");
+      return answer(() => runtime.openWorkspace(bot.id, { cwd: str(input.cwd) ?? "", agent: isAgent(input.agent) ? input.agent : null, label: str(input.label), prompt: str(input.prompt) }));
     default:
       return badRequest("not_found", "no such bot command");
   }

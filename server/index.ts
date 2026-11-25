@@ -961,6 +961,9 @@ export function createServer(
     pressEnter: (paneId) => serialize(paneId, () => paneSendKeys(paneId, ["Enter"])),
     paneAlive: async (paneId) => (await sessionSnapshot()).panes.some((pane) => pane.pane_id === paneId),
     readTail: async (paneId, lines) => (await paneRead({ paneId, source: "recent", lines })).text,
+    snapshot: () => sessionSnapshot(),
+    sendKeys: (paneId, keys) => serialize(paneId, () => paneSendKeys(paneId, keys)),
+    closePane: async (paneId) => { await paneClose(paneId); broadcastAll({ type: "session-changed" }); },
     git: async (args, cwd) => {
       const child = Bun.spawn(["git", ...args], { cwd, stdout: "pipe", stderr: "pipe" });
       const [out, err, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);

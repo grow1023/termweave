@@ -40,8 +40,31 @@ export interface BotItem {
   /** with waiting: what it waits on */
   waitingOn: string | null;
   comments: BotItemComment[];
+  /** a terminal action the bot asked for: it runs only when the owner picks APPROVE */
+  action?: BotPaneAction | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** What a bot may do to a terminal it did not start, once its owner approves. */
+export type BotPaneAction =
+  | { kind: "send"; paneId: string; where: string; text: string }
+  | { kind: "keys"; paneId: string; where: string; keys: string[] }
+  | { kind: "close"; paneId: string; where: string };
+
+export const APPROVE = "Approve";
+export const DENY = "Deny";
+
+/** One terminal of this computer as `tw-bot pane list` shows it. */
+export interface BotPaneEntry {
+  paneId: string;
+  workspace: string;
+  title: string | null;
+  cwd: string | null;
+  agent: string | null;
+  status: string;
+  /** "you", "worker <id>", "bot <name>", or null for the owner's own terminals */
+  owner: string | null;
 }
 
 export interface BotSchedule {

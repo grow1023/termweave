@@ -18,7 +18,10 @@ const USAGE = `tw-bot <command>
   item comment <n> (--text "..." | --text-file <file>)
   item done <n> | item cancel <n> --reason "..."
   automation create --name "..." --cron "<min hour day month weekday>" --prompt "..." [--timezone <zone>] [--once]
-  automation list | automation remove <id>`;
+  automation list | automation remove <id>
+  pane list | pane read <id> [--lines <n>]
+  pane send <id> (--text "..." | --text-file <file>) | pane keys <id> <key>... | pane close <id>
+  workspace open --cwd <path> [--agent claude|codex] [--label "..."] [--prompt "..." | --prompt-file <file>]`;
 
 type Flags = Map<string, string[]>;
 
@@ -84,6 +87,12 @@ async function main(argv: string[]): Promise<void> {
     case "automation create": return run("automation-create", { name: one(flags, "name") ?? "", prompt: text(flags, "prompt") ?? "", schedule: one(flags, "cron") ?? one(flags, "rrule") ?? "", timezone: one(flags, "timezone") ?? null, once: flags.has("once") });
     case "automation list": return run("automation-list");
     case "automation remove": return run("automation-remove", { id: target });
+    case "pane list": return run("pane-list");
+    case "pane read": return run("pane-read", { id: target, lines: Number(one(flags, "lines") ?? 80) });
+    case "pane send": return run("pane-send", { id: target, text: text(flags, "text") ?? "" });
+    case "pane keys": return run("pane-keys", { id: target, keys: words.slice(3) });
+    case "pane close": return run("pane-close", { id: target });
+    case "workspace open": return run("workspace-open", { cwd: one(flags, "cwd") ?? "", agent: one(flags, "agent") ?? null, label: one(flags, "label") ?? null, prompt: text(flags, "prompt") ?? null });
     default:
       console.error(USAGE);
       process.exitCode = 2;
