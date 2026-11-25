@@ -3,6 +3,12 @@
 TermWeave(herdr web ui 포크)의 변경 기록입니다. 원본 프로젝트의 기록은 `CHANGELOG.md`에 있습니다.
 이 파일에는 실제 동작이나 게이트로 확인된 완료 항목만 적습니다. 일부만 끝난 항목은 "남은 일"에 따로 적습니다.
 
+## [0.3.54] - 2026-11-25
+
+- fix(bots): start agents in trusted folders and confirm each prompt started a turn
+- feat(bots): bots page to create bots, answer their questions and manage schedules
+- feat(bots): bot runtime, worker dispatch, items and schedules on the server
+
 ## [0.3.53] - 2026-11-24
 
 - 휴대폰 터미널 입력창이 비었을 때 지우기 키를 누르면 이미 셸로 보낸 글자를 지울 수 있고, 키 막대에도 ⌫ 키가 생겼습니다.

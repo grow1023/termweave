@@ -1,0 +1,58 @@
+.bots-dialog { width: min(680px, calc(100vw - 24px)); max-height: calc(var(--app-height, 100dvh) - 24px); margin: auto; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--bg); color: var(--text); overflow: hidden; word-break: keep-all; overflow-wrap: anywhere; }
+.bots-dialog[open] { display: flex; flex-direction: column; }
+.bots-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+.bots-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.bots-header h2 { font-size: 16px; color: var(--text-strong); margin: 0 0 4px; text-wrap: balance; }
+.bots-header p { font-size: 12px; color: var(--text-muted); margin: 0; text-wrap: pretty; }
+.bots-body { padding: 14px 16px 18px; overflow: auto; min-height: 0; overscroll-behavior: contain; display: grid; gap: 14px; align-content: start; }
+.bots-dialog h3 { font-size: 13px; color: var(--text-strong); margin: 0 0 8px; text-wrap: balance; }
+.bots-muted { font-size: 12px; color: var(--text-muted); margin: 0; text-wrap: pretty; }
+.bots-path { font-family: var(--font-mono, ui-monospace, monospace); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bots-notice { font-size: 12px; margin: 0; padding: 8px 10px; border-radius: var(--radius-md); background: color-mix(in srgb, #dc2626 12%, transparent); }
+
+.bots-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.bots-tabs button { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; min-height: 36px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text); font-size: 13px; cursor: pointer; }
+.bots-tabs button[aria-selected="true"] { background: var(--text-strong); color: var(--bg); border-color: var(--text-strong); }
+.bots-tabs svg { width: 14px; height: 14px; }
+
+.bots-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; }
+.bots-dot.is-live { background: #16a34a; }
+.bots-dot.is-needs { background: #d97706; }
+
+.bots-detail { display: grid; gap: 16px; }
+.bots-detail section { display: grid; gap: 6px; }
+.bots-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bots-actions .btn { display: inline-flex; align-items: center; gap: 6px; }
+.bots-actions svg, .bots-form .btn svg { width: 15px; height: 15px; }
+.bots-state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); margin-right: auto; }
+
+.bots-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.bots-list li { display: grid; gap: 4px; padding: 8px 10px; border-radius: var(--radius-md); background: var(--bg-raised, color-mix(in srgb, var(--text) 4%, transparent)); min-width: 0; }
+.bots-list li.is-needs { background: color-mix(in srgb, #d97706 14%, transparent); }
+.bots-list small { font-size: 12px; color: var(--text-muted); text-wrap: pretty; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.bots-row { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.bots-title { flex: 1 1 160px; min-width: 0; font-size: 13px; }
+.bots-row code { font-size: 12px; color: var(--text-muted); }
+.bots-label { flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--text) 8%, transparent); }
+.bots-label.is-needs_you, .bots-label.is-blocked { background: color-mix(in srgb, #d97706 22%, transparent); }
+.bots-label.is-working, .bots-label.is-starting { background: color-mix(in srgb, #2563eb 16%, transparent); }
+.bots-label.is-done { background: color-mix(in srgb, #16a34a 16%, transparent); }
+.bots-label.is-failed, .bots-label.is-canceled { background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text-muted); }
+.bots-ask { margin: 0; font-size: 13px; text-wrap: pretty; }
+.bots-answers { display: flex; flex-wrap: wrap; gap: 6px; }
+.bots-answers form { display: flex; gap: 6px; flex: 1 1 220px; min-width: 0; }
+.bots-answers input { flex: 1; min-width: 0; }
+
+.bots-form { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-lg, 10px); }
+.bots-form .btn { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
+.bots-field { display: grid; gap: 6px; font-size: 12px; min-width: 0; }
+.bots-dialog input:not([type="checkbox"]), .bots-dialog select, .bots-dialog textarea { width: 100%; min-width: 0; padding: 8px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md); font: inherit; font-size: 13px; }
+.bots-dialog textarea { resize: vertical; }
+.bots-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+
+@media (max-width: 640px), (pointer: coarse) {
+  .bots-dialog { width: 100vw; max-width: 100vw; max-height: var(--app-height, 100dvh); height: var(--app-height, 100dvh); border-radius: 0; border: 0; }
+  .bots-dialog .btn, .bots-dialog .icon-button, .bots-dialog select, .bots-tabs button { min-height: 44px; }
+  .bots-dialog input:not([type="checkbox"]), .bots-dialog select, .bots-dialog textarea { font-size: 16px; }
+}
+@media (max-width: 380px) { .bots-header, .bots-body { padding: 12px; } }

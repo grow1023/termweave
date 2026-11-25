@@ -18,6 +18,7 @@ import { checkUsageMeters } from "./usage-regression.ts";
 import { checkNotificationStartup } from "./notification-startup-regression.ts";
 import { checkMobileViewport } from "./mobile-viewport-regression.ts";
 import { checkPageZoom } from "./page-zoom-regression.ts";
+import { checkBotsPanel } from "./bots-panel-regression.ts";
 import { checkTerminalFileInput } from "./terminal-file-input-regression.ts";
 import { checkTerminalInput } from "./terminal-input-regression.ts";
 import { checkDefaultView } from "./default-view-regression.ts";
@@ -280,6 +281,7 @@ try {
   console.log("PASS the bell turns alerts off and on again");
 
   await checkPageZoom(browser, origin, paneB);
+  await checkBotsPanel(browser, origin);
   await checkPushSettings(browser, origin);
   await checkWakeLock(browser, origin, paneA);
   await checkNeedsInput(browser, origin, paneA);

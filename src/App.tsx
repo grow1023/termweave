@@ -1,7 +1,7 @@
 import { initialPaneView, readPaneView, writePaneView } from "./lib/paneView.ts";
 import { adjacentWorkspacePane } from "./lib/workspaceNavigation.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bell, BellOff, FolderOpen, Lock, Menu, MessageSquare, MoreHorizontal, Orbit, PanelLeft, Search, SquareTerminal, Users, X } from "lucide-react";
+import { Bell, BellOff, Bot as BotIcon, FolderOpen, Lock, Menu, MessageSquare, MoreHorizontal, Orbit, PanelLeft, Search, SquareTerminal, Users, X } from "lucide-react";
 
 import type { AgentStatus, ClientRole, ServerMessage, AccessRefusal, HealthAuth, HerdrPane } from "../shared/protocol.ts";
 import { ApiError, authenticate, fetchHealth, fetchBridgeHealth, fetchMachines, fetchSession, movePane as movePaneRequest, pairDevice, swapPanes as swapPanesRequest, sendTestPush, signOut, type HealthInfo } from "./lib/api.ts";
@@ -44,6 +44,7 @@ import { onNotificationTarget } from "./lib/notificationTarget.ts";
 import { useUpdates } from "./lib/updates.ts";
 import { FrontendControls } from "./components/FrontendControls.tsx";
 import { ZoomControls } from "./components/ZoomControls.tsx";
+import { BotsPanel } from "./components/BotsPanel.tsx";
 import { UpdateButton } from "./components/UpdateControls.tsx";
 import { FilesDialog } from "./components/FilesDialog.tsx";
 import { FileViewer } from "./components/FileViewer.tsx";
@@ -212,6 +213,7 @@ export function App() {
   }, [openFile, selectedPaneId, selectedMachineId]);
   const [settingsOpen, setSettingsOpen] = useState(() => new URLSearchParams(window.location.search).get("panel") === "android");
   const [openRigOpen, setOpenRigOpen] = useState(() => new URLSearchParams(window.location.search).get("panel") === "openrig");
+  const [botsOpen, setBotsOpen] = useState(() => new URLSearchParams(window.location.search).get("panel") === "bots");
   const closeOpenRig = useCallback(() => {
     setOpenRigOpen(false);
     const url = new URL(window.location.href);
@@ -384,6 +386,7 @@ export function App() {
       if (message.type === "session-changed" || message.type === "pane-exited") scheduleRefetch();
       // a color change leaves the snapshot equal: the sidebar re-reads colors on this
       if (message.type === "session-changed") window.dispatchEvent(new Event("termweave:session-changed"));
+      if (message.type === "bots-changed") window.dispatchEvent(new Event("termweave:bots-changed"));
     };
     return () => events.close();
   }, [locked, scheduleRefetch, dropIn]);
@@ -808,6 +811,7 @@ export function App() {
           {!targetHerdr && <span className="pill pill-offline">{t("herdr offline")}</span>}
           <button type="button" className="icon-button" aria-label={t("Agent fleet")} title={t("Agent fleet")} onClick={() => setFleetOpen(true)}><Orbit aria-hidden="true" /></button>
           <button type="button" className="icon-button" aria-label={t("OpenRig teams")} title={t("OpenRig teams")} onClick={() => setOpenRigOpen(true)}><Users aria-hidden="true" /></button>
+          <button type="button" className="icon-button" aria-label={t("Bots")} title={t("Bots")} onClick={() => setBotsOpen(true)}><BotIcon aria-hidden="true" /></button>
           <TerminalNotificationCenter readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onSelect={target => selectTargetRef.current("local", target.paneId)} />
           {selectedPane && (
             <button type="button" className="icon-button files-button" aria-label={t("Browse files")} title={t("Browse files")} onClick={() => setFilesOpen(true)}>
@@ -916,6 +920,7 @@ export function App() {
         selectTargetRef.current(machineId, paneId);
       }} />
       {fleetOpen && <FleetPanel machines={machines} onClose={closeFleet} onOpen={(machineId, paneId) => { setDrawerOpen(false); selectTargetRef.current(machineId, paneId); }} onSetup={(machine) => { setDrawerOpen(false); setUpdateRemote(false); setMachineDialog(machine); }} onConnections={() => { setSettingsSection("remote"); setSettingsOpen(true); }} />}
+      {botsOpen && <BotsPanel readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onClose={() => setBotsOpen(false)} onOpenPane={(paneId) => { setDrawerOpen(false); setMoreOpen(false); selectTargetRef.current("local", paneId); }} />}
       {openRigOpen && <OpenRigPanel canManageService={auth?.authenticated === true && auth.role !== "watch" && role !== "observe"} readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onClose={closeOpenRig} onOpened={() => { void load(); }} />}
       <SettingsDialog auth={auth} open={settingsOpen} onClose={closeSettings} actions={actions} updates={updates} onEnableNotifications={enableNotifications} section={settingsSection} />
       {filesOpen && selectedPane && (

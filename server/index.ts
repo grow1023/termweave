@@ -84,6 +84,10 @@ import { TmuxRuntime } from "./tmux/runtime.ts";
 import { PaneNumbers } from "./pane-numbers.ts";
 import { handleTmuxRequest } from "./tmux/api.ts";
 import { TmuxTerminal } from "./tmux/terminal.ts";
+import { BotStore } from "./bots/store.ts";
+import { trustFolder } from "./bots/trust.ts";
+import { BotRuntime } from "./bots/runtime.ts";
+import { handleBotCliRequest, handleBotsRequest } from "./bots/api.ts";
 
 const MAX_REPLAY_BYTES = 256 * 1024;
 /**
@@ -260,6 +264,10 @@ export function createServer(
     token?: string;
     /** where VAPID keys and push subscriptions persist; tests pass a temp dir */
     stateDir?: string;
+    /** where bot homes go (default ~/.termweave/bots); tests pass a temp folder */
+    botHomeRoot?: string;
+    /** false: no schedule tick (tests drive BotRuntime.tick themselves) */
+    bots?: boolean;
     /** the PC's own Tailscale login, for the identity check; tests set it, otherwise `tailscale status` says */
     tailscaleOwner?: string | null;
     /** Native Codex store; defaults to CODEX_HOME. Tests use an isolated store. */
@@ -903,8 +911,65 @@ export function createServer(
     // a background task starting or ending is no turn: the status stands, and nothing is alerted
     const status = turn ? completions.observe(paneId, derived, "omo") : completions.current(paneId) ?? completions.observe(paneId, derived, "omo");
     broadcastAll({ type: "pane-status", pane_id: paneId, agent_status: status, background_tasks: background });
-    if (turn) push.onStatus(paneId, status).catch(logPushError);
+    if (turn) { push.onStatus(paneId, status).catch(logPushError); bots.onPaneStatus(paneId, status); }
   }
+
+  /** Starts an agent in a fresh pane. herdr refuses a name another agent holds: two starts at once
+   *  can pick the same free one, and the refused one picks again. It also refuses a pane whose shell
+   *  is not up yet (`agent_pane_busy`, herdr 0.9.3), which a workspace made a moment ago can be. */
+  async function startAgentInPane(kind: string, paneId: string, given: string | null = null, args?: string[]): Promise<void> {
+    const shellDeadline = Date.now() + 10_000;
+    for (let attempt = 1; ; ) {
+      try {
+        await agentStart({
+          name: given ?? freeAgentName(kind, (await sessionSnapshot()).agents.map((agent) => agent.name)),
+          kind,
+          paneId,
+          ...(args === undefined ? {} : { args }),
+          timeoutMs: 60_000,
+        });
+        return;
+      } catch (error) {
+        if (!(error instanceof HerdrError)) throw error;
+        if (error.code === "agent_pane_busy" && Date.now() < shellDeadline) {
+          await Bun.sleep(100);
+          continue;
+        }
+        if (given !== null || attempt === 3 || error.code !== "agent_name_taken") throw error;
+        attempt += 1;
+      }
+    }
+  }
+
+  /** Bots (server/bots): agent sessions that take jobs from their chat and schedules and hand code work to workers */
+  const botStore = new BotStore(options.stateDir ?? defaultStateDir());
+  const bots: BotRuntime = new BotRuntime({
+    store: botStore,
+    homeRoot: options.botHomeRoot ?? join(homedir(), ".termweave", "bots"),
+    serverUrl: (): string => `http://${["0.0.0.0", "::", "localhost"].includes(hostname) ? "127.0.0.1" : hostname}:${String(server.port as number | undefined)}`,
+    cliPath: join(import.meta.dir, "bots", "cli.ts"),
+    createWorkspace: async (cwd, label) => {
+      const created = await workspaceCreate({ cwd, label });
+      return { workspaceId: created.workspace.workspace_id, paneId: created.root_pane.pane_id };
+    },
+    startAgent: async (kind, paneId, cwd) => {
+      const trust = await trustFolder(kind, cwd);
+      if (trust === "locked" || trust === "unreadable") console.warn(`bots: could not mark ${cwd} trusted for ${kind} (${trust})`);
+      await startAgentInPane(kind, paneId);
+    },
+    submit: (paneId, text) => serialize(paneId, () => submitText(paneId, text, text, (options.submitNow ?? performance.now.bind(performance))())),
+    pressEnter: (paneId) => serialize(paneId, () => paneSendKeys(paneId, ["Enter"])),
+    paneAlive: async (paneId) => (await sessionSnapshot()).panes.some((pane) => pane.pane_id === paneId),
+    readTail: async (paneId, lines) => (await paneRead({ paneId, source: "recent", lines })).text,
+    git: async (args, cwd) => {
+      const child = Bun.spawn(["git", ...args], { cwd, stdout: "pipe", stderr: "pipe" });
+      const [out, err, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
+      if (code !== 0) throw new Error(`git ${args[0]} failed: ${err.trim() || out.trim()}`);
+      return out;
+    },
+    notify: (title, body, paneId, tag) => push.announce({ pane_id: paneId, title, body, tag }),
+    changed: () => broadcastAll({ type: "bots-changed" }),
+  });
 
   /** every new terminal gets a "pane N" name the agents in its workspace can address (docs/pane-mesh.md) */
   const paneMesh = createPaneMesh({
@@ -927,6 +992,7 @@ export function createServer(
       const status = completions.observe(paneId, raw, omo.runs(paneId) ? "omo" : agent);
       broadcastAll({ type: "pane-status", pane_id: paneId, agent_status: status });
       push.onStatus(paneId, status).catch(logPushError);
+      bots.onPaneStatus(paneId, status);
     },
     // a finish reported as done, now in front at herdr's terminal: seen, idle again
     onFocus: (paneId) => {
@@ -945,6 +1011,7 @@ export function createServer(
       completions.forget(paneId);
       broadcastAll({ type: "pane-exited", pane_id: paneId });
       push.onEnded(paneId).catch(logPushError);
+      bots.onPaneEnded(paneId);
     },
     onStructureChange: () => broadcastAll({ type: "session-changed" }),
     onPaneCreated: (pane) => void paneMesh.onPaneCreated(pane),
@@ -976,6 +1043,11 @@ export function createServer(
       });
       const authenticated = access.level === "full" || (bridgePath && bridgeAuthorized);
 
+      // the bot CLI carries its bot's own secret instead of the app's sign-in (server/bots/api.ts)
+      if (pathname.startsWith("/api/bot-cli/")) {
+        return handleBotCliRequest(request, pathname, ip !== null && isLoopbackAddress(ip.address), bots, botStore, async () =>
+          [...new Set((await sessionSnapshot()).panes.map((pane) => pane.cwd).filter((cwd): cwd is string => typeof cwd === "string" && existsSync(join(cwd, ".git"))))]);
+      }
       if (requiresAuth(pathname) && !authenticated) {
         // The WS client never parses a body, so the upgrade refusal stays plain text.
         return pathname === "/ws" ? new Response("unauthorized", { status: 401 }) : unauthorizedJson(access.level === "none" ? access.reason : "token_required");
@@ -1109,6 +1181,7 @@ export function createServer(
       }
       if (pathname === "/api/herdr/update") return handleHerdrUpdateRequest(request, options.herdrUpdate);
 
+      if (pathname === "/api/bots" || pathname.startsWith("/api/bots/")) { bunServer.timeout(request, 120); return handleBotsRequest(request, pathname, bots, botStore, readOnly); }
       if (pathname === "/api/usage") return handleUsageRequest(request, url, usage);
       if (pathname === "/api/host-status") return handleHostStatusRequest(request, hostStatus);
       // a long clip can keep the provider silent past Bun's 10 s idle limit before the first line
@@ -1265,33 +1338,9 @@ export function createServer(
           try {
             const kind = payload.agent.kind as string;
             if (isShellAgentKind(kind)) await startShellAgent(kind, created.root_pane.pane_id, payload.agent.args as string[] | undefined);
-            else {
-              const given = typeof payload.agent.name === "string" && payload.agent.name.length > 0 ? payload.agent.name : null;
-              // herdr refuses a name another agent holds. Two creations at once can pick the same
-              // free one: the refused one picks again. It also refuses a pane whose shell is not up
-              // yet (`agent_pane_busy`, herdr 0.9.3), which a workspace made a moment ago can be.
-              const shellDeadline = Date.now() + 10_000;
-              for (let attempt = 1; ; ) {
-                try {
-                  await agentStart({
-                    name: given ?? freeAgentName(kind, (await sessionSnapshot()).agents.map((agent) => agent.name)),
-                    kind,
-                    paneId: created.root_pane.pane_id,
-                    ...(payload.agent.args === undefined ? {} : { args: payload.agent.args as string[] }),
-                    timeoutMs: 60_000,
-                  });
-                  break;
-                } catch (error) {
-                  if (!(error instanceof HerdrError)) throw error;
-                  if (error.code === "agent_pane_busy" && Date.now() < shellDeadline) {
-                    await Bun.sleep(100);
-                    continue;
-                  }
-                  if (given !== null || attempt === 3 || error.code !== "agent_name_taken") throw error;
-                  attempt += 1;
-                }
-              }
-            }
+            else await startAgentInPane(kind, created.root_pane.pane_id,
+              typeof payload.agent.name === "string" && payload.agent.name.length > 0 ? payload.agent.name : null,
+              payload.agent.args as string[] | undefined);
             return jsonResponse({ workspace_id: created.workspace.workspace_id, pane_id: created.root_pane.pane_id, agent_started: true });
           } catch (error) {
             return jsonResponse({
@@ -1993,6 +2042,7 @@ export function createServer(
     for (const paneId of attachments.keys()) reconcileOutput(paneId);
   }, 100);
   outputTimer.unref();
+  if (options.bots !== false) bots.start();
 
   return {
     port: server.port ?? 0,
@@ -2004,6 +2054,7 @@ export function createServer(
       mobileRelay.dispose();
       openrig.dispose();
       collector.stop();
+      bots.stop();
       omo.stop();
       machines?.stop();
       registration?.close();

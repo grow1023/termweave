@@ -76,6 +76,8 @@ export interface PushService {
   unsubscribe(endpoint: string): void;
   /** One confirmation push to one device, so enabling alerts proves the whole path works. */
   sendTest(endpoint: string): Promise<PushDelivery | null>;
+  /** One alert to every device that is not about a pane's status: a bot asking its owner. */
+  announce(message: PushPayload): Promise<void>;
   /** The collector's view of every pane: status baselines and the titles notifications use. */
   seed(panes: readonly HerdrPane[], machineId?: string, machineName?: string): void;
   /**
@@ -302,6 +304,7 @@ export function createPushService(options: PushServiceOptions): PushService {
 
   return {
     publicKey: () => keys().publicKey,
+    announce: (message) => broadcast(message, "high"),
 
     subscribe(subscription, alerts, deviceId) {
       const kept = alerts ?? store().get(subscription.endpoint)?.alerts;
