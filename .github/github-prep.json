@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "repoType": "app",
   "mode": "update",
-  "baselineCommit": "b3aec1136200093e68b7e11b3c82b2269837099e",
-  "reviewedHead": "86460a8bf7258af279e256bd816615fd1a0a5639",
+  "baselineCommit": "86460a8bf7258af279e256bd816615fd1a0a5639",
+  "reviewedHead": "b665d9765470b93e297216e64edf177c9332751a",
   "references": [
     {
       "repo": "tsl0922/ttyd",
@@ -75,26 +75,28 @@
     "gaps": []
   },
   "diffReview": {
-    "since": "b3aec1136200093e68b7e11b3c82b2269837099e",
+    "since": "86460a8bf7258af279e256bd816615fd1a0a5639",
     "files": [
       "CHANGELOG.termweave.md",
       "CITATION.cff",
       "herdr-plugin.toml",
       "package.json",
       "scripts/bots-panel-regression.ts",
-      "scripts/ui-regression.ts",
+      "server/bots/api.ts",
+      "server/bots/cli.ts",
+      "server/bots/preamble.ts",
+      "server/bots/runtime.test.ts",
+      "server/bots/runtime.ts",
+      "server/index.ts",
+      "shared/bots/types.ts",
       "shared/product.ts",
-      "src/App.tsx",
-      "src/components/BotBar.tsx",
       "src/components/BotsPanel.css",
       "src/components/BotsPanel.tsx",
-      "src/components/PaneTerminal.tsx",
-      "src/lib/bots.ts",
       "src/lib/i18n.ja.ts",
       "src/lib/i18n.ko.ts",
       "src/lib/i18n.zh.ts"
     ],
-    "summary": "Automated review for v0.3.56 by tools/public-release/auto_release.sh. 16 file(s) changed since b3aec1136200. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- feat(bots): a bot opens as a chat with its questions answered in place"
+    "summary": "Automated review for v0.3.57 by tools/public-release/auto_release.sh. 18 file(s) changed since 86460a8bf725. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- feat(bots): a bot manages every terminal, typing into yours only after you approve"
   },
   "readiness": {
     "verified": [
