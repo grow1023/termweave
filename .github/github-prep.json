@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "repoType": "app",
   "mode": "update",
-  "baselineCommit": "b665d9765470b93e297216e64edf177c9332751a",
-  "reviewedHead": "cf9fc330f3411476ef1c858ab2d8a4d40443f976",
+  "baselineCommit": "cf9fc330f3411476ef1c858ab2d8a4d40443f976",
+  "reviewedHead": "671c23f95992a56cc572f1492f48035e7c1628c3",
   "references": [
     {
       "repo": "tsl0922/ttyd",
@@ -75,9 +75,9 @@
     "gaps": []
   },
   "diffReview": {
-    "since": "b665d9765470b93e297216e64edf177c9332751a",
+    "since": "cf9fc330f3411476ef1c858ab2d8a4d40443f976",
     "files": [],
-    "summary": "Automated review for v0.3.57 by tools/public-release/auto_release.sh. 0 file(s) changed since b665d9765470. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- feat(bots): a bot manages every terminal, typing into yours only after you approve"
+    "summary": "Automated review for v0.3.57 by tools/public-release/auto_release.sh. 0 file(s) changed since cf9fc330f341. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- feat(bots): a bot manages every terminal, typing into yours only after you approve"
   },
   "readiness": {
     "verified": [
