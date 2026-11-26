@@ -118,3 +118,17 @@
     height: var(--touch-target);
   }
 }
+
+/* a long folder name shortens inside the button; the full path is its tooltip */
+.new-session-create {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.new-session-create-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.new-session-modal .modal-footer { min-width: 0; }

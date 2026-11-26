@@ -7,7 +7,7 @@ import { BridgeUpdateProgress } from "./MachineSidebar.tsx";
 import "./Machines.css";
 import { useT } from "../lib/i18n.ts";
 
-export function MachineDialog({ machine, updateRemote = false, onClose, onConnected }: { machine?: Machine; updateRemote?: boolean; onClose(): void; onConnected(id: string): void }) {
+export function MachineDialog({ machine, updateRemote = false, onClose, onConnected }: { machine?: Machine; updateRemote?: boolean; onClose(underway?: boolean): void; onConnected(id: string): void }) {
   const t = useT();
   const dialog = useRef<HTMLDialogElement>(null);
   const destinationField = useRef<HTMLInputElement>(null);
@@ -30,6 +30,9 @@ export function MachineDialog({ machine, updateRemote = false, onClose, onConnec
   // to the first focusable element (Close), so the field is focused again once the dialog is open
   useEffect(() => { dialog.current?.showModal(); destinationField.current?.focus(); return () => { const current = jobRef.current; if (current && !["connected", "failed", "cancelled", "installing", "starting"].includes(current.phase)) void answerMachineSetup(current.id, { action: "cancel" }).catch(() => {}); }; }, []);
   const running = !!job && ["installing", "starting"].includes(job.phase);
+  // underway: the PC connected, or its install goes on in the sidebar; the opener then does not
+  // return the user to where Add PC began
+  const close = (): void => onClose(running || job?.phase === "connected");
   useEffect(() => {
     if (!job || finished) return;
     let cancelled = false;
@@ -57,8 +60,8 @@ export function MachineDialog({ machine, updateRemote = false, onClose, onConnec
     catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setPending(false); }
   };
-  return <dialog ref={dialog} className="modal machine-dialog" aria-labelledby="machine-dialog-title" onCancel={(e) => { e.preventDefault(); onClose(); }}>
-    <header className="modal-header"><h2 id="machine-dialog-title" className="modal-title"><Monitor size={18} /> {t(updateRemote ? "Update remote bridge" : machine ? "Reconnect PC" : "Add PC")}</h2><button className="icon-button" aria-label={t("Close PC setup")} onClick={onClose}><X /></button></header>
+  return <dialog ref={dialog} className="modal machine-dialog" aria-labelledby="machine-dialog-title" onCancel={(e) => { e.preventDefault(); close(); }}>
+    <header className="modal-header"><h2 id="machine-dialog-title" className="modal-title"><Monitor size={18} /> {t(updateRemote ? "Update remote bridge" : machine ? "Reconnect PC" : "Add PC")}</h2><button className="icon-button" aria-label={t("Close PC setup")} onClick={close}><X /></button></header>
     <div className="modal-body">
       {(!job || finished && job.phase !== "connected") && <form id="machine-connect-form" onSubmit={(e) => { e.preventDefault(); void begin(); }}>
         <label className="field"><span className="field-label">{t("SSH alias or user@address")}</span><input ref={destinationField} autoFocus className="input" required autoComplete="off" value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="devbox or user@192.168.1.20" /></label>
@@ -82,7 +85,7 @@ export function MachineDialog({ machine, updateRemote = false, onClose, onConnec
     </div>
     <footer className="modal-footer">
       {job && !finished && <button className="btn" disabled={pending} onClick={() => void act({ action: "cancel" })}>{t(running ? "Cancel install" : "Cancel connection")}</button>}
-      {running && <button className="btn btn-primary" onClick={onClose}>{t("Continue in background")}</button>}
+      {running && <button className="btn btn-primary" onClick={close}>{t("Continue in background")}</button>}
       {job?.challenge?.kind === "host_key" && <><button className="btn" disabled={pending} onClick={() => void act({ action: "answer", challenge_id: job.challenge!.id, answer: "no" })}>{t("Reject")}</button><button className="btn btn-primary" disabled={pending} onClick={() => void act({ action: "answer", challenge_id: job.challenge!.id, answer: "yes" })}>{t("Trust fingerprint")}</button></>}
       {job?.phase === "approval" && <button className="btn btn-primary" disabled={pending} onClick={() => void act({ action: "approve" })}>{t("Install and connect")}</button>}
       {job?.phase === "connected" ? <button className="btn btn-primary" onClick={() => onConnected(job.machine_id)}>{t("Open PC")}</button> : (!job || finished) && <button className="btn btn-primary" form="machine-connect-form" type="submit" disabled={pending}>{t(pending ? "Connecting…" : job ? "Retry connection" : "Connect")}</button>}

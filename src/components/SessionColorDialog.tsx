@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import "./SessionColorDialog.css";
 import { SESSION_COLORS, browserColorStorage, isSessionPreset, normalizeHex, readRecentColors, rememberRecentColor, resolveSessionColor, type SessionColor, type SessionPreset } from "../lib/sessionColor.ts";
 import { useT } from "../lib/i18n.ts";
+import { isCloseKey } from "../lib/modalFocus.ts";
 import { ColorPicker } from "./ColorPicker.tsx";
 
 const FOCUSABLE = "button, input, [tabindex]:not([tabindex='-1'])";
@@ -18,7 +19,8 @@ export function SessionColorDialog({ title, selected, onSelect, onClose }: {
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     (surface.current?.querySelector<HTMLButtonElement>('button[aria-pressed="true"]') ?? surface.current?.querySelector<HTMLButtonElement>("button"))?.focus();
-    const escape = (event: globalThis.KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); onClose(); } };
+    // an Escape that ends an IME composition in the hex field belongs to the IME
+    const escape = (event: globalThis.KeyboardEvent) => { if (isCloseKey(event)) { event.preventDefault(); onClose(); } };
     window.addEventListener("keydown", escape, true);
     return () => { window.removeEventListener("keydown", escape, true); if (opener?.isConnected) opener.focus({ preventScroll: true }); };
   }, [onClose]);

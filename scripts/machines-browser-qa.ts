@@ -19,7 +19,8 @@ async function select(name: string) {
   const group = page.getByRole("region", { name: `PC ${name}`, exact: true });
   await group.locator(`.pane-select[title^="${paneId} —"]`).click();
   await page.locator(".context .machine-context-name").filter({ hasText: name }).waitFor();
-  await page.getByRole("button", { name: "Chat", exact: true }).click();
+  // one dock group on a wide screen: only the header's "Pane view" switch has Chat/Terminal
+  await page.getByRole("group", { name: "Pane view", exact: true }).getByRole("button", { name: "Chat", exact: true }).click();
   await page.getByRole("textbox", { name: "Message", exact: true }).waitFor();
 }
 const composer = page.getByRole("textbox", { name: "Message", exact: true });
@@ -27,7 +28,7 @@ let releaseUpload = () => {};
 try {
   await page.goto(`${origin}/?machine=${a}&pane=${encodeURIComponent(paneId)}`);
   await page.locator(".conn.conn-live").waitFor({ state: "attached" });
-  await page.getByRole("button", { name: "Chat", exact: true }).click();
+  await page.getByRole("group", { name: "Pane view", exact: true }).getByRole("button", { name: "Chat", exact: true }).click();
   await composer.fill("PC A draft");
   await select("QA second PC");
   assert.equal(await composer.inputValue(), "");
@@ -58,7 +59,7 @@ try {
   await herdrRpc("pane.report_agent", { pane_id: paneId, source: "manual", agent: "claude", state: "working" }, socket);
   await page.locator('.composer-status[data-status="working"]').waitFor();
   await composer.fill("HELD_A_MUST_NOT_SEND");
-  await page.getByRole("button", { name: "Queue message", exact: true }).click();
+  await page.getByRole("button", { name: "Hold message", exact: true }).click(); // was "Queue message"
   const count = inputs.length;
   await page.reload();
   await page.locator(".composer-queue-text").waitFor();
@@ -82,6 +83,8 @@ try {
   const dialog = page.getByRole("dialog", { name: "Add PC", exact: true }); await dialog.waitFor();
   await page.screenshot({ path: join(evidence, "desktop-add-pc-dark.png") });
   await dialog.getByRole("button", { name: "Close PC setup" }).click();
+  // closed without connecting, Add PC hands back to Settings
+  await page.getByRole("button", { name: "Close settings", exact: true }).click();
   await page.screenshot({ path: join(evidence, "desktop-dark.png") });
   await page.locator(".sidebar-footer").getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("dialog", { name: "Settings", exact: true }).getByRole("button", { name: "Light", exact: true }).click();
@@ -96,6 +99,7 @@ try {
   await page.screenshot({ path: join(evidence, "mobile-add-pc-light.png") });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false);
   await page.getByRole("button", { name: "Close PC setup" }).click();
+  await page.getByRole("button", { name: "Close settings", exact: true }).click();
   // Settings closed the drawer when it opened, and Add PC closed Settings: open the drawer again
   await page.getByRole("button", { name: "Open workspace list", exact: true }).click();
   await page.locator(".sidebar-footer").getByRole("button", { name: "Settings", exact: true }).click();

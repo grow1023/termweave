@@ -10,13 +10,13 @@ import StatusIndicator from "../../ui/StatusIndicator.tsx";
 import { BotAvatar } from "../BotAvatar.tsx";
 import type { Bot, BotAutomation } from "../data.ts";
 import { BotHoverDetails } from "./BotHoverDetails.tsx";
-import type { BotFacts } from "./bot-facts.ts";
+import { botNeedsOwner, type BotFacts } from "./bot-facts.ts";
 
 type Signal = "attention" | "working" | null;
 
 function signalOf(facts: BotFacts): Signal {
+  if (botNeedsOwner(facts)) return "attention";
   if (facts.bot.paused) return null;
-  if (facts.needs.length > 0 || (facts.running && facts.agentStatus === "blocked")) return "attention";
   return facts.working || facts.workers.length > 0 ? "working" : null;
 }
 

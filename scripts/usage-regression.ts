@@ -61,10 +61,13 @@ export async function checkUsageMeters(browser: Browser, origin: string): Promis
     // three chips and "+4" past four accounts, the one nearest its limit first and red; two Codex accounts apart
     assert.equal(await page.locator(".usage-chip").count(), 3);
     assert.equal(await page.locator(".usage-more").textContent(), "+4");
+    // each value names what it counts ("91% used"): a bare "91%" meant used or left depending on a
+    // setting the listener may not remember; the chips show one "used" word for the whole strip
     assert.equal(await strip.getAttribute("aria-label"),
-      "Subscription usage: Codex · me@work.example 91%, Claude · me@example.com 63%, Codex · me@example.com 30%, Cursor 20%, Copilot · me 0%, Grok 0%, Antigravity —");
+      "Subscription usage: Codex · me@work.example 91% used, Claude · me@example.com 63% used, Codex · me@example.com 30% used, Cursor 20% used, Copilot · me 0% used, Grok 0% used, Antigravity —");
+    assert.equal(await strip.locator(".usage-strip-unit").textContent(), "used");
     assert.equal(await page.locator(".usage-chip").first().evaluate((chip) => chip.classList.contains("is-high")), true);
-    assert.equal(await strip.evaluate((el) => el.scrollWidth <= el.clientWidth), true, "the chips fit beside Settings");
+    assert.equal(await strip.evaluate((el) => el.scrollWidth <= el.clientWidth), true, "the chips and the unit word fit beside Settings");
     const [settings, meters] = await Promise.all([page.locator(".sidebar-footer-row .sidebar-footer-action").boundingBox(), strip.boundingBox()]);
     assert.ok(settings && meters && settings.x + settings.width <= meters.x, "Settings and the meters do not overlap");
 
@@ -98,6 +101,7 @@ export async function checkUsageMeters(browser: Browser, origin: string): Promis
     assert.equal(await strip.getAttribute("aria-label"),
       "Subscription usage: Claude · me@example.com 37% left, Cursor 80% left, Codex · me@example.com 70% left, Copilot · me 100% left, Grok 100% left, Antigravity —");
     assert.deepEqual(await page.locator(".usage-chip-value").allTextContents(), ["37%", "80%", "70%"]);
+    assert.equal(await strip.locator(".usage-strip-unit").textContent(), "left");
     await strip.click();
     assert.deepEqual((await names()).slice(0, 3), ["Claude · me@example.com", "Cursor", "Codex · me@example.com"], "a hidden account is left out of the popover too");
     assert.equal(await popover.locator(".usage-provider").count(), 6);

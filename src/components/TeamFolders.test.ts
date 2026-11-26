@@ -34,13 +34,15 @@ describe("TeamFolders sidebar rendering", () => {
     const html = render(emptyTeamFolders());
     expect(html.match(/data-test-pane=/g)).toHaveLength(2);
     expect(html).not.toContain("<select");
-    expect(html).toContain('class="team-folder-add"');
+    // no folder yet: the add line gives way to the workspace's row menu
+    expect(html).not.toContain('class="team-folder-add"');
   });
   it("renders nested teams, one copy per pane, and assignment controls", () => {
     const nested = addTeamFolder(addTeamFolder(emptyTeamFolders(), "team", "개발팀", null), "sub", "검증팀", "team");
     const html = render(assignTeamPane(nested, "t1", "sub"));
     expect(html.match(/data-test-pane=/g)).toHaveLength(2);
     expect(html.match(/<select/g)).toHaveLength(2);
+    expect(html).toContain('class="team-folder-add"');
     expect(html).toContain("개발팀 / 검증팀");
     expect(html).toContain('value="sub" selected=""');
     expect(html).toContain('aria-expanded="true"');

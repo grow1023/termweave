@@ -23,6 +23,7 @@ export type {
 } from "./herdr-api.generated.ts";
 
 import type { AgentStatus, PaneInfo, SessionSnapshot, TabInfo, WorkspaceInfo } from "./herdr-api.generated.ts";
+import type { BotChatStatus, JournalRow } from "./bots/chat.ts";
 
 /** Friendly aliases used across the UI. */
 export type HerdrWorkspace = WorkspaceInfo;
@@ -548,6 +549,12 @@ export type ServerMessage =
   | { type: "session-changed" }
   /** a bot, item, automation or worker changed: refetch /api/bots */
   | { type: "bots-changed" }
+  /**
+   * A session bot's chat rows written since the last push (newest revision of each, batched per
+   * 100 ms). A client that sees a new `epoch` or a sequence gap reloads with
+   * GET /api/bots/:id/chat?direction=tail.
+   */
+  | { type: "bot-chat"; bot_id: string; epoch: string; rows: JournalRow[]; status: BotChatStatus }
   /** `pane_id` names the pane an error is about, when it is about one (`attach_held`) */
   | { type: "error"; code: string; message: string; pane_id?: string };
 

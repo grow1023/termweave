@@ -3,12 +3,40 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { handleBotCliRequest } from "./api.ts";
+import type { Submission } from "../../shared/bots/chat.ts";
+import { handleBotCliRequest, handleBotsRequest } from "./api.ts";
 import { BotRuntime } from "./runtime.ts";
+import type { ClaudeConnection, ClaudeHandlers, ClaudeLaunch } from "./session/connection.ts";
+import { BotJournal } from "./session/journal.ts";
+import { BotSessionHost } from "./session/session.ts";
 import { BotStore } from "./store.ts";
 
 const dirs: string[] = [];
-afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
+const hosts: Array<{ host: BotSessionHost; journal: BotJournal }> = [];
+afterEach(async () => {
+  for (const { host, journal } of hosts.splice(0)) { await host.closeAll(); journal.close(); }
+  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
+
+const CLAUDE_ID = "22222222-3333-4444-8555-666666666666";
+
+/** A stand-in session connection: records what is sent; it never answers, so its first turn stays open. */
+function fakeSessions() {
+  const launches: ClaudeLaunch[] = [];
+  const sent: string[] = [];
+  const open = async (launch: ClaudeLaunch, handlers: ClaudeHandlers): Promise<ClaudeConnection> => {
+    launches.push(launch);
+    let ended = false;
+    return {
+      sessionId: launch.sessionId, pid: 1, exited: new Promise<Error>(() => {}),
+      send: async (text) => { sent.push(text); },
+      interrupt: async () => ({ cancelled: true }),
+      setPermissionMode: async () => {},
+      close: async () => { if (!ended) { ended = true; handlers.onExit(new Error("closed"), true); } },
+    };
+  };
+  return { launches, sent, open };
+}
 
 async function until(check: () => boolean, ms = 2000): Promise<void> {
   const end = Date.now() + ms;
@@ -39,7 +67,19 @@ function setup() {
   const lostEnter = new Map<string, number>();
   const pressed: Array<{ paneId: string; keys: string[] }> = [];
   const closed: string[] = [];
+  const resumed: Array<string | null | undefined> = [];
   const store = new BotStore(join(root, "state"));
+  const fake = fakeSessions();
+  const journal = new BotJournal(join(root, "state", "bot-journal.sqlite"));
+  let paneSession: string | null = CLAUDE_ID;
+  const sessions = new BotSessionHost({
+    journal, store, env: async () => ({ PATH: "/usr/bin" }), changed: () => {}, statusChanged: () => {},
+    notify: async () => {}, paneLive: async (made) => made.paneId !== null && alive.has(made.paneId),
+    open: fake.open, resolveBinary: () => "/opt/claude",
+  });
+  hosts.push({ host: sessions, journal });
+  const http = (method: string, path: string, body?: unknown, readOnly = false): Promise<Response> =>
+    handleBotsRequest(new Request(`http://x${path}`, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }), path.split("?")[0]!, runtime, store, readOnly, sessions);
   const turn = (paneId: string): void => {
     const lost = lostEnter.get(paneId) ?? 0;
     if (lost > 0) { lostEnter.set(paneId, lost - 1); return; }
@@ -51,7 +91,7 @@ function setup() {
     serverUrl: () => "http://127.0.0.1:1",
     cliPath: "/opt/termweave/server/bots/cli.ts",
     createWorkspace: async () => { const paneId = `p${++pane}`; alive.add(paneId); return { workspaceId: `w${pane}`, paneId }; },
-    startAgent: async (_kind, paneId, cwd) => { started.push({ paneId, cwd }); setTimeout(() => runtime.onPaneStatus(paneId, "idle"), 5); },
+    startAgent: async (_kind, paneId, cwd, resume) => { started.push({ paneId, cwd }); resumed.push(resume); setTimeout(() => runtime.onPaneStatus(paneId, "idle"), 5); },
     submit: async (paneId, text) => { submitted.push({ paneId, text }); turn(paneId); },
     pressEnter: async (paneId) => { entered.push(paneId); turn(paneId); },
     paneAlive: async (paneId) => alive.has(paneId),
@@ -67,7 +107,11 @@ function setup() {
     changed: () => {},
     now: () => clock,
     timing: { readyMs: 500, startedMs: 30, settleMs: 0 },
+    sessions,
+    paneClaudeSession: async () => paneSession,
   });
+  /** what reached the bot's chat session, and who it says sent it */
+  const mail = (botId: string): Submission[] => { const chat = journal.chat(botId); return chat === null ? [] : journal.submissions(chat.sessionId); };
   /** a bot that has greeted and finished that turn */
   const bot = async (name: string, agent: "claude" | "codex" = "claude") => {
     const made = await runtime.createBot({ name, agent, purpose: `${name} purpose.`, repo });
@@ -75,7 +119,10 @@ function setup() {
     runtime.onPaneStatus(store.bot(made.id)!.paneId!, "done");
     return store.bot(made.id)!;
   };
-  return { root, repo, store, runtime, submitted, entered, started, git, notified, alive, lostEnter, pressed, closed, bot, tick: (ms: number) => { clock = new Date(clock.getTime() + ms); } };
+  return {
+    root, repo, store, runtime, submitted, entered, started, git, notified, alive, lostEnter, pressed, closed, bot, tick: (ms: number) => { clock = new Date(clock.getTime() + ms); },
+    fake, mail, resumed, http, setPaneSession: (id: string | null) => { paneSession = id; },
+  };
 }
 
 describe("bots", () => {
@@ -281,5 +328,90 @@ describe("bots", () => {
     expect(started.at(-1)).toEqual({ paneId: opened.paneId, cwd: root });
     await until(() => submitted.at(-1)?.paneId === opened.paneId);
     expect(submitted.at(-1)?.text).toBe("Look at the logs.");
+  });
+
+  it("a session bot greets through its session, with no terminal", async () => {
+    const { runtime, fake, mail, started, submitted } = setup();
+    const made = await runtime.createBot({ name: "Chatty", agent: "claude", purpose: "Talks.", repo: null, runtime: "session" });
+    await until(() => fake.sent.length === 1);
+    expect(fake.sent[0]).toContain("You were just created");
+    expect(fake.launches[0]).toMatchObject({ cwd: made.home, resume: false });
+    expect(mail(made.id)[0]?.from).toEqual({ kind: "termweave", label: null });
+    expect(existsSync(join(made.home, "CLAUDE.md"))).toBe(true);
+    expect(started).toEqual([]);
+    expect(submitted).toEqual([]);
+    await expect(runtime.ensurePane(made.id)).rejects.toThrow("runs as a session");
+    await expect(runtime.createBot({ name: "Codexy", agent: "codex", purpose: "x", repo: null, runtime: "session" })).rejects.toThrow("only a Claude bot");
+  });
+
+  it("a session bot's worker report and schedule reach its session as TermWeave mail; the owner's words as the owner's", async () => {
+    const { runtime, repo, store, mail, tick } = setup();
+    const made = await runtime.createBot({ name: "Sessy", agent: "claude", purpose: "Works.", repo, runtime: "session" });
+    await until(() => mail(made.id).length === 1);
+    const worker = await runtime.startWorker(made.id, { repo: null, agent: null, itemN: null, spec: "Fix the bug." });
+    await until(() => store.view().workers[0]?.status === "working");
+    runtime.onPaneStatus(worker.paneId!, "done");
+    await until(() => mail(made.id).some((entry) => entry.text.includes(`Worker ${worker.id}`)));
+    runtime.addAutomation(made.id, { name: "Daily", prompt: "Check the build.", schedule: "*/5 * * * *", timezone: null, once: false });
+    tick(10 * 60_000);
+    await runtime.tick();
+    await until(() => mail(made.id).some((entry) => entry.text.includes("[TermWeave schedule] Daily")));
+    for (const entry of mail(made.id)) expect(entry.from).toEqual({ kind: "termweave", label: null });
+    const typed = await runtime.ownerMessage(made.id, "Status?");
+    expect(typed?.state).toBe("queued");
+    expect(mail(made.id).at(-1)).toMatchObject({ text: "Status?", from: { kind: "owner" } });
+  });
+
+  it("switches a terminal bot to a session and back, carrying its Claude session", async () => {
+    const { runtime, store, closed, bot, fake, resumed, setPaneSession, submitted } = setup();
+    const made = await bot("Mover");
+    setPaneSession(null);
+    await expect(runtime.switchRuntime(made.id, "session")).rejects.toThrow("could not find the Claude session");
+    expect(store.bot(made.id)?.runtime).toBeUndefined();
+    expect(closed).toEqual([]);
+    setPaneSession(CLAUDE_ID);
+    const switched = await runtime.switchRuntime(made.id, "session");
+    expect(switched).toMatchObject({ runtime: "session", claudeSessionId: CLAUDE_ID, paneId: null });
+    expect(closed).toEqual(["p1"]);
+    await runtime.tell(made.id, "[TermWeave] hello again");
+    expect(fake.launches[0]).toMatchObject({ resume: true, sessionId: CLAUDE_ID, cwd: made.home });
+    const back = await runtime.switchRuntime(made.id, "pane");
+    expect(back.runtime).toBe("pane");
+    expect(fake.sent).toEqual(["[TermWeave] hello again"]);
+    const paneId = await runtime.ensurePane(made.id);
+    expect(paneId).toBe("p2");
+    expect(resumed).toEqual([null, CLAUDE_ID]);
+    await runtime.tell(made.id, "typed in the terminal");
+    expect(submitted.at(-1)).toEqual({ paneId: "p2", text: "typed in the terminal" });
+  });
+
+  it("changes a session bot's permission mode", async () => {
+    const { runtime, store } = setup();
+    const made = await runtime.createBot({ name: "Careful", agent: "claude", purpose: "x", repo: null, runtime: "session" });
+    expect(runtime.updateBot(made.id, { permissionMode: "accept-edits" }).permissionMode).toBe("accept-edits");
+    expect(store.bot(made.id)?.permissionMode).toBe("accept-edits");
+    expect(runtime.chatStatuses()).toEqual({ [made.id]: expect.any(String) });
+  });
+
+  it("serves a session bot's chat: pages and the conversation to a watcher, changes to a full device only", async () => {
+    const { runtime, http } = setup();
+    const made = await runtime.createBot({ name: "Shown", agent: "claude", purpose: "x", repo: null, runtime: "session" });
+    const list = await (await http("GET", "/api/bots")).json() as { chatStatus: Record<string, string> };
+    expect(Object.keys(list.chatStatus)).toEqual([made.id]);
+    const page = await http("GET", `/api/bots/${made.id}/chat?direction=tail&limit=10`, undefined, true);
+    expect(page.status).toBe(200);
+    expect(await page.json()).toMatchObject({ items: [], status: expect.any(String), queued: expect.any(Array) });
+    expect((await http("GET", `/api/bots/${made.id}/chat?direction=sideways`, undefined, true)).status).toBe(400);
+    expect((await http("GET", `/api/bots/${made.id}/chat?limit=-1`, undefined, true)).status).toBe(400);
+    expect(await (await http("GET", `/api/bots/${made.id}/chat/conversation`, undefined, true)).json()).toMatchObject({ source: "claude-transcript", turns: [] });
+    expect((await http("POST", `/api/bots/${made.id}/message`, { text: "hi" }, true)).status).toBe(403);
+    expect((await http("POST", `/api/bots/${made.id}/message`, { text: "hi", clientMessageId: "nope" })).status).toBe(400);
+    const sent = await (await http("POST", `/api/bots/${made.id}/message`, { text: "hi" })).json() as { clientMessageId: string; state: string };
+    expect(sent.state === "accepted" || sent.state === "queued").toBe(true);
+    expect(await (await http("POST", `/api/bots/${made.id}/open`)).json()).toEqual({ session: true });
+    expect((await http("POST", `/api/bots/${made.id}/prompts/prompt%3Anone`, { optionId: "allow" })).status).toBe(404);
+    expect((await http("POST", `/api/bots/${made.id}/prompts/prompt%3Anone`, { answers: "x" })).status).toBe(400);
+    expect((await http("PATCH", `/api/bots/${made.id}`, { permissionMode: "full-access" })).status).toBe(400);
+    expect(await (await http("POST", `/api/bots/${made.id}/stop`)).json()).toEqual({ cancelled: true });
   });
 });

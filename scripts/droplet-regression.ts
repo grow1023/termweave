@@ -84,18 +84,22 @@ export async function checkDroplet(browser: Browser, origin: string): Promise<vo
     await page.mouse.down();
     await page.mouse.move(flick.x + flick.width / 2, flick.y + flick.height / 2 - 40, { steps: 4 });
     await page.mouse.up();
+    // the pointer would rest where the next card drops in, and a card pointed at stays: move it off
+    await page.mouse.move(195, 800);
     await droplet.waitFor({ state: "detached", timeout: 2_000 });
     assert.equal(await selected(), otherPane, "a flick up opens nothing");
     console.log("PASS a flick up puts an in-app alert away");
 
-    // left alone, it goes by itself
+    // left alone, it goes by itself. A waiting agent's card stays about 12.6 s (560 ms reveal +
+    // 12 s hold, navModel DROPLET_BLOCKED_HOLD_MS) plus its exit, not about 4 s: it asks for an
+    // answer, and a short card was gone before the user could read it
     await report(openPane, "idle");
     await block(openPane);
     await card.waitFor({ state: "visible" });
     const shown = Date.now();
-    await droplet.waitFor({ state: "detached", timeout: 7_000 });
+    await droplet.waitFor({ state: "detached", timeout: 16_000 });
     const lasted = Date.now() - shown;
-    assert.ok(lasted > 3_500 && lasted < 6_000, `stayed ${lasted}ms`);
+    assert.ok(lasted > 12_000 && lasted < 15_000, `stayed ${lasted}ms`);
     console.log("PASS an in-app alert goes by itself");
 
     // turned off in Settings: none

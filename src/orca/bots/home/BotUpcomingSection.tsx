@@ -56,7 +56,7 @@ export function BotUpcomingSection({ bot, automations, fold, now, readOnly }: {
       ) : null}
       {ordered.length === 0 ? (
         <p className="py-1 pr-2 pl-8 text-xs text-muted-foreground">
-          {t("Ask {name} in chat to run something on a schedule or when something happens.", { name: bot.name })}
+          {t("Ask {name} in chat to run something on a schedule, or add one with +.", { name: bot.name })}
         </p>
       ) : null}
     </BotPanelSection>

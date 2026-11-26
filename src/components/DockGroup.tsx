@@ -82,11 +82,14 @@ export function DockGroup({ node, panes, busy, zoomed, groupIds, activate, drop,
       <div className="dock-tab-actions">
       {viewControls}
       <button type="button" className="dock-add" disabled={busy || !canAdd} aria-label={t("New terminal tab")} title={t("New terminal tab")} onClick={add}><Plus size={16} aria-hidden="true" />{t("Add terminal")}</button>
+      {/* the gear between "+" and the trash: terminating sat 3px from "new terminal" */}
+      <button type="button" className="dock-tools-toggle" aria-label={t("Terminal tools and search")} title={t("Terminal tools and search")} aria-expanded={toolsOpen} onClick={() => setToolsOpen(value => !value)}><Settings2 size={16} aria-hidden="true" /></button>
       {node.active && terminate}
-      <button type="button" className="dock-tools-toggle" aria-label={t("Terminal tools")} aria-expanded={toolsOpen} onClick={() => setToolsOpen(value => !value)}><Settings2 size={16} aria-hidden="true" /></button>
       </div>
       {toolsOpen && <div className="dock-tools-panel" role="region" aria-label={t("Terminal tools")} onKeyDown={event => { if (event.key === "Escape") { setToolsOpen(false); event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(".dock-tools-toggle")?.focus(); } }}>
         <div className="dock-tools-heading"><strong>{t("Terminal tools")}</strong><button type="button" aria-label={t("Close")} onClick={() => setToolsOpen(false)}><X size={16} /></button></div>
+        {/* first: searching the output is what this panel is opened for most */}
+        {search}
         <div className="dock-secondary-actions">
           {rename}
           <button type="button" disabled={busy || !canAdd} onClick={() => split("right")}>{t("Split terminal right")}</button>
@@ -108,7 +111,6 @@ export function DockGroup({ node, panes, busy, zoomed, groupIds, activate, drop,
     </details>
     {address}
     {nativeMove}
-    {search}
       </div>}
     </div>
     <div className={`dock-drop-body${edge ? ` dock-drop-${edge}` : ""}`} onDragOverCapture={event => over(event, locate(event))}

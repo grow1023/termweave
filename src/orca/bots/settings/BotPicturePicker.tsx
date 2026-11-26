@@ -101,9 +101,15 @@ export function PictureButton({ value, onPick, variant, disabled = false, label 
               <Pencil className="size-3" />
             </span>
           ) : disabled ? null : (
-            <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[inherit] bg-black/55 text-white opacity-0 transition-opacity group-hover/picture:opacity-100 group-focus-visible/picture:opacity-100 group-aria-expanded/picture:opacity-100">
-              <Pencil className="size-1/2 max-h-4 max-w-4" />
-            </span>
+            <>
+              <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[inherit] bg-black/55 text-white opacity-0 transition-opacity group-hover/picture:opacity-100 group-focus-visible/picture:opacity-100 group-aria-expanded/picture:opacity-100 pointer-coarse:hidden">
+                <Pencil className="size-1/2 max-h-4 max-w-4" />
+              </span>
+              {/* A touch screen has no hover to show the pencil: a small corner badge, as on the New bot picture, keeps the picture in view. */}
+              <span aria-hidden className="pointer-events-none absolute -right-1 -bottom-1 hidden size-4 items-center justify-center rounded-full border border-border bg-popover text-muted-foreground pointer-coarse:flex">
+                <Pencil className="size-2.5" />
+              </span>
+            </>
           )}
         </button>
       </PopoverTrigger>

@@ -319,10 +319,18 @@
   border-color: var(--primary);
 }
 
+/* Stop carries a word and sits before the send slot, with a gap, so it is never hit by habit */
 .composer-stop {
+  width: auto;
+  gap: var(--space-1);
+  padding-inline: var(--space-2);
+  margin-inline-end: var(--space-2);
   background: var(--status-blocked-tint);
   border-color: var(--status-blocked);
   color: var(--status-blocked);
+  font: inherit;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
 }
 
 .composer-queue-button {
@@ -484,6 +492,11 @@
   font-size: var(--fs-xs);
 }
 
+/* a report, not a refusal ("Sent as it was…") */
+.composer-note.is-info {
+  color: var(--text-dim);
+}
+
 @media (max-width: 480px) {
   .composer {
     padding-inline: var(--space-2);
@@ -616,6 +629,13 @@
   border: var(--hairline) solid var(--border);
   background: var(--bg-elevated);
   color: var(--text);
+}
+
+/* the agent is ready: sending is the next step, and nothing sends it but this button */
+.composer-queue-send.is-ready:not(:disabled) {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-text);
 }
 
 .composer-queue-discard {

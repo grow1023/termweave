@@ -1,4 +1,4 @@
-import { AppearancePanel } from "./AppearancePanel.tsx";
+import { AppearanceMore, AppearancePanel, FontFamilyField, FontPreview } from "./AppearancePanel.tsx";
 import { AndroidPanel } from "./AndroidPanel.tsx";
 import { PRODUCT_LABEL } from "../../shared/product.ts";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -11,9 +11,9 @@ import type { AppActions } from "../lib/actions.ts";
 import { useInstallPrompt } from "../lib/install.ts";
 import { SHORTCUTS, formatKeys, shortcutKeys, shortcutConflict } from "../lib/shortcuts.ts";
 import { CHAT_FONT_MAX, CHAT_FONT_MIN, chatFontSize, DEFAULT_SETTINGS, QUICK_REPLIES_MAX, QUICK_REPLY_MAX_CHARS, TERMINAL_FONT_MAX, TERMINAL_FONT_MIN, TERMINAL_WHEEL_SPEED_MAX, TERMINAL_WHEEL_SPEED_MIN, useSettings, forgetPaneViews } from "../lib/settings.ts";
-import { migrateUpstreamPreferences } from '../lib/migrateStorage.ts';
 import { LANGUAGE_NAMES, LANGUAGE_SETTINGS, useT } from "../lib/i18n.ts";
-import { FONT_FAMILY_MAX_CHARS, sanitizeFontFamily } from "../lib/fontFamily.ts";
+import { useModalFocus } from "../lib/modalFocus.ts";
+import { queryWords, rowMatches, sectionMatches } from "../lib/settingsSearch.ts";
 import type { UpdatesModel } from "../lib/updates.ts";
 import type { MachineSettings } from "../../shared/machines.ts";
 import { fetchRemoteAccess, fetchVoiceStatus, machineRequest, saveVoiceConfig } from "../lib/api.ts";
@@ -36,6 +36,8 @@ export interface SettingsDialogProps {
   /** how this browser got in, from the last health check */
   auth: HealthAuth | null;
   onEnableNotifications: () => Promise<boolean>;
+  /** turns this device's alerts off, as the header bell does; Settings → Alerts shows its on/off switch only with it */
+  onDisableNotifications?: () => Promise<void>;
   /** the section to open at (its nav id, such as "remote"); the first one when absent */
   section?: string;
 }
@@ -50,47 +52,6 @@ function Toggle({ checked, label, onChange }: { checked: boolean; label: string;
 
 function compactKeys(keys: readonly string[]): string {
   return formatKeys(keys).map((key) => ({ Shift: "⇧", ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→" }[key] ?? (key.length === 1 ? key.toUpperCase() : key))).join("+");
-}
-
-const FONT_FAMILY_PLACEHOLDER = 'D2Coding, "Cascadia Mono"';
-
-/**
- * A font family list, saved when the field is left, on Enter or when the dialog closes: saving
- * every keystroke would sanitize away the comma or space being typed, and each change of the
- * terminal's font refits the grid and resizes the pane.
- */
-function FontFamilyInput({ value, label, onCommit }: { value: string; label: string; onCommit: (family: string) => void }) {
-  const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
-  const commit = (): void => {
-    const next = sanitizeFontFamily(draft);
-    setDraft(next);
-    if (next !== value) onCommit(next);
-  };
-  // closing the dialog with Escape unmounts the field without a blur
-  const commitRef = useRef(commit);
-  commitRef.current = commit;
-  useEffect(() => () => commitRef.current(), []);
-  return (
-    <input
-      className="input settings-font-input"
-      value={draft}
-      placeholder={FONT_FAMILY_PLACEHOLDER}
-      maxLength={FONT_FAMILY_MAX_CHARS}
-      aria-label={label}
-      spellCheck={false}
-      autoCapitalize="off"
-      autoCorrect="off"
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        // an IME keeps its Enter, including the committing one WebKit can send after compositionend as key code 229
-        if (event.key !== "Enter" || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
-        event.preventDefault();
-        commit();
-      }}
-    />
-  );
 }
 
 /**
@@ -149,8 +110,7 @@ const SEARCH_HIDDEN = "settings-search-hidden";
 
 function searchText(unit: Element): string {
   const parts = unit.querySelectorAll(".settings-label, .settings-description, th, label");
-  const text = parts.length > 0 ? [...parts].map((part) => part.textContent ?? "").join(" ") : unit.textContent ?? "";
-  return text.toLocaleLowerCase();
+  return parts.length > 0 ? [...parts].map((part) => part.textContent ?? "").join(" ") : unit.textContent ?? "";
 }
 
 /** Hide every child of `container` that neither is nor holds a match; the section title stays. */
@@ -164,18 +124,24 @@ function hideOutside(container: Element, matches: readonly Element[]): void {
 }
 
 /**
- * Filter the settings in place by label and description. A section whose title matches stays
- * whole. Answers the number of matches, or -1 when the query is empty.
+ * Filter the settings in place. The query's words may come in any order (see settingsSearch.ts).
+ * A section whose title and keywords hold them all stays whole; the keywords name what a section
+ * holds but no row says (a QR code, a pairing code, ADB). Otherwise each row matches on its own
+ * text with its section's title and keywords. Answers the number of matches, or -1 when the
+ * query is empty.
  */
 function applySettingsSearch(root: HTMLElement, query: string): number {
   for (const hidden of root.querySelectorAll(`.${SEARCH_HIDDEN}`)) hidden.classList.remove(SEARCH_HIDDEN);
-  const needle = query.trim().toLocaleLowerCase();
-  if (!needle) return -1;
+  const words = queryWords(query);
+  if (words.length === 0) return -1;
   let total = 0;
   for (const section of root.querySelectorAll<HTMLElement>(".settings-section")) {
-    const title = section.querySelector(":scope > h3")?.textContent?.toLocaleLowerCase() ?? "";
-    if (title.includes(needle)) { total += 1; continue; }
-    const matches = [...section.querySelectorAll(SEARCH_UNITS)].filter((unit) => searchText(unit).includes(needle));
+    const info = {
+      title: section.querySelector(":scope > h3")?.textContent ?? "",
+      keywords: section.closest<HTMLElement>("[data-keywords]")?.dataset.keywords ?? "",
+    };
+    if (sectionMatches(info, words)) { total += 1; continue; }
+    const matches = [...section.querySelectorAll(SEARCH_UNITS)].filter((unit) => rowMatches(searchText(unit), info, words));
     if (matches.length === 0) { section.classList.add(SEARCH_HIDDEN); continue; }
     total += matches.length;
     hideOutside(section, matches);
@@ -188,7 +154,7 @@ function applySettingsSearch(root: HTMLElement, query: string): number {
 
 interface NavItem { id: string; label: string; icon: LucideIcon }
 
-export function SettingsDialog({ open, onClose, actions, updates, auth, onEnableNotifications, section }: SettingsDialogProps) {
+export function SettingsDialog({ open, onClose, actions, updates, auth, onEnableNotifications, onDisableNotifications, section }: SettingsDialogProps) {
   const { settings, update } = useSettings();
   // the accounts to order and hide: the same report the meters show, from the server's cache
   const usage = useUsage(open && settings.showUsage);
@@ -250,40 +216,62 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
 
   const searchRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+  const navListRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
-  const [activeSection, setActiveSection] = useState("appearance");
   const [matchCount, setMatchCount] = useState(-1);
+  // Tab stays in the dialog, Escape closes it (not while an IME composes), and the opener gets the focus back
+  useModalFocus(dialogRef, { open, onClose });
 
+  // first what a phone needs (alerts, opening and pairing), then look and text, the rest by how often it is used
   const navGroups: { label: string; items: NavItem[] }[] = [
-    { label: t("General"), items: [
+    { label: t("Alerts and phone"), items: [
+      { id: "alerts", label: t("Alerts"), icon: Bell },
+      { id: "phone", label: t("Open on your phone"), icon: Smartphone },
+      { id: "devices", label: t("Paired devices"), icon: Laptop },
+    ] },
+    { label: t("Look and text"), items: [
       { id: "appearance", label: t("Appearance"), icon: Palette },
-      { id: "shortcuts", label: t("Shortcuts"), icon: Keyboard },
-      { id: "usage", label: t("Subscription usage"), icon: Gauge },
+      { id: "chat", label: t("Chat"), icon: MessageSquare },
     ] },
     { label: t("Conversation"), items: [
-      { id: "chat", label: t("Chat"), icon: MessageSquare },
       { id: "composer", label: t("Composer"), icon: PenLine },
-      { id: "voice", label: t("Voice input"), icon: Mic },
       { id: "quick-replies", label: t("Quick replies"), icon: Zap },
-      { id: "alerts", label: t("Alerts"), icon: Bell },
+      { id: "voice", label: t("Voice input"), icon: Mic },
     ] },
     { label: t("Connections"), items: [
-      { id: "phone", label: t("Phone"), icon: Smartphone },
-      { id: "android", label: t("My Android devices"), icon: TabletSmartphone },
-      { id: "devices", label: t("Devices"), icon: Laptop },
       { id: "remote", label: t("Remote PCs"), icon: Monitor },
+      { id: "android", label: t("Android screen mirroring"), icon: TabletSmartphone },
     ] },
     { label: t("Application"), items: [
+      { id: "usage", label: t("Subscription usage"), icon: Gauge },
+      { id: "shortcuts", label: t("Shortcuts"), icon: Keyboard },
       { id: "install", label: t("Install"), icon: Download },
-      { id: "about", label: t("About"), icon: Info },
       { id: "updates", label: t("Updates"), icon: RefreshCw },
+      { id: "about", label: t("About"), icon: Info },
     ] },
   ];
+  const firstSection = navGroups[0]!.items[0]!.id;
+  const [activeSection, setActiveSection] = useState(firstSection);
+
+  // Android polls its devices and opens a relay socket: it starts once its section comes into
+  // view (or is asked for), not whenever Settings opens for something else
+  const androidAsked = section === "android" || new URLSearchParams(window.location.search).get("panel") === "android";
+  const [androidSeen, setAndroidSeen] = useState(androidAsked);
+  useEffect(() => {
+    if (!open) { setAndroidSeen(false); return; }
+    if (androidAsked) { setAndroidSeen(true); return; }
+    const target = bodyRef.current?.querySelector('[data-nav="android"]');
+    if (!target || typeof IntersectionObserver !== "function") { setAndroidSeen(true); return; }
+    const observer = new IntersectionObserver((entries) => { if (entries.some((entry) => entry.isIntersecting)) setAndroidSeen(true); }, { root: bodyRef.current });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [open, androidAsked]);
 
   useEffect(() => {
     if (!open) return;
     setQuery("");
-    setActiveSection(section ?? "appearance");
+    setActiveSection(section ?? firstSection);
     // opened at a section (Fleet's connection settings): go there, and again once the sections
     // above it have loaded what they read on open (devices, usage), which pushes it down
     const toSection = () => bodyRef.current?.querySelector(`[data-nav="${section}"]`)?.scrollIntoView({ block: "start" });
@@ -292,14 +280,20 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
     // a touch screen would raise its keyboard for the search field: the first section takes focus there
     if (window.matchMedia?.("(pointer: fine)").matches) searchRef.current?.focus();
     else firstControlRef.current?.focus();
-    const closeOnEscape = (event: KeyboardEvent): void => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      onClose();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => { window.removeEventListener("keydown", closeOnEscape); window.clearTimeout(settled); };
-  }, [open, onClose, section]);
+    return () => window.clearTimeout(settled);
+  }, [open, section, firstSection]);
+
+  // on a phone the sections are a row of chips wider than the screen: keep the current one in
+  // view, set directly so no ancestor scrolls and reduced motion needs nothing
+  useEffect(() => {
+    const list = navListRef.current;
+    const item = list?.querySelector<HTMLElement>('[aria-current="true"]');
+    if (!list || !item || list.scrollWidth <= list.clientWidth) return;
+    const left = item.offsetLeft - list.offsetLeft;
+    if (left < list.scrollLeft || left + item.offsetWidth > list.scrollLeft + list.clientWidth) {
+      list.scrollLeft = Math.max(0, left - (list.clientWidth - item.offsetWidth) / 2);
+    }
+  }, [activeSection, open]);
 
   // the search hides rows in place, so the controls and their state stay as they are; every render re-applies it
   useLayoutEffect(() => {
@@ -307,12 +301,15 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
     setMatchCount(applySettingsSearch(bodyRef.current, query));
   });
 
-  /** the section at the top of the pane leads the nav; at the end of the pane, the last one */
+  /**
+   * The section in the upper third of the pane leads the nav; at the end of the pane, the last
+   * one. A line just under the top would mark the section above a short heading as current.
+   */
   const followScroll = (): void => {
     const body = bodyRef.current;
     if (!body || query.trim()) return;
     const sections = [...body.querySelectorAll<HTMLElement>("[data-nav]")];
-    const top = body.getBoundingClientRect().top + 32;
+    const top = body.getBoundingClientRect().top + body.clientHeight * 0.3;
     const atEnd = body.scrollTop + body.clientHeight >= body.scrollHeight - 2;
     const current = atEnd ? sections.at(-1) : sections.filter((section) => section.getBoundingClientRect().top <= top).at(-1) ?? sections[0];
     if (current?.dataset.nav && current.dataset.nav !== activeSection) setActiveSection(current.dataset.nav);
@@ -333,7 +330,7 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
 
   return (
     <div className="modal-scrim" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="modal settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <section ref={dialogRef} className="modal settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <header className="modal-header">
           <h2 className="modal-title" id="settings-title">{t("Settings")}</h2>
           <button type="button" className="icon-button" aria-label={t("Close settings")} onClick={onClose}><X /></button>
@@ -355,7 +352,7 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
                 onChange={(event) => setQuery(event.target.value)}
               />
             </div>
-            <div className="settings-nav-list">
+            <div className="settings-nav-list" ref={navListRef}>
               {navGroups.map((group, groupIndex) => (
                 <div key={group.label} className="settings-nav-group">
                   <p className="settings-nav-heading">{group.label}</p>
@@ -381,12 +378,55 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
             </div>
           </nav>
           <div className="modal-body settings-body" ref={bodyRef} onScroll={followScroll}>
-            <section className="settings-section" data-nav="appearance">
-              <h3>{t("Appearance")}</h3>
-              <div className="settings-card settings-card-block">
-                <AppearancePanel />
+            <section className="settings-section" data-keywords={t("notifications push bell test on off")} data-nav="alerts">
+              <h3>{t("Alerts")}</h3>
+              <p className="settings-description">{t("Alerts come to this device. Each waits a moment first; when you answer at the PC meanwhile, none comes.")}</p>
+              <div className="settings-card">
+                <PushTestControls onEnable={onEnableNotifications} onDisable={onDisableNotifications}>
+                  <div className="settings-row">
+                    <div><span className="settings-label">{t("Needs input")}</span><span className="settings-description">{t("An agent waits for an answer or a permission")}</span></div>
+                    <Toggle label={t("Needs input")} checked={settings.alertInput} onChange={(alertInput) => update({ alertInput })} />
+                  </div>
+                  <div className="settings-row">
+                    <div><span className="settings-label">{t("Finished")}</span><span className="settings-description">{t("Long turns: only work that took a minute or more")}</span></div>
+                    <div className="segmented" aria-label={t("Finished")}>
+                      {(["off", "long", "always"] as const).map((alertDone) => (
+                        <button key={alertDone} type="button" aria-pressed={settings.alertDone === alertDone} onClick={() => update({ alertDone })}>
+                          {t(alertDone === "off" ? "Off" : alertDone === "long" ? "Long turns" : "Every turn")}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="settings-row">
+                    <div><span className="settings-label">{t("In the app")}</span><span className="settings-description">{t("While the app is open, these drop in from the top of the screen at once. Tap one to open its pane.")}</span></div>
+                    <Toggle label={t("In the app")} checked={settings.alertInApp} onChange={(alertInApp) => update({ alertInApp })} />
+                  </div>
+                </PushTestControls>
               </div>
-              <h4 className="settings-subheading">{t("Interface")}</h4>
+            </section>
+
+            <section className="settings-section" data-keywords={t("phone address QR Tailscale HTTPS screen")} data-nav="phone">
+              <h3>{t("Open on your phone")}</h3>
+              <div className="settings-card settings-card-block">
+                <PhonePanel plan={plan} loading={access === undefined} onRefresh={loadAccess} onPairDevice={() => goToSection("devices")} />
+              </div>
+              <div className="settings-card">
+                <div className="settings-row">
+                  <div><span className="settings-label">{t("Keep screen on")}</span><span className="settings-description">{t("While a terminal or chat pane is open. Requires HTTPS or localhost and a supported browser.")}</span></div>
+                  <Toggle label={t("Keep screen on")} checked={settings.keepScreenOn} onChange={(keepScreenOn) => update({ keepScreenOn })} />
+                </div>
+              </div>
+            </section>
+
+            <section className="settings-section" data-keywords={t("pair pairing code QR revoke rename device")} data-nav="devices">
+              <h3>{t("Paired devices")}</h3>
+              <div className="settings-card settings-card-block">
+                <DevicesPanel pairUrl={pairUrl} auth={auth} />
+              </div>
+            </section>
+
+            <section className="settings-section" data-keywords={t("theme color dark light export import reset license herdr-web")} data-nav="appearance">
+              <h3>{t("Appearance")}</h3>
               <div className="settings-card">
                 <div className="settings-row">
                   <div><span className="settings-label">{t("Theme")}</span><span className="settings-description">{t("Choose the app color scheme")}</span></div>
@@ -398,16 +438,55 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
                     ))}
                   </div>
                 </div>
+                <div className="settings-card-inset">
+                  <AppearancePanel />
+                </div>
                 <div className="settings-row">
-                  <div><span className="settings-label">{t("Colors")}</span><span className="settings-description">{t("herdr's amber, a dark report, or neutral charcoal")}</span></div>
+                  {/* a preset brings its own colors: the TermWeave family choice only applies to the TermWeave theme */}
+                  <div><span className="settings-label">{t("Colors")}</span><span className="settings-description">{settings.appearancePreset === "default" ? t("Accent color family for the TermWeave theme") : t("Used with the TermWeave theme only")}</span></div>
                   <div className="segmented" aria-label={t("Colors")}>
                     {(["amber", "report", "charcoal"] as const).map((palette) => (
-                      <button key={palette} type="button" aria-pressed={settings.palette === palette} onClick={() => update({ palette })}>
+                      <button key={palette} type="button" aria-pressed={settings.palette === palette} disabled={settings.appearancePreset !== "default"} onClick={() => update({ palette })}>
                         {t(palette === "report" ? "Dark report" : palette === "amber" ? "Amber" : "Charcoal")}
                       </button>
                     ))}
                   </div>
                 </div>
+              </div>
+              <h4 className="settings-subheading">{t("Text")}</h4>
+              <div className="settings-card">
+                <div className="settings-row">
+                  <div><span className="settings-label">{t("Terminal font size")}</span><span className="settings-description">{t("Applied to every terminal pane")}</span></div>
+                  <div className="settings-stepper" aria-label={t("Terminal font size")}>
+                    <button type="button" className="icon-button" aria-label={t("Decrease terminal font size")} disabled={settings.terminalFontSize <= TERMINAL_FONT_MIN} onClick={() => update({ terminalFontSize: settings.terminalFontSize - 1 })}><Minus /></button>
+                    <output aria-live="polite">{settings.terminalFontSize}px</output>
+                    <button type="button" className="icon-button" aria-label={t("Increase terminal font size")} disabled={settings.terminalFontSize >= TERMINAL_FONT_MAX} onClick={() => update({ terminalFontSize: settings.terminalFontSize + 1 })}><Plus /></button>
+                  </div>
+                </div>
+                <div className="settings-row">
+                  <div><span className="settings-label">{t("Chat font size")}</span><span className="settings-description">{t("Messages, code and prompt cards in the chat view")}</span></div>
+                  <div className="settings-stepper" aria-label={t("Chat font size")}>
+                    <button type="button" className="icon-button" aria-label={t("Decrease chat font size")} disabled={chatFontSize(settings) <= CHAT_FONT_MIN} onClick={() => update({ chatFontSize: chatFontSize(settings) - 1 })}><Minus /></button>
+                    <output aria-live="polite">{chatFontSize(settings)}px</output>
+                    <button type="button" className="icon-button" aria-label={t("Increase chat font size")} disabled={chatFontSize(settings) >= CHAT_FONT_MAX} onClick={() => update({ chatFontSize: chatFontSize(settings) + 1 })}><Plus /></button>
+                  </div>
+                </div>
+                <div className="settings-row">
+                  <div><span className="settings-label">{t("Interface font")}</span><span className="settings-description">{t("Menus, labels and buttons")}</span></div>
+                  <FontFamilyField fontKey="uiFontFamily" label={t("Interface font")} customLabel={t("Custom interface font")} />
+                </div>
+                <div className="settings-row">
+                  <div><span className="settings-label">{t("Terminal font")}</span><span className="settings-description">{t("Comma-separated, tried in order. A font this device does not have falls back to the default.")}</span></div>
+                  <FontFamilyField fontKey="terminalFontFamily" label={t("Terminal font")} customLabel={t("Custom terminal font")} />
+                </div>
+                <div className="settings-row">
+                  <div><span className="settings-label">{t("Chat font")}</span><span className="settings-description">{t("Message text; code stays monospace. Comma-separated, tried in order. A font this device does not have falls back to the default.")}</span></div>
+                  <FontFamilyField fontKey="chatFontFamily" label={t("Chat font")} customLabel={t("Custom chat font")} />
+                </div>
+                <FontPreview />
+              </div>
+              <h4 className="settings-subheading">{t("Interface")}</h4>
+              <div className="settings-card">
                 <div className="settings-row">
                   <div><span className="settings-label">{t("Density")}</span><span className="settings-description">{t("Adjust spacing throughout the interface")}</span></div>
                   <div className="segmented" aria-label={t("Density")}>
@@ -442,9 +521,6 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
                   <div><span className="settings-label">{t("Highlight the current workspace")}</span><span className="settings-description">{t("Ring the open workspace in the sidebar, mark it Current, and show its name as a pill above the terminal")}</span></div>
                   <Toggle label={t("Highlight the current workspace")} checked={settings.focusHighlight} onChange={(focusHighlight) => update({ focusHighlight })} />
                 </div>
-                <div className="settings-row settings-row-action">
-                  <button type="button" className="btn" onClick={() => { if (window.confirm(t("Copy upstream preferences without credentials? Existing TermWeave values stay unchanged."))) { migrateUpstreamPreferences(localStorage, true); window.location.reload(); } }}>{t("Import upstream preferences (opt-in)")}</button>
-                </div>
               </div>
               <h4 className="settings-subheading">{t("Terminal")}</h4>
               <div className="settings-card">
@@ -475,18 +551,6 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
                   </div>
                 </>}
                 <div className="settings-row">
-                  <div><span className="settings-label">{t("Terminal font size")}</span><span className="settings-description">{t("Applied to every terminal pane")}</span></div>
-                  <div className="settings-stepper" aria-label={t("Terminal font size")}>
-                    <button type="button" className="icon-button" aria-label={t("Decrease terminal font size")} disabled={settings.terminalFontSize <= TERMINAL_FONT_MIN} onClick={() => update({ terminalFontSize: settings.terminalFontSize - 1 })}><Minus /></button>
-                    <output aria-live="polite">{settings.terminalFontSize}px</output>
-                    <button type="button" className="icon-button" aria-label={t("Increase terminal font size")} disabled={settings.terminalFontSize >= TERMINAL_FONT_MAX} onClick={() => update({ terminalFontSize: settings.terminalFontSize + 1 })}><Plus /></button>
-                  </div>
-                </div>
-                <div className="settings-row">
-                  <div><span className="settings-label">{t("Terminal font")}</span><span className="settings-description">{t("Comma-separated, tried in order. A font this device does not have falls back to the default.")}</span></div>
-                  <FontFamilyInput value={settings.terminalFontFamily} label={t("Terminal font")} onCommit={(terminalFontFamily) => update({ terminalFontFamily })} />
-                </div>
-                <div className="settings-row">
                   <div><span className="settings-label">{t("Wheel scroll speed")}</span><span className="settings-description">{t("How far one turn of the wheel scrolls the terminal")}</span></div>
                   <div className="settings-stepper" aria-label={t("Wheel scroll speed")}>
                     <button type="button" className="icon-button" aria-label={t("Slower wheel scrolling")} disabled={settings.terminalWheelSpeed <= TERMINAL_WHEEL_SPEED_MIN} onClick={() => update({ terminalWheelSpeed: settings.terminalWheelSpeed - 1 })}><Minus /></button>
@@ -501,71 +565,10 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
                   </select>
                 </div>
               </div>
+              <AppearanceMore />
             </section>
 
-            <section className="settings-section" data-nav="shortcuts">
-              <h3>{t("Shortcuts")}</h3>
-              <p className="settings-description">{t("Some keys are reserved by the browser. Changes apply to this device.")}</p>
-              <div className="settings-section-actions">
-                <button className="btn" onClick={() => update({ shortcutOverrides: {} })}>{t("Reset shortcuts")}</button>
-              </div>
-              <div className="settings-card">
-                <table className="settings-shortcuts">
-                  <tbody>{SHORTCUTS.map((shortcut) => (
-                    <tr key={shortcut.id}><th scope="row">{t(shortcut.label)}</th><td>{shortcut.id === "voice" ? formatKeys(shortcut.keys).map((key) => <kbd className="kbd" key={key}>{key}</kbd>) : <select className="input" aria-label={t(shortcut.label)} value={Object.hasOwn(settings.shortcutOverrides, shortcut.id) ? settings.shortcutOverrides[shortcut.id] ?? "off" : "default"} onChange={(event) => {
-                      const next = { ...settings.shortcutOverrides };
-                      if (event.target.value === "default") delete next[shortcut.id];
-                      else next[shortcut.id] = event.target.value === "off" ? null : event.target.value;
-                      update({ shortcutOverrides: next });
-                    }}>
-                      <option value="default" title={t("Default")} disabled={shortcutConflict(shortcut.id, shortcutKeys(shortcut.id, {}), settings.shortcutOverrides)}>{compactKeys(shortcut.keys)}</option>
-                      <option value="off" title={t("Send keys to terminal")}>{t("Off")}</option>
-                      {[..."abcdefghijklmnopqrstuvwxyz0123456789,", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].map((key) => {
-                        const conflict = shortcutConflict(shortcut.id, [key], settings.shortcutOverrides);
-                        return <option key={key} value={key} disabled={conflict}>{compactKeys(["Mod", "Shift", key])}{conflict ? " — " + t("Already assigned") : ""}</option>;
-                      })}
-                    </select>}</td></tr>
-                  ))}</tbody>
-                </table>
-              </div>
-            </section>
-
-            <section className="settings-section" data-nav="usage">
-              <h3>{t("Subscription usage")}</h3>
-              <div className="settings-card">
-                <div className="settings-row">
-                  <div><span className="settings-label">{t("Show plan limits")}</span><span className="settings-description">{t("Beside Settings, how much of each plan the AI tools on the server's PC have used. Turning it on sends their sign-ins to each provider's usage endpoint; they are never refreshed here.")}</span></div>
-                  <Toggle label={t("Show plan limits")} checked={settings.showUsage} onChange={(showUsage) => update({ showUsage })} />
-                </div>
-                {settings.showUsage && (
-                  <div className="settings-row">
-                    <span className="settings-label">{t("Meters show")}</span>
-                    <div className="segmented" aria-label={t("Meters show")}>
-                      {(["used", "left"] as const).map((usageCount) => (
-                        <button key={usageCount} type="button" aria-pressed={settings.usageCount === usageCount} onClick={() => update({ usageCount })}>
-                          {t(usageCount === "used" ? "Used" : "Remaining")}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {settings.showUsage && (
-                  <div className="settings-row">
-                    <span className="settings-label">{t("Where")}</span>
-                    <div className="segmented" aria-label={t("Where")}>
-                      {(["footer", "top"] as const).map((usagePlacement) => (
-                        <button key={usagePlacement} type="button" aria-pressed={settings.usagePlacement === usagePlacement} onClick={() => update({ usagePlacement })}>
-                          {t(usagePlacement === "top" ? "Top of the list" : "Beside Settings")}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              {settings.showUsage && usage.report && usage.report.providers.length > 0 && <UsageAccounts providers={usage.report.providers} />}
-            </section>
-
-            <section className="settings-section" data-nav="chat">
+            <section className="settings-section" data-keywords={t("chat conversation thinking reasoning")} data-nav="chat">
               <h3>{t("Chat")}</h3>
               <div className="settings-card">
                 <div className="settings-row">
@@ -587,22 +590,11 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
                   <div><span className="settings-label">{t("Show thinking")}</span><span className="settings-description">{t("Include the agent's reasoning blocks")}</span></div>
                   <Toggle label={t("Show thinking")} checked={settings.showThinking} onChange={(showThinking) => update({ showThinking })} />
                 </div>
-                <div className="settings-row">
-                  <div><span className="settings-label">{t("Chat font size")}</span><span className="settings-description">{t("Messages, code and prompt cards in the chat view")}</span></div>
-                  <div className="settings-stepper" aria-label={t("Chat font size")}>
-                    <button type="button" className="icon-button" aria-label={t("Decrease chat font size")} disabled={chatFontSize(settings) <= CHAT_FONT_MIN} onClick={() => update({ chatFontSize: chatFontSize(settings) - 1 })}><Minus /></button>
-                    <output aria-live="polite">{chatFontSize(settings)}px</output>
-                    <button type="button" className="icon-button" aria-label={t("Increase chat font size")} disabled={chatFontSize(settings) >= CHAT_FONT_MAX} onClick={() => update({ chatFontSize: chatFontSize(settings) + 1 })}><Plus /></button>
-                  </div>
-                </div>
-                <div className="settings-row">
-                  <div><span className="settings-label">{t("Chat font")}</span><span className="settings-description">{t("Message text; code stays monospace. Comma-separated, tried in order. A font this device does not have falls back to the default.")}</span></div>
-                  <FontFamilyInput value={settings.chatFontFamily} label={t("Chat font")} onCommit={(chatFontFamily) => update({ chatFontFamily })} />
-                </div>
               </div>
+              <p className="settings-hint">{t("Chat text size and font are under Appearance → Text.")}</p>
             </section>
 
-            <section className="settings-section" data-nav="composer">
+            <section className="settings-section" data-keywords={t("message box Enter send suggestion")} data-nav="composer">
               <h3>{t("Composer")}</h3>
               <div className="settings-card">
                 <div className="settings-row">
@@ -616,7 +608,42 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
               </div>
             </section>
 
-            <section className="settings-section voice-settings" data-nav="voice">
+            <section className="settings-section" data-keywords={t("quick reply one-tap messages")} data-nav="quick-replies">
+              <h3>{t("Quick replies")}</h3>
+              <div className="settings-card">
+                <div className="settings-row">
+                  <div><span className="settings-label">{t("Show above the message box")}</span><span className="settings-description">{t("One-tap messages above the message box, on this device. Each is sent as if typed: queued while the agent works, an answer when a question is open.")}</span></div>
+                  <Toggle label={t("Show above the message box")} checked={settings.showQuickReplies} onChange={(showQuickReplies) => update({ showQuickReplies })} />
+                </div>
+              </div>
+              <div className="settings-card settings-card-block">
+                <ol className="quick-replies-list">
+                  {settings.quickReplies.map((reply, index) => (
+                    <li key={index}>
+                      <input
+                        className="input"
+                        value={reply}
+                        maxLength={QUICK_REPLY_MAX_CHARS}
+                        aria-label={t("Quick reply {number}", { number: index + 1 })}
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                        onChange={(event) => update({ quickReplies: settings.quickReplies.map((current, at) => at === index ? event.target.value : current) })}
+                      />
+                      <button type="button" className="icon-button" aria-label={t("Remove quick reply {number}", { number: index + 1 })} onClick={() => update({ quickReplies: settings.quickReplies.filter((_, at) => at !== index) })}>
+                        <X aria-hidden="true" />
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+                <div className="phone-actions">
+                  <button type="button" className="btn" disabled={settings.quickReplies.length >= QUICK_REPLIES_MAX} onClick={() => update({ quickReplies: [...settings.quickReplies, ""] })}><Plus aria-hidden="true" />{t("Add reply")}</button>
+                  <button type="button" className="btn btn-ghost" onClick={() => update({ quickReplies: [...DEFAULT_SETTINGS.quickReplies] })}>{t("Restore defaults")}</button>
+                </div>
+              </div>
+            </section>
+
+            <section className="settings-section voice-settings" data-keywords={t("voice microphone dictation speech OpenAI key")} data-nav="voice">
               <h3>{t("Voice input")}</h3>
               <div className="voice-group">
                 <h4 className="voice-group-title">{t("Microphone")}</h4>
@@ -682,97 +709,7 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
               )}
             </section>
 
-            <section className="settings-section" data-nav="quick-replies">
-              <h3>{t("Quick replies")}</h3>
-              <div className="settings-card">
-                <div className="settings-row">
-                  <div><span className="settings-label">{t("Show above the message box")}</span><span className="settings-description">{t("One-tap messages above the message box, on this device. Each is sent as if typed: queued while the agent works, an answer when a question is open.")}</span></div>
-                  <Toggle label={t("Show above the message box")} checked={settings.showQuickReplies} onChange={(showQuickReplies) => update({ showQuickReplies })} />
-                </div>
-              </div>
-              <div className="settings-card settings-card-block">
-                <ol className="quick-replies-list">
-                  {settings.quickReplies.map((reply, index) => (
-                    <li key={index}>
-                      <input
-                        className="input"
-                        value={reply}
-                        maxLength={QUICK_REPLY_MAX_CHARS}
-                        aria-label={t("Quick reply {number}", { number: index + 1 })}
-                        spellCheck={false}
-                        autoCapitalize="off"
-                        autoCorrect="off"
-                        onChange={(event) => update({ quickReplies: settings.quickReplies.map((current, at) => at === index ? event.target.value : current) })}
-                      />
-                      <button type="button" className="icon-button" aria-label={t("Remove quick reply {number}", { number: index + 1 })} onClick={() => update({ quickReplies: settings.quickReplies.filter((_, at) => at !== index) })}>
-                        <X aria-hidden="true" />
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-                <div className="phone-actions">
-                  <button type="button" className="btn" disabled={settings.quickReplies.length >= QUICK_REPLIES_MAX} onClick={() => update({ quickReplies: [...settings.quickReplies, ""] })}><Plus aria-hidden="true" />{t("Add reply")}</button>
-                  <button type="button" className="btn btn-ghost" onClick={() => update({ quickReplies: [...DEFAULT_SETTINGS.quickReplies] })}>{t("Restore defaults")}</button>
-                </div>
-              </div>
-            </section>
-
-            <section className="settings-section" data-nav="alerts">
-              <h3>{t("Alerts")}</h3>
-              <p className="settings-description">{t("For this device. An alert waits a little first, and none comes when the pane changes meanwhile, as when you answer at the PC.")}</p>
-              <div className="settings-card">
-                <PushTestControls onEnable={onEnableNotifications} />
-              </div>
-              <div className="settings-card">
-                <div className="settings-row">
-                  <div><span className="settings-label">{t("Needs input")}</span><span className="settings-description">{t("An agent waits for an answer or a permission")}</span></div>
-                  <Toggle label={t("Needs input")} checked={settings.alertInput} onChange={(alertInput) => update({ alertInput })} />
-                </div>
-                <div className="settings-row">
-                  <div><span className="settings-label">{t("Finished")}</span><span className="settings-description">{t("Long turns: only work that took a minute or more")}</span></div>
-                  <div className="segmented" aria-label={t("Finished")}>
-                    {(["off", "long", "always"] as const).map((alertDone) => (
-                      <button key={alertDone} type="button" aria-pressed={settings.alertDone === alertDone} onClick={() => update({ alertDone })}>
-                        {t(alertDone === "off" ? "Off" : alertDone === "long" ? "Long turns" : "Every turn")}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="settings-row">
-                  <div><span className="settings-label">{t("In the app")}</span><span className="settings-description">{t("While the app is open, these drop in from the top of the screen at once. Tap one to open its pane.")}</span></div>
-                  <Toggle label={t("In the app")} checked={settings.alertInApp} onChange={(alertInApp) => update({ alertInApp })} />
-                </div>
-              </div>
-            </section>
-
-            <section className="settings-section" data-nav="phone">
-              <h3>{t("Phone")}</h3>
-              <div className="settings-card">
-                <div className="settings-row">
-                  <div><span className="settings-label">{t("Keep screen on")}</span><span className="settings-description">{t("While a terminal or chat pane is open. Requires HTTPS or localhost and a supported browser.")}</span></div>
-                  <Toggle label={t("Keep screen on")} checked={settings.keepScreenOn} onChange={(keepScreenOn) => update({ keepScreenOn })} />
-                </div>
-              </div>
-              <div className="settings-card settings-card-block">
-                <PhonePanel plan={plan} loading={access === undefined} onRefresh={loadAccess} />
-              </div>
-            </section>
-
-            <section className="settings-section" data-nav="android">
-              <h3>{t("My Android devices")}</h3>
-              <div className="settings-card settings-card-block">
-                <AndroidPanel readOnly={auth?.role === "watch"} />
-              </div>
-            </section>
-
-            <section className="settings-section" data-nav="devices">
-              <h3>{t("Devices")}</h3>
-              <div className="settings-card settings-card-block">
-                <DevicesPanel pairUrl={pairUrl} auth={auth} />
-              </div>
-            </section>
-
-            <section className="settings-section" data-nav="remote">
+            <section className="settings-section" data-keywords={t("remote PC SSH add bridge")} data-nav="remote">
               <h3>{t("Remote PCs")}</h3>
               <div className="settings-card">
                 <div className="settings-row">
@@ -788,7 +725,76 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
               {pcSettingsError && <p className="settings-hint" role="alert">{pcSettingsError}</p>}
             </section>
 
-            <section className="settings-section" data-nav="install">
+            <section className="settings-section" data-keywords={t("Android mirror mirroring ADB scrcpy USB Wi-Fi LTE relay")} data-nav="android">
+              <h3>{t("Android screen mirroring")}</h3>
+              <div className="settings-card settings-card-block">
+                {androidSeen ? <AndroidPanel readOnly={auth?.role === "watch"} /> : <p className="settings-hint">{t("Loading…")}</p>}
+              </div>
+            </section>
+
+            <section className="settings-section" data-keywords={t("usage plan limits subscription meters")} data-nav="usage">
+              <h3>{t("Subscription usage")}</h3>
+              <div className="settings-card">
+                <div className="settings-row">
+                  <div><span className="settings-label">{t("Show plan limits")}</span><span className="settings-description">{t("Shows how much of each AI plan the tools on the server's PC have used. Turning this on sends those tools' sign-ins to each provider to ask for the usage; they are never refreshed here.")}</span></div>
+                  <Toggle label={t("Show plan limits")} checked={settings.showUsage} onChange={(showUsage) => update({ showUsage })} />
+                </div>
+                {settings.showUsage && (
+                  <div className="settings-row">
+                    <span className="settings-label">{t("Meters show")}</span>
+                    <div className="segmented" aria-label={t("Meters show")}>
+                      {(["used", "left"] as const).map((usageCount) => (
+                        <button key={usageCount} type="button" aria-pressed={settings.usageCount === usageCount} onClick={() => update({ usageCount })}>
+                          {t(usageCount === "used" ? "Used" : "Remaining")}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {settings.showUsage && (
+                  <div className="settings-row">
+                    <span className="settings-label">{t("Meter position")}</span>
+                    <div className="segmented" aria-label={t("Meter position")}>
+                      {(["footer", "top"] as const).map((usagePlacement) => (
+                        <button key={usagePlacement} type="button" aria-pressed={settings.usagePlacement === usagePlacement} onClick={() => update({ usagePlacement })}>
+                          {t(usagePlacement === "top" ? "Top of the list" : "Beside Settings")}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {settings.showUsage && usage.report && usage.report.providers.length > 0 && <UsageAccounts providers={usage.report.providers} />}
+            </section>
+
+            <section className="settings-section" data-keywords={t("keyboard shortcuts keys")} data-nav="shortcuts">
+              <h3>{t("Shortcuts")}</h3>
+              <p className="settings-description">{t("Some keys are reserved by the browser. Changes apply to this device.")}</p>
+              <div className="settings-section-actions">
+                <button className="btn" onClick={() => update({ shortcutOverrides: {} })}>{t("Reset shortcuts")}</button>
+              </div>
+              <div className="settings-card">
+                <table className="settings-shortcuts">
+                  <tbody>{SHORTCUTS.map((shortcut) => (
+                    <tr key={shortcut.id}><th scope="row">{t(shortcut.label)}</th><td>{shortcut.id === "voice" ? formatKeys(shortcut.keys).map((key) => <kbd className="kbd" key={key}>{key}</kbd>) : <select className="input" aria-label={t(shortcut.label)} value={Object.hasOwn(settings.shortcutOverrides, shortcut.id) ? settings.shortcutOverrides[shortcut.id] ?? "off" : "default"} onChange={(event) => {
+                      const next = { ...settings.shortcutOverrides };
+                      if (event.target.value === "default") delete next[shortcut.id];
+                      else next[shortcut.id] = event.target.value === "off" ? null : event.target.value;
+                      update({ shortcutOverrides: next });
+                    }}>
+                      <option value="default" title={t("Default")} disabled={shortcutConflict(shortcut.id, shortcutKeys(shortcut.id, {}), settings.shortcutOverrides)}>{compactKeys(shortcut.keys)}</option>
+                      <option value="off" title={t("Send keys to terminal")}>{t("Off")}</option>
+                      {[..."abcdefghijklmnopqrstuvwxyz0123456789,", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].map((key) => {
+                        const conflict = shortcutConflict(shortcut.id, [key], settings.shortcutOverrides);
+                        return <option key={key} value={key} disabled={conflict}>{compactKeys(["Mod", "Shift", key])}{conflict ? " — " + t("Already assigned") : ""}</option>;
+                      })}
+                    </select>}</td></tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="settings-section" data-keywords={t("install app home screen PWA")} data-nav="install">
               <h3>{t("Install")}</h3>
               <div className="settings-card settings-card-block">
                 {installPrompt.installed ? <p className="settings-hint">{t("Installed")}</p> : installPrompt.canInstall ? (
@@ -797,7 +803,11 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
               </div>
             </section>
 
-            <section className="settings-section settings-about" data-nav="about">
+            <div className="settings-updates-group" data-keywords={t("update version release restart")} data-nav="updates">
+              <UpdateControls updates={updates} bridgesFollow={pcSettings?.auto_update_bridges === true} />
+              <HerdrUpdateControls enabled={open} />
+            </div>
+            <section className="settings-section settings-about" data-keywords={t("about version GitHub")} data-nav="about">
               <h3>{t("About")}</h3>
               <div className="settings-card settings-card-block">
                 <p><strong>{PRODUCT_LABEL}</strong></p>
@@ -805,10 +815,6 @@ export function SettingsDialog({ open, onClose, actions, updates, auth, onEnable
                 <a href="https://github.com/grow1023/termweave" target="_blank" rel="noreferrer">TermWeave</a>
               </div>
             </section>
-            <div className="settings-updates-group" data-nav="updates">
-              <UpdateControls updates={updates} bridgesFollow={pcSettings?.auto_update_bridges === true} />
-              <HerdrUpdateControls enabled={open} />
-            </div>
             {searching && matchCount === 0 && <p className="settings-empty" role="status">{t("No matching settings")}</p>}
           </div>
         </div>

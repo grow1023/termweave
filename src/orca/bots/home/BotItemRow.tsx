@@ -96,7 +96,8 @@ export function BotItemRow({ item, live, readOnly, busy, onAction }: {
               {item.status === "canceled" ? null : (
                 <DropdownMenuItem onSelect={() => onAction(item, "cancel")}>
                   <CircleSlash />
-                  {t("Cancel")}
+                  {/* not the bare "Cancel", which also reads as "close this menu" */}
+                  {t("Cancel item")}
                 </DropdownMenuItem>
               )}
               {closed ? (

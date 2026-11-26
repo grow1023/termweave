@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { X } from "lucide-react";
 
 import { DirectoryBrowser } from "./DirectoryBrowser.tsx";
 import { useT } from "../lib/i18n.ts";
+import { useModalFocus } from "../lib/modalFocus.ts";
 
 export interface FilesDialogProps {
   /** the folder to open at: the pane's own */
@@ -16,18 +17,17 @@ export interface FilesDialogProps {
 /** The files of the pane's folder (and any other), each opened in the file viewer. */
 export function FilesDialog({ start, viewing, onOpenFile, onClose }: FilesDialogProps) {
   const t = useT();
-  useEffect(() => {
-    if (viewing) return;
-    const onKey = (event: KeyboardEvent): void => { if (event.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, viewing]);
+  const surface = useRef<HTMLElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  // while a file is open above, the viewer owns Tab and Escape
+  useModalFocus(surface, { open: true, active: !viewing, onClose });
+  useLayoutEffect(() => { closeButton.current?.focus({ preventScroll: true }); }, []);
   return (
     <div className="modal-scrim" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="modal files-dialog" role="dialog" aria-modal="true" aria-labelledby="files-dialog-title">
+      <section ref={surface} className="modal files-dialog" role="dialog" aria-modal="true" aria-labelledby="files-dialog-title">
         <header className="modal-header">
           <h2 className="modal-title" id="files-dialog-title">{t("Files")}</h2>
-          <button type="button" className="icon-button" aria-label={t("Close files")} onClick={onClose}><X aria-hidden="true" /></button>
+          <button ref={closeButton} type="button" className="icon-button" aria-label={t("Close files")} onClick={onClose}><X aria-hidden="true" /></button>
         </header>
         <div className="modal-body">
           <DirectoryBrowser start={start} onOpenFile={onOpenFile} />

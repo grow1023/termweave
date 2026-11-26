@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Download, Monitor, Plus, Settings, SlidersHorizontal } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, Download, Monitor, Plus, Settings, SlidersHorizontal, X } from "lucide-react";
 import type { Machine, MachineState, MachineUpdate } from "../../shared/machines.ts";
 import { MachineContext } from "../lib/machineContext.tsx";
 import { answerMachineSetup, machineRequest } from "../lib/api.ts";
@@ -16,6 +16,8 @@ import { useT } from "../lib/i18n.ts";
 
 import { PRODUCT_LABEL } from "../../shared/product.ts";
 
+const INSTALL_HIDDEN_KEY = "termweave:install-hidden";
+
 /** The PC header's state word; "connected" is the quiet default and shows as a dot alone. */
 export const STATE_WORD: Readonly<Record<MachineState, string>> = {
   connecting: "Connecting…",
@@ -25,19 +27,26 @@ export const STATE_WORD: Readonly<Record<MachineState, string>> = {
   error: "Connection error",
 };
 
-interface Props { onNewBot(): void; onBotSettings(botId: string): void; readOnly: boolean; machines: Machine[]; selectedMachineId: string; selectedPaneId: string | null; selectedWorkspaceId?: string | null; onSelectWorkspace?: (machine: string, workspace: string) => void; actions: AppActions; version: string | null; onSelect(machineId: string, paneId: string | null): void; onNew(machineId: string): void; onSetup(machine: Machine, update?: boolean): void }
+interface Props { onOpenBot(bot: { id: string; paneId: string | null }): void; onNewBot(): void; onBotSettings(botId: string): void; readOnly: boolean; machines: Machine[]; selectedMachineId: string; selectedPaneId: string | null; selectedWorkspaceId?: string | null; onSelectWorkspace?: (machine: string, workspace: string) => void; actions: AppActions; version: string | null; onSelect(machineId: string, paneId: string | null): void; onNew(machineId: string): void; onSetup(machine: Machine, update?: boolean): void }
 export function MachineSidebar(props: Props) {
   const t = useT();
   const { canInstall, installed, install, help } = useInstallPrompt();
   const [installHelpOpen, setInstallHelpOpen] = useState(false);
+  // the footer row is the easiest thumb zone: once put away, Install stays in Settings only
+  const [installHidden, setInstallHidden] = useState(() => { try { return localStorage.getItem(INSTALL_HIDDEN_KEY) === "1"; } catch { return false; } });
+  const hideInstall = (): void => {
+    setInstallHidden(true);
+    try { localStorage.setItem(INSTALL_HIDDEN_KEY, "1"); } catch { /* private mode: hidden for this page only */ }
+  };
   const bots = useBotsView();
   const host = props.machines.find((machine) => machine.kind === "local");
   const botWorkspaces = useMemo(() => botWorkspaceIds(bots, host?.snapshot?.panes ?? []), [bots, host?.snapshot?.panes]);
   // no top bar: a session starts from its PC's header, and Add PC lives in Settings → Remote PCs
   return <div className="sidebar-shell">
-    <UsagePanel />
     <div className="machine-list" aria-label={t("PCs and workspaces")}>
-      <NeedsInput machines={props.machines} selectedMachineId={props.selectedMachineId} selectedPaneId={props.selectedPaneId} onSelect={props.onSelect} />
+      <NeedsInput machines={props.machines} bots={bots} selectedMachineId={props.selectedMachineId} selectedPaneId={props.selectedPaneId} onSelect={props.onSelect} onOpenBot={props.onOpenBot} />
+      {/* "Top of the list" means under what waits on the user: the meters must not push it off a phone's first screen */}
+      <UsagePanel />
       {/* the bots group comes right after what waits on the user now */}
       {bots && host && <SidebarBotsSection view={bots} snapshot={host.snapshot} selectedPaneId={props.selectedMachineId === host.id ? props.selectedPaneId : null} readOnly={props.readOnly}
         onOpenPane={(paneId) => props.onSelect(host.id, paneId)} onNewBot={props.onNewBot} onSettings={props.onBotSettings} />}
@@ -46,8 +55,11 @@ export function MachineSidebar(props: Props) {
     </div>
     <footer className="sidebar-footer">
       {/* browsers without an install prompt (iOS, plain HTTP) get the steps instead */}
-      {!installed && <button className="btn btn-ghost sidebar-footer-action" aria-expanded={canInstall ? undefined : installHelpOpen} onClick={() => { if (canInstall) void install(); else setInstallHelpOpen(!installHelpOpen); }}><Download aria-hidden="true" />{t("Install app")}</button>}
-      {!installed && !canInstall && installHelpOpen && <p className="sidebar-install-help" role="status">{help}</p>}
+      {!installed && !installHidden && <div className="sidebar-install-row">
+        <button className="btn btn-ghost sidebar-footer-action" aria-expanded={canInstall ? undefined : installHelpOpen} onClick={() => { if (canInstall) void install(); else setInstallHelpOpen(!installHelpOpen); }}><Download aria-hidden="true" />{t("Install app")}</button>
+        <button type="button" className="icon-button sidebar-install-hide" aria-label={t("Hide Install app here (it stays in Settings)")} title={t("Hide Install app here (it stays in Settings)")} onClick={hideInstall}><X aria-hidden="true" /></button>
+      </div>}
+      {!installed && !installHidden && !canInstall && installHelpOpen && <p className="sidebar-install-help" role="status">{help}</p>}
       <div className="sidebar-footer-row">
         <button className="btn btn-ghost sidebar-footer-action" title={t("Settings (⌘⇧,)")} onClick={props.actions.openSettings}><Settings aria-hidden="true" />{t("Settings")}</button>
         <UsageMeters />
@@ -68,6 +80,7 @@ function MachineGroup({ machine, hidden, ...props }: Props & { machine: Machine;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const online = machine.state === "connected";
+  const stateLine = useRef<HTMLParagraphElement>(null);
   const mutate = async (method: string, body?: unknown) => {
     try { await machineRequest(`/${machine.id}`, method, body); setError(null); if (method === "DELETE" && props.selectedMachineId === machine.id) props.onSelect("local", null); }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); }
@@ -87,11 +100,15 @@ function MachineGroup({ machine, hidden, ...props }: Props & { machine: Machine;
         {machine.kind === "local" && <span className="machine-kind" title={t("The computer this app runs on")}>{t("Host")}</span>}
         <span className={`machine-dot is-${machine.state}`} title={t(STATE_WORD[machine.state])} aria-hidden="true" />
       </button>
-      <button className="sidebar-row-action" disabled={!online} aria-label={t("New folder session on {name}", { name: machine.name })} title={t("New folder session")} onClick={() => props.onNew(machine.id)}><Plus aria-hidden="true" /></button>
+      {/* offline, the button stays focusable and says why: a disabled one shows no reason on touch */}
+      <button className="sidebar-row-action" aria-disabled={!online || undefined}
+        aria-label={online ? t("New folder session on {name}", { name: machine.name }) : t("{name} is offline. Reconnect to start a workspace.", { name: machine.name })}
+        title={online ? t("New folder session") : t("{name} is offline. Reconnect to start a workspace.", { name: machine.name })}
+        onClick={() => { if (online) props.onNew(machine.id); else stateLine.current?.focus(); }}><Plus aria-hidden="true" /></button>
       {machine.kind === "ssh" && <button className="sidebar-row-action" aria-label={t("Manage {name}", { name: machine.name })} title={t("Manage PC")} aria-expanded={editing} onClick={() => { setEditing(!editing); setConfirmDelete(false); }}><SlidersHorizontal aria-hidden="true" /></button>}
     </header>
     {/* connected is the norm and says nothing new; every other state is spelled out */}
-    {machine.action_required || machine.updating ? <MachineActionNotice machine={machine} onSetup={props.onSetup} /> : <p className={`machine-state is-${machine.state}${online ? " visually-hidden" : ""}`} role="status" title={machine.error ?? undefined}>
+    {machine.action_required || machine.updating ? <MachineActionNotice machine={machine} onSetup={props.onSetup} /> : <p ref={stateLine} tabIndex={-1} className={`machine-state is-${machine.state}${online ? " visually-hidden" : ""}`} role="status" title={machine.error ?? undefined}>
       <span className="machine-state-word">{t(STATE_WORD[machine.state])}</span>
       {machine.error && <span className="machine-state-detail">{machine.error}</span>}
     </p>}

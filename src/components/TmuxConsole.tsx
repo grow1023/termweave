@@ -73,7 +73,7 @@ export function TmuxConsole() {
     <header className="tmux-header"><a href="/"><span aria-hidden="true">← </span>TermWeave</a><h1>{t("tmux workspace")}</h1><span>{t("Local machine")}</span></header>
     <div className="tmux-intro"><p>{t("Native tmux sessions keep running when this page closes. Each pane shows its server-wide ID and window-local index.")}</p>
       <p><kbd>Ctrl+b</kbd> → <kbd>q</kbd> {t("Pane numbers")} · <kbd>[</kbd> {t("Copy mode")} · <kbd>:</kbd> {t("tmux command prompt")} · <kbd>d</kbd> {t("Detach")}</p></div>
-    {error && <p className="tmux-error" role="alert">{t("tmux request failed. Refresh state before repeating an operation.")} <code>{error}</code> <button className="btn" onClick={() => void load()}>{t("Refresh page")}</button></p>}
+    {error && <p className="tmux-error" role="alert">{t("tmux request failed. Refresh state before repeating an operation.")} <code>{error}</code> <button className="btn" onClick={() => void load()}>{t("Refresh state")}</button></p>}
     <form className="tmux-create" onSubmit={event => { event.preventDefault(); void mutate("/session", {name}).then(reply => { if (reply) { setSession(reply.state?.panes.find(p => p.sessionName === name)?.sessionId ?? ""); setName(""); } }); }}>
       <label>{t("tmux session name")}<input className="input" value={name} onChange={event => setName(event.target.value)} pattern="[A-Za-z0-9_-]{1,80}" maxLength={80} required placeholder="project-1" /></label>
       <button className="btn" disabled={!available || readOnly || busy}>{t("Create tmux session")}</button>
@@ -83,7 +83,7 @@ export function TmuxConsole() {
     <nav className="tmux-sessions" aria-label={t("tmux sessions")}>{sessions.map(id => <button key={id} className="btn" aria-pressed={session === id} onClick={() => setSession(id)}>{state?.panes.find(p => p.sessionId === id)?.sessionName} <code>{id}</code></button>)}</nav>
     <div className="tmux-pane-list" aria-label={t("Pane numbers")}>{panes.map(p => <button key={`${p.sessionId}:${p.paneId}`} className="btn" disabled={readOnly || busy} aria-pressed={target?.paneId === p.paneId}
       data-tmux-pane={p.paneId} onClick={() => act({type:"select"}, p)} title={`${p.sessionName} / ${p.windowName} — ${p.sessionId}:${p.windowIndex}.${p.paneIndex} (${p.windowId}, ${p.paneId})`}>
-      {p.windowIndex}.{p.paneIndex} <code>{p.paneId}</code>{p.zoomed ? " ⊙" : ""}{p.dead ? " ×" : ""}</button>)}</div>
+      {p.windowName} {p.windowIndex}.{p.paneIndex} <code>{p.paneId}</code>{p.zoomed ? " ⊙" : ""}{p.dead ? " ×" : ""}</button>)}</div>
     {target && <>
       <fieldset className="tmux-tools" disabled={busy || readOnly} aria-busy={busy}>
         <legend>{t("Pane controls")} {target.paneId}</legend>

@@ -110,7 +110,13 @@ try {
   assert.equal(await page.locator(".dock-group").getByRole("tab").count(), 2);
   assert.equal((await sessionSnapshot()).panes.length, after.panes.length + 1);
   await page.unroute("**/api/pane/split");
-  await page.locator(".dock-group").first().getByText("Search terminal output", { exact: true }).click();
+  // the search lives in the pane's tools panel, opened by the gear "Terminal tools and search"
+  // (the panel region is still "Terminal tools"); the search starts open there, so a click on its
+  // summary would fold it: one less step to the field
+  const toolsToggle = page.locator(".dock-group").first().getByRole("button", { name: "Terminal tools and search", exact: true });
+  if (await toolsToggle.getAttribute("aria-expanded") !== "true") await toolsToggle.click();
+  await page.locator(".dock-group").first().getByRole("region", { name: "Terminal tools", exact: true }).waitFor();
+  assert.equal(await page.locator(".dock-group").first().locator("details.dock-search").getAttribute("open"), "", "terminal search starts open");
   await page.locator(".dock-group").first().getByLabel("Terminal search query").fill("after-drag-resize");
   await page.locator(".dock-group").first().getByRole("button", { name: "Search", exact: true }).click();
   await page.locator(".dock-search [role=status]").first().waitFor();

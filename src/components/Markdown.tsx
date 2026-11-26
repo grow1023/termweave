@@ -6,6 +6,7 @@ import { foldCode, parseMarkdown, type InlineNode, type ListBlock, type Markdown
 import { codeIsFilePath, OpenFileContext, splitFilePaths } from "../lib/filePaths.ts";
 import { fileUriPath } from "../lib/terminalFileLinks.ts";
 import { useT } from "../lib/i18n.ts";
+import { copyText } from "../lib/clipboard.ts";
 
 function MathExpression({ value, displayMode = false }: { value: string; displayMode?: boolean }) {
   try {
@@ -75,12 +76,16 @@ function List({ block }: { block: ListBlock }) {
 function CodeBlock({ language, value }: { language: string; value: string }) {
   const t = useT();
   const [copied, setCopied] = useState(false);
+  // no clipboard API (plain HTTP on a LAN or tailnet): the code shows selected, ready for Ctrl+C
+  const [manual, setManual] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const block = useRef<HTMLDivElement>(null);
   // no inner scroll: a long block folds, with a visible "Show all" row
   const fold = useMemo(() => foldCode(value), [value]);
   const copy = async (): Promise<void> => {
-    await navigator.clipboard.writeText(value);
+    const ok = await copyText(value);
+    setManual(!ok);
+    if (!ok) return;
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1500);
   };
@@ -106,6 +111,7 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
           {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
         </button>
       </div>
+      {manual && <textarea className="chat-copy-fallback" readOnly value={value} aria-label={t("Copy code")} autoFocus onFocus={event => event.currentTarget.select()} />}
       <pre><code>{fold !== null && !expanded ? fold.head : value}</code></pre>
       {fold !== null && (
         <button type="button" className="markdown-code-more" aria-expanded={expanded} onClick={toggle}>

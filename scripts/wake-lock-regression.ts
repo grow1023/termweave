@@ -37,7 +37,7 @@ export async function checkWakeLock(browser: Browser, origin: string, paneId: st
     await page.waitForFunction(() => (window as any).wakeLockStats.requests === 1);
     if (process.env.UI_EVIDENCE_DIR) {
       mkdirSync(process.env.UI_EVIDENCE_DIR, { recursive: true });
-      await page.getByRole("heading", { name: "Phone", exact: true }).evaluate((el) => el.scrollIntoView({ block: "start" }));
+      await page.getByRole("heading", { name: "Open on your phone", exact: true }).evaluate((el) => el.scrollIntoView({ block: "start" }));
       await page.screenshot({ path: join(process.env.UI_EVIDENCE_DIR, "keep-screen-on-mobile.png") });
     }
 

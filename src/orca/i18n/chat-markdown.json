@@ -1,0 +1,127 @@
+{
+  "Answer": {
+    "ko": "답변",
+    "ja": "回答",
+    "zh": "回答"
+  },
+  "Answer in terminal": {
+    "ko": "터미널에서 답하기",
+    "ja": "ターミナルで回答",
+    "zh": "在终端中回答"
+  },
+  "Answered": {
+    "ko": "답변함",
+    "ja": "回答済み",
+    "zh": "已回答"
+  },
+  "Approve": {
+    "ko": "승인",
+    "ja": "承認",
+    "zh": "批准"
+  },
+  "Close {where}?": {
+    "ko": "{where} 터미널을 닫을까요?",
+    "ja": "{where} を閉じますか？",
+    "zh": "关闭 {where}？"
+  },
+  "Codex keeps working meanwhile. Answer here; the message box still talks to Codex.": {
+    "ko": "Codex는 그동안 계속 작업합니다. 여기서 답하세요. 메시지 입력창은 그대로 Codex에게 갑니다.",
+    "ja": "その間も Codex は作業を続けます。ここで回答してください。メッセージ入力欄はそのまま Codex に送られます。",
+    "zh": "Codex 会在此期间继续工作。请在此处回答。消息输入框仍会发送给 Codex。"
+  },
+  "Codex keeps working meanwhile. Answer here; the question holds the terminal's input until it is answered or closed.": {
+    "ko": "Codex는 그동안 계속 작업합니다. 여기서 답하세요. 답하거나 닫기 전까지 이 질문이 터미널 입력을 붙들고 있습니다.",
+    "ja": "その間も Codex は作業を続けます。ここで回答してください。回答するか閉じるまで、この質問がターミナルの入力を占有します。",
+    "zh": "Codex 会在此期间继续工作。请在此处回答。在回答或关闭之前，此问题会占用终端的输入。"
+  },
+  "Copied": {
+    "ko": "복사됨",
+    "ja": "コピーしました",
+    "zh": "已复制"
+  },
+  "Copy code": {
+    "ko": "코드 복사",
+    "ja": "コードをコピー",
+    "zh": "复制代码"
+  },
+  "Deny": {
+    "ko": "거절",
+    "ja": "拒否",
+    "zh": "拒绝"
+  },
+  "Disable line wrap": {
+    "ko": "줄 바꿈 끄기",
+    "ja": "折り返しをオフ",
+    "zh": "关闭自动换行"
+  },
+  "Image": {
+    "ko": "이미지",
+    "ja": "画像",
+    "zh": "图片"
+  },
+  "Open {path}": {
+    "ko": "{path} 열기",
+    "ja": "{path} を開く",
+    "zh": "打开 {path}"
+  },
+  "Press {keys} in {where}?": {
+    "ko": "{where}에서 {keys} 키를 누를까요?",
+    "ja": "{where} で {keys} を押しますか？",
+    "zh": "在 {where} 中按 {keys}？"
+  },
+  "Question": {
+    "ko": "질문",
+    "ja": "質問",
+    "zh": "问题"
+  },
+  "Recommended": {
+    "ko": "추천",
+    "ja": "推奨",
+    "zh": "推荐"
+  },
+  "Sending…": {
+    "ko": "보내는 중…",
+    "ja": "送信中…",
+    "zh": "正在发送…"
+  },
+  "Show all {n} lines": {
+    "ko": "{n}줄 모두 보기",
+    "ja": "{n} 行すべて表示",
+    "zh": "显示全部 {n} 行"
+  },
+  "Show less": {
+    "ko": "접기",
+    "ja": "折りたたむ",
+    "zh": "收起"
+  },
+  "Submit": {
+    "ko": "제출",
+    "ja": "送信",
+    "zh": "提交"
+  },
+  "Type this into {where} and press Enter?": {
+    "ko": "{where}에 아래 내용을 입력하고 Enter를 누를까요?",
+    "ja": "{where} に次の内容を入力して Enter を押しますか？",
+    "zh": "要在 {where} 输入以下内容并按 Enter 吗？"
+  },
+  "Type your answer": {
+    "ko": "답변 입력",
+    "ja": "回答を入力",
+    "zh": "输入回答"
+  },
+  "View image": {
+    "ko": "이미지 보기",
+    "ja": "画像を表示",
+    "zh": "查看图片"
+  },
+  "Wrap lines": {
+    "ko": "줄 바꿈",
+    "ja": "行を折り返す",
+    "zh": "自动换行"
+  },
+  "{value0} of {value1}": {
+    "ko": "{value1}개 중 {value0}",
+    "ja": "{value0}/{value1}",
+    "zh": "第 {value0} 个，共 {value1} 个"
+  }
+}

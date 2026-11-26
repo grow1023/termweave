@@ -35,7 +35,7 @@ describe("usage meters", () => {
   it("counts a meter as used or left, and names the account", () => {
     expect(meterPercent(window(77.4), "used")).toBe(77.4);
     expect(meterPercent(window(77.4), "left")).toBe(22.6);
-    expect(meterText(window(77), "used")).toBe("77%");
+    expect(meterText(window(77), "used")).toBe("77% used");
     expect(meterText(window(77), "left")).toBe("23% left");
     expect(usageName(provider("codex", [], "me@example.com"))).toBe("Codex · me@example.com");
     expect(usageName(provider("grok", []))).toBe("Grok");

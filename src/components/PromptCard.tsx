@@ -19,6 +19,11 @@ export interface PromptCardProps {
   onTypedAnswerDone?(): void;
 }
 
+/** An approval that also answers later requests ("Yes, and don't ask again", "Allow all"): one tap must not grant it. */
+export function coversLater(prompt: Pick<InteractivePrompt, "kind">, label: string): boolean {
+  return prompt.kind === "approval" && /don['’]t ask|\balways\b|\ball\b/i.test(label);
+}
+
 export function PromptCard({ paneId, prompt, onPromptChanged, onAnswered, typedAnswer = null, onTypedAnswerDone }: PromptCardProps) {
   const t = useT();
   const { answerPanePrompt } = useMachineApi();
@@ -27,17 +32,20 @@ export function PromptCard({ paneId, prompt, onPromptChanged, onAnswered, typedA
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const confirmRef = useRef<HTMLDivElement | null>(null);
+  // an approval option that also covers later requests, tapped: it waits for Confirm, as typed ones do
+  const [tapped, setTapped] = useState<number | null>(null);
 
   // the question to confirm comes into view, clear of the chat's floating buttons
   useEffect(() => {
     confirmRef.current?.scrollIntoView({ block: "center" });
-  }, [typedAnswer]);
+  }, [typedAnswer, tapped]);
 
   useEffect(() => {
     setSelected(new Set());
     setCustom("");
     setPending(false);
     setError(null);
+    setTapped(null);
   }, [prompt.id]);
 
   const answer = async (choice: Omit<PromptAnswer, "pane_id" | "prompt_id">): Promise<void> => {
@@ -48,9 +56,9 @@ export function PromptCard({ paneId, prompt, onPromptChanged, onAnswered, typedA
       onAnswered();
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409 && cause.code === "prompt_changed") {
+        // stays until the next answer or the next prompt: two seconds were gone before a slow reader finished
         setError(t("The prompt changed — read it again"));
         onPromptChanged();
-        window.setTimeout(() => setError(null), 2000);
       } else {
         setError(cause instanceof Error ? cause.message : String(cause));
       }
@@ -74,6 +82,7 @@ export function PromptCard({ paneId, prompt, onPromptChanged, onAnswered, typedA
     return { text, recommended: text !== label };
   };
   const hasChoices = prompt.options.some((_, index) => index !== prompt.custom_option_index);
+  const confirming = typedAnswer?.option_index ?? tapped;
 
   return (
     <section className="prompt-card" role="region" aria-label={t("Agent is asking")} aria-busy={pending}>
@@ -124,7 +133,8 @@ export function PromptCard({ paneId, prompt, onPromptChanged, onAnswered, typedA
               );
             }
             return (
-              <button key={index} type="button" className={`prompt-card-option${typedAnswer?.option_index === index ? " is-typed" : ""}`} disabled={pending} onClick={() => void answer({ option_index: index })}>
+              <button key={index} type="button" className={`prompt-card-option${confirming === index ? " is-typed" : ""}`} disabled={pending}
+                onClick={() => { if (coversLater(prompt, option.label)) setTapped(index); else void answer({ option_index: index }); }}>
                 <span className="prompt-card-number">{index + 1}.</span> {content}
               </button>
             );
@@ -150,11 +160,14 @@ export function PromptCard({ paneId, prompt, onPromptChanged, onAnswered, typedA
           </div>
         </div>
       )}
-      {typedAnswer?.option_index !== undefined && (
+      {confirming !== null && (
         <div className="prompt-card-confirm" role="alert" ref={confirmRef}>
-          <span>{t("Send {answer}?", { answer: `${typedAnswer.option_index + 1}. ${prompt.options[typedAnswer.option_index]?.label ?? ""}` })}</span>
-          <button type="button" className="btn btn-primary" disabled={pending} onClick={() => void answer(typedAnswer).finally(() => onTypedAnswerDone?.())}>{t("Confirm")}</button>
-          <button type="button" className="btn" disabled={pending} onClick={() => onTypedAnswerDone?.()}>{t("Cancel")}</button>
+          <span>{t("Send {answer}?", { answer: `${confirming + 1}. ${prompt.options[confirming]?.label ?? ""}` })}</span>
+          <button type="button" className="btn btn-primary" disabled={pending} onClick={() => {
+            if (typedAnswer?.option_index !== undefined) void answer(typedAnswer).finally(() => onTypedAnswerDone?.());
+            else void answer({ option_index: confirming }).finally(() => setTapped(null));
+          }}>{t("Confirm")}</button>
+          <button type="button" className="btn" disabled={pending} onClick={() => { if (typedAnswer?.option_index !== undefined) onTypedAnswerDone?.(); else setTapped(null); }}>{t("Cancel")}</button>
         </div>
       )}
       {error !== null && <p className="prompt-card-error" role="alert">{error}</p>}

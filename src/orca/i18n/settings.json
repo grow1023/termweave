@@ -99,11 +99,6 @@
     "ja": "ホームフォルダー",
     "zh": "主文件夹"
   },
-  "Identity": {
-    "ko": "정체성",
-    "ja": "アイデンティティ",
-    "zh": "身份"
-  },
   "Its folder stays at {path}, with its soul and memory.": {
     "ko": "폴더는 {path}에 남으며, 소울과 메모리도 그대로 있습니다.",
     "ja": "フォルダーは {path} に残り、ソウルとメモリーもそのままです。",

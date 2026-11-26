@@ -1,0 +1,132 @@
+{
+  "Copied to clipboard": {
+    "ko": "클립보드에 복사했습니다",
+    "ja": "クリップボードにコピーしました",
+    "zh": "已复制到剪贴板"
+  },
+  "The browser blocked copying": {
+    "ko": "브라우저가 복사를 막았습니다",
+    "ja": "ブラウザがコピーをブロックしました",
+    "zh": "浏览器阻止了复制"
+  },
+  "Could not read the selection from herdr": {
+    "ko": "herdr에서 선택한 내용을 읽지 못했습니다",
+    "ja": "herdr から選択範囲を読み取れませんでした",
+    "zh": "无法从 herdr 读取所选内容"
+  },
+  "Copied the visible part. Copy or Ctrl+C copies the whole selection.": {
+    "ko": "보이는 부분만 복사했습니다. 복사 또는 Ctrl+C로 선택한 전체를 복사합니다.",
+    "ja": "表示されている部分だけをコピーしました。コピーまたは Ctrl+C で選択範囲全体をコピーします。",
+    "zh": "仅复制了可见部分。使用“复制”或 Ctrl+C 可复制整个选区。"
+  },
+  "Stop": {
+    "ko": "중지",
+    "ja": "停止",
+    "zh": "停止"
+  },
+  "Hold": {
+    "ko": "보관",
+    "ja": "保留",
+    "zh": "暂存"
+  },
+  "Hold message": {
+    "ko": "메시지 보관",
+    "ja": "メッセージを保留",
+    "zh": "暂存消息"
+  },
+  "Hold this message. You send it when the agent is ready.": {
+    "ko": "이 메시지를 보관합니다. 에이전트가 준비되면 직접 보내세요.",
+    "ja": "このメッセージを保留します。エージェントの準備ができたら自分で送信してください。",
+    "zh": "暂存这条消息。智能体就绪后，请自行发送。"
+  },
+  "Held messages": {
+    "ko": "보관된 메시지",
+    "ja": "保留中のメッセージ",
+    "zh": "已暂存的消息"
+  },
+  "Held messages ({n})": {
+    "ko": "보관된 메시지 {n}개",
+    "ja": "保留中のメッセージ {n} 件",
+    "zh": "已暂存的消息（{n}）"
+  },
+  "Held message {n}": {
+    "ko": "보관된 메시지 {n}",
+    "ja": "保留中のメッセージ {n}",
+    "zh": "已暂存的消息 {n}"
+  },
+  "The agent is ready. Send or discard each message.": {
+    "ko": "에이전트가 준비됐습니다. 메시지를 하나씩 보내거나 버리세요.",
+    "ja": "エージェントの準備ができました。メッセージを1件ずつ送信するか破棄してください。",
+    "zh": "智能体已就绪。请逐条发送或丢弃消息。"
+  },
+  "Held. Send it yourself when the agent is ready.": {
+    "ko": "보관됨. 에이전트가 준비되면 직접 보내세요.",
+    "ja": "保留中です。エージェントの準備ができたら自分で送信してください。",
+    "zh": "已暂存。智能体就绪后，请自行发送。"
+  },
+  "{n} held message. Send it from Chat.": {
+    "ko": "보관된 메시지 {n}개. 채팅에서 보내세요.",
+    "ja": "保留中のメッセージが {n} 件あります。チャットから送信してください。",
+    "zh": "有 {n} 条暂存消息。请在聊天中发送。"
+  },
+  "{n} held messages. Send them from Chat.": {
+    "ko": "보관된 메시지 {n}개. 채팅에서 보내세요.",
+    "ja": "保留中のメッセージが {n} 件あります。チャットから送信してください。",
+    "zh": "有 {n} 条暂存消息。请在聊天中发送。"
+  },
+  "Open Chat": {
+    "ko": "채팅 열기",
+    "ja": "チャットを開く",
+    "zh": "打开聊天"
+  },
+  "Reconnecting… Keep typing; you can send once it reconnects.": {
+    "ko": "재연결 중… 계속 입력하세요. 연결되면 보낼 수 있습니다.",
+    "ja": "再接続中… 入力を続けてください。接続が戻れば送信できます。",
+    "zh": "正在重新连接… 请继续输入，连接恢复后即可发送。"
+  },
+  "{command} opens a tree the chat cannot show. It runs in the terminal. Switch to Terminal (⌘⇧J) to choose a branch.": {
+    "ko": "{command}는 채팅에서 보여 줄 수 없는 트리를 엽니다. 터미널에서 실행됩니다. 터미널로 바꿔(⌘⇧J) 분기를 고르세요.",
+    "ja": "{command} はチャットでは表示できないツリーを開きます。ターミナルで実行されます。ターミナルに切り替えて (⌘⇧J) ブランチを選んでください。",
+    "zh": "{command} 会打开聊天无法显示的树，它在终端中运行。请切换到终端（⌘⇧J）选择分支。"
+  },
+  "Copy command": {
+    "ko": "명령 복사",
+    "ja": "コマンドをコピー",
+    "zh": "复制命令"
+  },
+  "Markdown": {
+    "ko": "마크다운",
+    "ja": "マークダウン",
+    "zh": "Markdown 格式"
+  },
+  "Plain text": {
+    "ko": "텍스트",
+    "ja": "テキスト",
+    "zh": "纯文本"
+  },
+  "Conversation unavailable. Showing terminal output.": {
+    "ko": "대화를 읽을 수 없어 터미널 출력을 보여 줍니다.",
+    "ja": "会話を読み込めないため、ターミナルの出力を表示しています。",
+    "zh": "无法读取对话，正在显示终端输出。"
+  },
+  "{agent} replied": {
+    "ko": "{agent}이(가) 답했습니다",
+    "ja": "{agent} が返信しました",
+    "zh": "{agent} 已回复"
+  },
+  "Terminal tools and search": {
+    "ko": "터미널 도구와 검색",
+    "ja": "ターミナルのツールと検索",
+    "zh": "终端工具与搜索"
+  },
+  "Could not attach {file}: {reason}": {
+    "ko": "{file}을(를) 첨부하지 못했습니다: {reason}",
+    "ja": "{file} を添付できませんでした: {reason}",
+    "zh": "无法附加 {file}：{reason}"
+  },
+  "Try again.": {
+    "ko": "다시 시도해 주세요.",
+    "ja": "もう一度お試しください。",
+    "zh": "请重试。"
+  }
+}

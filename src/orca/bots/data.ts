@@ -2,16 +2,40 @@
 // screens themselves are Orca's; this file stands where Orca's store and runtime RPC stood.
 import type { Bot, BotAgent, BotAutomation, BotItem } from "../../../shared/bots/types.ts";
 import { reloadBots } from "../../lib/bots.ts";
+import type { Translate } from "../../lib/i18n.ts";
 
 export { ACTIVE_WORKER, openLocalPane, reloadBots, useBotsView } from "../../lib/bots.ts";
 export type { Bot, BotAgent, BotAutomation, BotItem, BotItemStatus, BotPaneAction, BotsView, BotWorker, BotWorkerStatus } from "../../../shared/bots/types.ts";
 export { BOT_ITEM_OPEN } from "../../../shared/bots/types.ts";
 
-/** One call to the bots API: the server's own refusal text is the error, and every change reloads the shared view. */
+/** A refusal from the bots API: the server's own text, and its code (server/bots/runtime.ts BotError). */
+export class BotApiError extends Error {
+  constructor(readonly code: string | null, message: string) { super(message); }
+}
+
+/**
+ * The owner's words for a refusal. The server's text is English and written for the bot; the refusals
+ * an owner meets on these screens get the owner's language. Any other one shows as it came.
+ */
+export function botErrorText(failure: unknown, t: Translate): string {
+  const message = failure instanceof Error ? failure.message : String(failure);
+  switch (failure instanceof BotApiError ? failure.code : null) {
+    case "invalid_repo": return t("This folder is not a git repository.");
+    case "name_taken": return t("Another bot has this name.");
+    case "invalid_name": return t("A name is 1 to 40 letters, digits, spaces, dots, dashes or underscores.");
+    case "already_answered": return t("This was already answered.");
+    case "note_too_long": return t("The text is too long (40,000 characters at most).");
+    case "action_failed": return t("The terminal action failed: {why}", { why: message });
+    case "read_only": return t("This device can only watch.");
+    default: return message;
+  }
+}
+
+/** One call to the bots API: a refusal is a BotApiError, and every change reloads the shared view. */
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(`/api/bots${path}`, { method, cache: "no-store", ...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }) });
-  const result = await response.json().catch(() => ({})) as T & { error?: { message?: string } };
-  if (!response.ok) throw new Error(result.error?.message ?? String(response.status));
+  const result = await response.json().catch(() => ({})) as T & { error?: { code?: string; message?: string } };
+  if (!response.ok) throw new BotApiError(result.error?.code ?? null, result.error?.message ?? String(response.status));
   if (method !== "GET") await reloadBots();
   return result;
 }

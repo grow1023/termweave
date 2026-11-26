@@ -43,19 +43,27 @@ try {
   await rows();
   const originalRoster=(await sessionSnapshot()).panes.filter(p=>p.workspace_id===own.workspace.workspace_id);
   assert.ok(originalRoster.some(p=>p.pane_id===nativeTab && p.tab_id!==originalRoster.find(p=>p.pane_id===a)?.tab_id));
-  assert.deepEqual(await page.getByLabel('Existing terminals',{exact:true}).locator('option').evaluateAll(options=>options.map(o=>(o as HTMLOptionElement).value).filter(Boolean)),originalRoster.map(p=>p.pane_id));
+  const chooser=page.getByLabel('Existing terminals',{exact:true});
+  assert.deepEqual(await chooser.locator('option').evaluateAll(options=>options.map(o=>(o as HTMLOptionElement).value).filter(Boolean)),originalRoster.map(p=>p.pane_id));
   const paneCountBeforeChooser=(await sessionSnapshot()).panes.length;
+  // the chooser shows only while a terminal of this workspace is not open in any group (otherwise
+  // it repeats the tabs): open the closed ones through it, and pick an open one by its tab
+  let chosen=0;
   for (const p of originalRoster) {
-    await page.getByLabel('Existing terminals',{exact:true}).selectOption(p.pane_id);
+    const tab=page.locator(`[data-tab-id="${p.pane_id}"]`);
+    if (await tab.count()>0) await tab.first().click();
+    else { await chooser.selectOption(p.pane_id); chosen++; }
     await page.waitForFunction(id=>Array.from(document.querySelectorAll('.dock-group')).some(g=>g.getAttribute('data-pane-id')===id),p.pane_id);
     await rows();
   }
+  assert.ok(chosen>0,'the chooser opened at least one closed terminal');
+  assert.equal(await chooser.count(),0,'with every terminal open, the chooser is not rendered');
   assert.equal((await sessionSnapshot()).panes.length,paneCountBeforeChooser);
   const legacy = await page.evaluate(()=>Object.fromEntries(Object.keys(localStorage).filter(k=>k.includes('dock:session:v2:')||k.includes('dock:v1:')).map(k=>[k,localStorage.getItem(k)])));
-  await page.getByLabel('Existing terminals',{exact:true}).selectOption(existing);
+  await page.locator(`[data-tab-id="${existing}"]`).first().click();
   await page.waitForFunction(id=>document.querySelector('.dock-group')?.getAttribute('data-pane-id')===id,existing);
   await rows();
-  await page.getByLabel('Existing terminals',{exact:true}).selectOption(a);
+  await page.locator(`[data-tab-id="${a}"]`).first().click();
   await page.getByRole('button',{name:'New terminal tab',exact:true}).first().click();
   await page.waitForFunction(()=>document.querySelectorAll('[role=tab]').length===4);
   await rows();

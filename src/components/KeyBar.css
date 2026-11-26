@@ -55,6 +55,24 @@
   height: var(--icon-size);
 }
 
+/* the direct-typing toggle: its icon plus a short word (the bar shows only on a phone or touch screen) */
+.key[data-key="direct"] {
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+}
+
+.key-word {
+  font-family: var(--font-ui);
+  font-size: var(--fs-xs);
+  word-break: keep-all;
+}
+
+/* ^C interrupts the running command: the warning colour on text and border, no fill */
+.key[data-key="ctrl-c"] {
+  color: var(--status-blocked);
+  border-color: var(--status-blocked);
+}
+
 /* hover only where a pointer can hover: a tapped key must not stay lit */
 @media (hover: hover) {
   .key:hover {

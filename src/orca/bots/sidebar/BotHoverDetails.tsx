@@ -25,8 +25,10 @@ function Fact({ label, value }: { label: string; value: string }): JSX.Element {
 
 function StateLine({ bot, facts }: { bot: Bot; facts: BotFacts }): JSX.Element {
   const t = useT();
-  const text = bot.paused ? t("Paused") : facts.needs.length > 0 || facts.agentStatus === "blocked" ? t("Needs you") : facts.working ? t("Working") : facts.running ? t("Idle") : t("Chat not running");
-  const icon = bot.paused ? <Pause className="size-3" /> : facts.working ? <StatusIndicator status="working" showTooltip={false} aria-hidden /> : facts.needs.length > 0 ? <StatusIndicator status="permission" showTooltip={false} aria-hidden /> : <Circle className="size-2" />;
+  // an open question shows even on a paused bot: it still waits on the owner
+  const asks = facts.needs.length > 0;
+  const text = asks ? t("Needs you") : bot.paused ? t("Paused") : facts.agentStatus === "blocked" ? t("Needs you") : facts.working ? t("Working") : facts.running ? t("Idle") : t("Chat not running");
+  const icon = asks ? <StatusIndicator status="permission" showTooltip={false} aria-hidden /> : bot.paused ? <Pause className="size-3" /> : facts.working ? <StatusIndicator status="working" showTooltip={false} aria-hidden /> : <Circle className="size-2" />;
   return (
     <div className="flex min-w-0 items-center gap-1.5 text-xs leading-4 text-muted-foreground">
       <span className="flex size-3 shrink-0 items-center justify-center" aria-hidden>{icon}</span>

@@ -46,9 +46,10 @@ export function botRowLine(facts: BotFacts, t: Translate): BotRowLine {
   const { bot, items, needs, running, agentStatus, working } = facts;
   const atWork = items.filter((item) => item.status === "working").at(-1);
   const waiting = items.filter((item) => item.status === "waiting").at(-1);
-  if (bot.paused) return { text: t("Paused"), attention: false };
+  // A paused bot's open question still waits on the owner: it is said before "Paused", or the owner forgets it.
   if (needs.length > 1) return { text: t("{n} questions wait for you", { n: needs.length }), at: needs.at(-1)!.updatedAt, attention: true };
   if (needs.length === 1) return { text: needs[0]!.title, at: needs[0]!.updatedAt, attention: true };
+  if (bot.paused) return { text: t("Paused"), attention: false };
   if (running && agentStatus === "blocked") return { text: t("Waiting for you"), attention: true };
   if (atWork) return { text: atWork.title, at: atWork.updatedAt, attention: false };
   if (working) return { text: t("Working"), attention: false };
@@ -61,6 +62,7 @@ export function botRowLine(facts: BotFacts, t: Translate): BotRowLine {
 export type BotBadge = "needs-you" | "sleeping" | null;
 
 export function botBadge(facts: BotFacts, line: BotRowLine): BotBadge {
+  if (facts.needs.length > 0) return "needs-you";
   if (facts.bot.paused) return null;
   if (line.attention) return "needs-you";
   return facts.running ? null : "sleeping";
@@ -79,4 +81,9 @@ export function formatElapsed(seconds: number): string {
   const minutes = Math.floor(total / 60);
   if (minutes < 60) return `${minutes}m ${String(total % 60).padStart(2, "0")}s`;
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
+}
+
+/** Needs the owner now: an open question (paused or not), or a running chat that waits on a prompt. */
+export function botNeedsOwner(facts: BotFacts): boolean {
+  return facts.needs.length > 0 || (!facts.bot.paused && facts.running && facts.agentStatus === "blocked");
 }

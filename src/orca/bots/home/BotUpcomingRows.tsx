@@ -6,15 +6,17 @@ import { CalendarClock, CirclePlay, Hourglass, MoreHorizontal, Pause, Play, Tras
 import { useLocale, useT } from "../../../lib/i18n.ts";
 import { cn } from "../../cn.ts";
 import { Button } from "../../ui/button.tsx";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../ui/dropdown-menu.tsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../ui/dropdown-menu.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip.tsx";
 import { botsApi, type BotAutomation } from "../data.ts";
 import { whenShort } from "./bot-when.ts";
 import { ActionError, useBotAction } from "./use-bot-action.tsx";
 
 const ICON = "size-3.5 text-muted-foreground";
+// A touch screen has no hover, so there the actions sit in the row at full size (as Orca's sidebar rows do).
 const HOVER_ACTIONS =
-  "absolute right-1 top-0.5 items-center bg-[linear-gradient(to_right,transparent,var(--accent)_16px)] pl-[18px] hidden group-has-[:focus-visible]/item:flex group-hover/item:flex gap-0.5 has-[[data-state=open]]:flex";
+  "absolute right-1 top-0.5 items-center bg-[linear-gradient(to_right,transparent,var(--accent)_16px)] pl-[18px] hidden group-has-[:focus-visible]/item:flex group-hover/item:flex gap-0.5 has-[[data-state=open]]:flex pointer-coarse:static pointer-coarse:flex pointer-coarse:bg-none pointer-coarse:pl-0";
+const ACTION_SIZE = "pointer-coarse:size-11";
 
 function RowIcon({ automation }: { automation: BotAutomation }) {
   if (!automation.enabled) return <Pause aria-hidden className={ICON} />;
@@ -38,7 +40,7 @@ export function AutomationRow({ botId, automation, now, readOnly }: { botId: str
         </span>
         {next ? (
           // The actions lay over it on hover or focus; invisible, it keeps the name's cut where it was.
-          <span className={cn("shrink-0 whitespace-nowrap text-xs leading-5 tabular-nums text-muted-foreground", !readOnly && "group-has-[:focus-visible]/item:invisible group-hover/item:invisible group-has-[[aria-expanded=true]]/item:invisible")}>
+          <span className={cn("shrink-0 whitespace-nowrap text-xs leading-5 tabular-nums text-muted-foreground", !readOnly && "group-has-[:focus-visible]/item:invisible group-hover/item:invisible group-has-[[aria-expanded=true]]/item:invisible pointer-coarse:visible")}>
             {next}
           </span>
         ) : null}
@@ -46,7 +48,7 @@ export function AutomationRow({ botId, automation, now, readOnly }: { botId: str
           <span className={HOVER_ACTIONS}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon-xs" aria-label={toggleLabel} disabled={act.busy} onClick={() => void act.run(() => botsApi.setAutomation(botId, automation.id, !enabled))}>
+                <Button variant="ghost" size="icon-xs" className={ACTION_SIZE} aria-label={toggleLabel} disabled={act.busy} onClick={() => void act.run(() => botsApi.setAutomation(botId, automation.id, !enabled))}>
                   {enabled ? <Pause /> : <Play />}
                 </Button>
               </TooltipTrigger>
@@ -54,7 +56,7 @@ export function AutomationRow({ botId, automation, now, readOnly }: { botId: str
             </Tooltip>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon-xs" aria-label={t("More")} disabled={act.busy}>
+                <Button variant="ghost" size="icon-xs" className={ACTION_SIZE} aria-label={t("More")} disabled={act.busy}>
                   <MoreHorizontal className="size-3.5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -63,7 +65,8 @@ export function AutomationRow({ botId, automation, now, readOnly }: { botId: str
                   <CirclePlay />
                   {t("Run now")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => void act.run(() => botsApi.removeAutomation(botId, automation.id))}>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={() => void act.run(() => botsApi.removeAutomation(botId, automation.id))}>
                   <Trash2 />
                   {t("Remove")}
                 </DropdownMenuItem>

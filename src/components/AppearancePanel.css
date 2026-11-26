@@ -21,3 +21,6 @@
 .appearance-actions label.btn:focus-within { outline: var(--ring); outline-offset: 2px; }
 .appearance-sample { padding: 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; }
 .appearance-panel summary { padding-block: 10px; cursor: pointer; }
+.appearance-more { margin-top: var(--space-2); }
+.appearance-more summary { padding-block: 12px; cursor: pointer; }
+.appearance-more .appearance-actions { margin-block: var(--space-2); }

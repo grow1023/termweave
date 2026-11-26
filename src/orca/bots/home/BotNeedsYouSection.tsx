@@ -8,6 +8,7 @@ import { BotItemStatusIcon } from "../BotItemStatusIcon.tsx";
 import { BotPanelSectionHeader } from "./BotPanelSection.tsx";
 import { BotItemQuestionStep } from "./BotItemQuestionStep.tsx";
 import { GROUP_ROWS } from "./bot-item-status-name.ts";
+import { useSettledCards } from "./use-settled-cards.ts";
 
 export function BotNeedsYouSection({ botId, items, readOnly, onOpen }: {
   botId: string;
@@ -20,8 +21,10 @@ export function BotNeedsYouSection({ botId, items, readOnly, onOpen }: {
   const needs = items
     .filter((item) => item.status === "needs_you")
     .sort((a, b) => Number(Boolean(b.action)) - Number(Boolean(a.action)) || (Date.parse(a.updatedAt) || 0) - (Date.parse(b.updatedAt) || 0) || a.n - b.n);
-  if (needs.length === 0) return null;
   const shown = expanded ? needs : needs.slice(0, GROUP_ROWS);
+  // before the early return: the hook keeps timing while the list is empty, so a first card that appears later is new
+  const canAnswer = useSettledCards(shown.map((item) => `item:${item.n}`));
+  if (needs.length === 0) return null;
   const hidden = needs.length - shown.length;
   return (
     <section className="flex flex-col gap-0.5">
@@ -29,7 +32,7 @@ export function BotNeedsYouSection({ botId, items, readOnly, onOpen }: {
       <div role="list" aria-label={t("Needs you")} className="flex flex-col gap-2 px-1">
         {shown.map((item) => (
           <div key={item.n} role="listitem" data-need-key={`item:${item.n}`}>
-            <BotItemQuestionStep botId={botId} item={item} readOnly={readOnly} onOpenItem={() => onOpen(item)} />
+            <BotItemQuestionStep botId={botId} item={item} readOnly={readOnly} onOpenItem={() => onOpen(item)} canAnswer={() => canAnswer(`item:${item.n}`)} />
           </div>
         ))}
       </div>

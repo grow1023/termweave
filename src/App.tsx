@@ -1,7 +1,7 @@
 import { initialPaneView, readPaneView, writePaneView } from "./lib/paneView.ts";
 import { adjacentWorkspacePane } from "./lib/workspaceNavigation.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bell, BellOff, FolderOpen, Lock, Menu, MessageSquare, MoreHorizontal, Orbit, PanelLeft, Search, SquareTerminal, Users, X } from "lucide-react";
+import { FolderOpen, LogOut, Menu, MessageSquare, MoreHorizontal, Orbit, PanelLeft, Search, SquareTerminal, Users, X } from "lucide-react";
 
 import type { AgentStatus, ClientRole, ServerMessage, AccessRefusal, HealthAuth, HerdrPane } from "../shared/protocol.ts";
 import { ApiError, authenticate, fetchHealth, fetchBridgeHealth, fetchMachines, fetchSession, movePane as movePaneRequest, pairDevice, swapPanes as swapPanesRequest, sendTestPush, signOut, type HealthInfo } from "./lib/api.ts";
@@ -57,6 +57,9 @@ import { useT } from "./lib/i18n.ts";
 import { useScreenWakeLock } from "./lib/wakeLock.ts";
 import { watchDrawerSwipe } from "./lib/edgeSwipe.ts";
 import { Droplet } from "./components/Droplet.tsx";
+import { AlertsBell, type BellState } from "./components/AlertsBell.tsx";
+import { ConfirmDialog } from "./components/ConfirmDialog.tsx";
+import { needsYou, shortCwd } from "./components/navModel.ts";
 import { dropletAllows, endedTurn, showDroplet, trackTurn, type DropletKind } from "./lib/droplet.ts";
 
 const APP_TITLE = "TermWeave";
@@ -155,8 +158,21 @@ export function App() {
   // Add PC from Settings or the palette leaves no trigger to return focus to once its dialog
   // closes (Settings closed when it opened): the header's workspace-list toggle stands in
   const addPcFocusReturn = useRef(false);
-  const closeMachineDialog = useCallback(() => {
+  // Add PC opened from Settings: closing the dialog without a connection returns there (Remote PCs,
+  // where "Update PC bridges automatically" waits); a connection goes on to the new PC instead
+  const addPcFromSettings = useRef(false);
+  const settingsOpenRef = useRef(false);
+  const closeMachineDialog = useCallback((reopenSettings = true) => {
     setMachineDialog(null);
+    const fromSettings = addPcFromSettings.current;
+    addPcFromSettings.current = false;
+    if (fromSettings && reopenSettings) {
+      addPcFocusReturn.current = false;
+      // the setters are declared below; they are stable, so this callback needs no deps
+      setSettingsSection("remote");
+      setSettingsOpen(true);
+      return;
+    }
     if (!addPcFocusReturn.current) return;
     addPcFocusReturn.current = false;
     focusWorkspaceListToggle();
@@ -215,6 +231,7 @@ export function App() {
     openFile({ path, paneId: selectedPaneId, machineId: selectedMachineId });
   }, [openFile, selectedPaneId, selectedMachineId]);
   const [settingsOpen, setSettingsOpen] = useState(() => new URLSearchParams(window.location.search).get("panel") === "android");
+  settingsOpenRef.current = settingsOpen;
   const [openRigOpen, setOpenRigOpen] = useState(() => new URLSearchParams(window.location.search).get("panel") === "openrig");
   const [newBotOpen, setNewBotOpen] = useState(false);
   /** which bot the bots page opens on: one from the sidebar, or null for the page's own pick */
@@ -463,6 +480,8 @@ export function App() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, [unlock]);
 
+  // signing out drops this device's pairing too: getting back in takes a new code from the PC
+  const [signOutAsk, setSignOutAsk] = useState(false);
   const lock = useCallback(async () => {
     setDrawerOpen(false);
     // before signOut: the unsubscribe call needs the cookie, and a locked device must stop
@@ -524,10 +543,10 @@ export function App() {
       storeSelection(machineId, result.pane.pane_id, result.pane.workspace_id);
     }
     } catch (error) {
-      setError(`터미널은 이동됐지만 화면을 갱신하지 못했습니다 (${result.pane.pane_id}). 목록을 새로고침해 확인해 주세요. 자동 재시도나 되돌리기는 하지 않습니다.`);
+      setError(t("The terminal moved, but the list could not refresh ({id}). Refresh the list to check. Nothing is retried or undone.", { id: result.pane.pane_id }));
       throw error;
     }
-  }, [selectTarget]);
+  }, [selectTarget, t]);
   const selectTargetRef = useRef(selectTarget); selectTargetRef.current = selectTarget;
   useEffect(() => {
     // An offline PC's cached roster cannot invalidate a selection. Once connected,
@@ -652,17 +671,22 @@ export function App() {
       : !alertsOn
         ? { label: t("Alerts off"), title: t("Alerts off on this device — tap to turn them on"), on: false, run: enableNotifications }
         : pushOn
-          ? { label: t("Alerts on"), title: t("Alerts on — pushed to this device, even with the app closed. Tap to turn them off"), on: true, run: disableNotifications }
+          ? { label: t("Alerts on"), title: t("Alerts on: pushed to this device, even with the app closed."), on: true, run: disableNotifications }
           : {
               label: t("Alerts on in this tab"),
               // turning them off and on again retries the push subscription
               title: pushSupported()
-                ? t("Alerts on while this tab is open. Tap to turn them off")
-                : t("Alerts on while this tab is open (closed-app alerts need https, and on iPhone the home-screen app). Tap to turn them off"),
+                ? t("Alerts on while this tab is open.")
+                : t("Alerts on while this tab is open. Closed-app alerts need https, and on iPhone the home-screen app."),
               on: true,
               run: disableNotifications,
             };
   const bellVisible = !bellBlocked;
+  const bellState: BellState = { label: bell.label, title: bell.title, on: bell.on, blocked: bellBlocked };
+  // what waits on the user, counted once (pane prompts and bot questions): the closed drawer and
+  // the collapsed sidebar carry it on their toggles
+  const waitingCount = useMemo(() => needsYou(machines, botsView).total, [machines, botsView]);
+  const waitingBadge = waitingCount > 0 ? <span className="nav-count" aria-hidden="true">{waitingCount > 99 ? "99+" : waitingCount}</span> : null;
 
   useEffect(() => {
     document.title = selectedTitle ? `${selectedTitle} · TermWeave` : APP_TITLE;
@@ -689,6 +713,7 @@ export function App() {
       },
       openAddPc: () => {
         // the new PC reports its progress in the sidebar: nothing should sit over it
+        addPcFromSettings.current = settingsOpenRef.current;
         setSettingsOpen(false);
         setUpdateRemote(false);
         addPcFocusReturn.current = true;
@@ -700,7 +725,7 @@ export function App() {
       },
       toggleTheme: () => updateSettings({ theme: resolvedTheme === "dark" ? "light" : "dark" }),
       toggleBionic: () => updateSettings({ bionicReading: !settings.bionicReading }),
-      lock: canSignOut ? () => void lock() : null,
+      lock: canSignOut ? () => { setDrawerOpen(false); setSignOutAsk(true); } : null,
       enableNotifications: bellVisible && !bell.on ? () => void enableNotifications() : null,
       refresh: () => void load(),
       swapPanes: async (request: PaneSwapRequest, workspaceId: string, machineId: string) => {
@@ -727,7 +752,7 @@ export function App() {
       },
       openFiles: selectedPaneId !== null ? () => { setDrawerOpen(false); setFilesOpen(true); } : null,
     }),
-    [selectPane, selectedPaneId, selectedMachineId, setView, view, updateSettings, resolvedTheme, settings.bionicReading, canSignOut, lock, bellVisible, bell.on, enableNotifications, load, onMoved, t],
+    [selectPane, selectedPaneId, selectedMachineId, setView, view, updateSettings, resolvedTheme, settings.bionicReading, canSignOut, bellVisible, bell.on, enableNotifications, load, onMoved, t],
   );
 
   useShortcuts(actions, locked === false);
@@ -745,7 +770,7 @@ export function App() {
         <div className="app-body">
           <aside className="sidebar">
             <p className="tree-state" role="status">
-              Connecting…
+              {t("Connecting…")}
             </p>
           </aside>
           <main className="terminal-host">
@@ -766,26 +791,28 @@ export function App() {
       <header className="app-header">
         <button
           type="button"
-          className="icon-button drawer-toggle"
-          aria-label={t(drawerOpen ? "Close workspace list" : "Open workspace list")}
+          className="icon-button drawer-toggle nav-count-host"
+          aria-label={drawerOpen ? t("Close workspace list") : waitingCount > 0 ? t("Open workspace list, {n} need you", { n: waitingCount }) : t("Open workspace list")}
           aria-expanded={drawerOpen}
           aria-controls="workspace-drawer"
           onClick={() => setDrawerOpen((open) => !open)}
         >
           {drawerOpen ? <X /> : <Menu />}
+          {!drawerOpen && waitingBadge}
         </button>
         <button
           type="button"
-          className="icon-button header-desktop-only sidebar-toggle"
-          aria-label={t(sidebarCollapsed ? "Show workspace list" : "Hide workspace list")}
+          className="icon-button header-desktop-only sidebar-toggle nav-count-host"
+          aria-label={!sidebarCollapsed ? t("Hide workspace list") : waitingCount > 0 ? t("Show workspace list, {n} need you", { n: waitingCount }) : t("Show workspace list")}
           aria-pressed={!sidebarCollapsed}
           title={t("Toggle sidebar (⌘⇧B)")}
           onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
         >
           <PanelLeft />
+          {sidebarCollapsed && waitingBadge}
         </button>
         {selectedPane ? (
-          <div className="context" title={`${selectedWorkspace?.label ?? selectedPane.workspace_id} › ${selectedTitle}`}>
+          <div className="context" title={`${selectedWorkspace?.label ?? selectedPane.workspace_id} › ${selectedTitle}${selectedPane.cwd ? ` › ${selectedPane.cwd}` : ""}`}>
             <div className="context-title">
               {selectedAgent && <AgentMark agent={selectedAgent} size={18} />}
               <span className="context-title-text">{selectedTitle}</span>
@@ -798,7 +825,8 @@ export function App() {
                   <span className="context-sep" aria-hidden="true">
                     ›
                   </span>
-                  <span className="context-cwd">{selectedPane.cwd}</span>
+                  {/* the last two folders say where; the full path is in the tooltip */}
+                  <span className="context-cwd">{shortCwd(selectedPane.cwd)}</span>
                 </>
               )}
             </div>
@@ -808,7 +836,7 @@ export function App() {
         )}
         <UpdateButton updates={updates} />
         {selectedPane && (
-          <div className="segmented view-switch" role="group" aria-label="Pane view">
+          <div className="segmented view-switch" role="group" aria-label={t("Pane view")}>
             <button type="button" aria-pressed={view === "chat"} onClick={() => setView("chat")} title={t("Chat transcript (⌘⇧J)")}>
               <MessageSquare />
               <span className="header-desktop-only">{t("Chat")}</span>
@@ -821,8 +849,11 @@ export function App() {
           </div>
         )}
         <div className="header-more-wrap" ref={moreRef}>
-        <button type="button" className="icon-button header-more" aria-label={t("More tools")} aria-expanded={moreOpen} aria-controls="header-meta" onClick={() => setMoreOpen(open => !open)}>
-          <MoreHorizontal aria-hidden="true" /><span className={`header-more-dot ${connected ? "conn-live" : "conn-reconnecting"}`} aria-hidden="true"><span className="conn-dot" /></span>
+        {/* phones: search stays one tap away, outside the tools menu, at a thumb's size */}
+        <button type="button" className="icon-button header-search-phone" aria-label={t("Command palette")} onClick={() => setPaletteOpen(true)}><Search aria-hidden="true" /></button>
+        <button type="button" className="icon-button header-more" aria-label={connected ? t("More tools") : t("More tools, reconnecting")} aria-expanded={moreOpen} aria-controls="header-meta" onClick={() => setMoreOpen(open => !open)}>
+          {/* a dot means "look inside": only a lost connection is worth that, not the normal live state */}
+          <MoreHorizontal aria-hidden="true" />{!connected && <span className="header-more-dot conn-reconnecting" aria-hidden="true"><span className="conn-dot" /></span>}
         </button>
         <div className="header-meta" id="header-meta" data-open={moreOpen || undefined}>
           <FrontendControls />
@@ -836,30 +867,24 @@ export function App() {
             <span className="conn-text">{t(connected ? "live" : outputStopped ? "disconnected" : "reconnecting")}</span>
           </span>
           {!targetHerdr && <span className="pill pill-offline">{t("herdr offline")}</span>}
-          <button type="button" className="icon-button" aria-label={t("Agent fleet")} title={t("Agent fleet")} onClick={() => setFleetOpen(true)}><Orbit aria-hidden="true" /></button>
-          <button type="button" className="icon-button" aria-label={t("OpenRig teams")} title={t("OpenRig teams")} onClick={() => setOpenRigOpen(true)}><Users aria-hidden="true" /></button>
+          {/* navigation: the places the header opens; their names show on wide screens and in the phone menu */}
+          <button type="button" className="icon-button header-tool header-group-start" aria-label={t("Agent fleet")} title={t("Agent fleet")} onClick={() => setFleetOpen(true)}><Orbit aria-hidden="true" /><span className="header-tool-label header-label-wide">{t("Fleet")}</span></button>
+          <button type="button" className="icon-button header-tool" aria-label={t("OpenRig teams")} title={t("OpenRig teams")} onClick={() => setOpenRigOpen(true)}><Users aria-hidden="true" /><span className="header-tool-label header-label-wide">{t("Teams")}</span></button>
           <TerminalNotificationCenter readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onSelect={target => selectTargetRef.current("local", target.paneId)} />
           {selectedPane && (
-            <button type="button" className="icon-button files-button" aria-label={t("Browse files")} title={t("Browse files")} onClick={() => setFilesOpen(true)}>
-              <FolderOpen />
+            <button type="button" className="icon-button header-tool files-button" aria-label={t("Browse files")} title={t("Browse files")} onClick={() => setFilesOpen(true)}>
+              <FolderOpen aria-hidden="true" /><span className="header-tool-label">{t("Browse files")}</span>
             </button>
           )}
-          <button type="button" className="icon-button" aria-label={t("Command palette")} title={t("Command palette (⌘⇧K)")} onClick={() => setPaletteOpen(true)}>
-            <Search />
+          {/* utilities: search and this device's alerts, a step apart from the places above */}
+          <button type="button" className="icon-button header-search-desktop header-group-start" aria-label={t("Command palette")} title={t("Command palette (⌘⇧K)")} onClick={() => setPaletteOpen(true)}>
+            <Search aria-hidden="true" />
           </button>
-          <button
-            type="button"
-            className={`icon-button bell-button${bell.on ? " is-on" : ""}${bellBlocked ? " is-blocked" : ""}`}
-            aria-label={bell.label}
-            aria-pressed={bellBlocked ? undefined : bell.on}
-            title={bell.title}
-            onClick={() => void bell.run()}
-          >
-            {bellBlocked ? <BellOff /> : <Bell />}
-          </button>
+          <AlertsBell bell={bellState} onPress={() => void bell.run()} onTurnOff={disableNotifications} />
+          {/* sign out ends this device's pairing: last, set apart from the bell, and it asks first */}
           {canSignOut && (
-            <button type="button" className="icon-button lock-button header-desktop-only" aria-label={t("Sign out")} title={t("Sign out")} onClick={() => void lock()}>
-              <Lock />
+            <button type="button" className="icon-button lock-button header-desktop-only header-group-start" aria-label={t("Sign out")} title={t("Sign out")} onClick={() => setSignOutAsk(true)}>
+              <LogOut aria-hidden="true" />
             </button>
           )}
         </div>
@@ -870,7 +895,7 @@ export function App() {
       <div className="app-body">
         <aside id="workspace-drawer" className={`sidebar${drawerOpen ? " is-open" : ""}`}>
           {error && <div className="error-state" role="alert"><p>{error}</p><button className="btn" onClick={() => void load()}>{t("Retry")}</button></div>}
-          <MachineSidebar readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onNewBot={() => { setDrawerOpen(false); setNewBotOpen(true); }} onBotSettings={(botId) => { const bot = botsView?.bots.find((entry) => entry.id === botId); if (bot) { showBotSettings(botId); void openBot(bot); } }} version={health?.herdr?.version ?? null} machines={machines} selectedMachineId={selectedMachineId} selectedPaneId={selectedPaneId} selectedWorkspaceId={sidebarOwnerId} onSelectWorkspace={selectWorkspace} actions={actions} onSelect={selectTarget} onSetup={(machine, update = false) => { setUpdateRemote(update); setMachineDialog(machine); }} onNew={(id) => { setNewSessionMachineId(id); setNewSessionOpen(true); setDrawerOpen(false); }} />
+          <MachineSidebar onOpenBot={(bot) => void openBot(bot)} readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onNewBot={() => { setDrawerOpen(false); setNewBotOpen(true); }} onBotSettings={(botId) => { const bot = botsView?.bots.find((entry) => entry.id === botId); if (bot) { showBotSettings(botId); void openBot(bot); } }} version={health?.herdr?.version ?? null} machines={machines} selectedMachineId={selectedMachineId} selectedPaneId={selectedPaneId} selectedWorkspaceId={sidebarOwnerId} onSelectWorkspace={selectWorkspace} actions={actions} onSelect={selectTarget} onSetup={(machine, update = false) => { setUpdateRemote(update); setMachineDialog(machine); }} onNew={(id) => { setNewSessionMachineId(id); setNewSessionOpen(true); setDrawerOpen(false); }} />
         </aside>
 
         {drawerOpen && <div className="scrim" aria-hidden="true" onClick={() => setDrawerOpen(false)} />}
@@ -937,7 +962,7 @@ export function App() {
           void load();
         }}
       /></MachineContext.Provider>
-      {machineDialog && <MachineDialog updateRemote={updateRemote} machine={machineDialog === "new" ? undefined : machineDialog} onClose={closeMachineDialog} onConnected={(id) => { closeMachineDialog(); selectTarget(id, null); void load(); }} />}
+      {machineDialog && <MachineDialog updateRemote={updateRemote} machine={machineDialog === "new" ? undefined : machineDialog} onClose={(underway) => closeMachineDialog(!underway)} onConnected={(id) => { closeMachineDialog(false); selectTarget(id, null); void load(); }} />}
       <Droplet onOpen={(machineId, paneId) => {
         // an ended pane's card outlives the pane: the refetch has dropped it, and selecting it attaches nothing
         if (!machinesRef.current.find((m) => m.id === machineId)?.snapshot?.panes.some((p) => p.pane_id === paneId)) return;
@@ -948,14 +973,16 @@ export function App() {
       {fleetOpen && <FleetPanel machines={machines} onClose={closeFleet} onOpen={(machineId, paneId) => { setDrawerOpen(false); selectTargetRef.current(machineId, paneId); }} onSetup={(machine) => { setDrawerOpen(false); setUpdateRemote(false); setMachineDialog(machine); }} onConnections={() => { setSettingsSection("remote"); setSettingsOpen(true); }} />}
       <NewBotDialog open={newBotOpen} onOpenChange={setNewBotOpen} onCreated={(bot) => void openBot(bot)} />
       {openRigOpen && <OpenRigPanel canManageService={auth?.authenticated === true && auth.role !== "watch" && role !== "observe"} readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onClose={closeOpenRig} onOpened={() => { void load(); }} />}
-      <SettingsDialog auth={auth} open={settingsOpen} onClose={closeSettings} actions={actions} updates={updates} onEnableNotifications={enableNotifications} section={settingsSection} />
+      <SettingsDialog auth={auth} open={settingsOpen} onClose={closeSettings} actions={actions} updates={updates} onEnableNotifications={enableNotifications} onDisableNotifications={disableNotifications} section={settingsSection} />
       {filesOpen && selectedPane && (
         <FilesDialog start={selectedPane.foreground_cwd ?? selectedPane.cwd ?? ""} viewing={viewing !== null} onOpenFile={viewFile} onClose={() => setFilesOpen(false)} />
       )}
       {viewing !== null && <MachineContext.Provider value={viewing.machineId}>
         <FileViewer key={viewing.path} path={viewing.path} paneId={viewing.paneId} onClose={closeFile} onOpen={(path) => openFile({ ...viewing, path })} />
       </MachineContext.Provider>}
-      <CommandPalette key={selectedMachineId} open={paletteOpen} onClose={() => setPaletteOpen(false)} snapshot={snapshot} selectedPaneId={selectedPaneId} view={view} actions={actions} />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} machines={machines} selectedMachineId={selectedMachineId} selectedPaneId={selectedPaneId} view={view} actions={actions} onSelectTarget={(machineId, paneId) => selectTargetRef.current(machineId, paneId)} />
+      {signOutAsk && <ConfirmDialog title={t("Sign out of this device?")} body={t("To get back in, this device needs a new pairing code from the PC.")} confirmLabel={t("Sign out")}
+        onConfirm={async () => { await lock(); setSignOutAsk(false); }} onClose={() => setSignOutAsk(false)} />}
     </div></MachineContext.Provider>
   );
 }

@@ -8,14 +8,10 @@ import { cn } from "../../cn.ts";
 import { Button } from "../../ui/button.tsx";
 import { LoadingSpinner } from "../../ui/LoadingSpinner.tsx";
 import { Textarea } from "../../ui/textarea.tsx";
-import { botsApi } from "../data.ts";
+import { botErrorText, botsApi } from "../data.ts";
 import type { BotNote } from "../data.ts";
 
 const FILE: Record<BotNote, string> = { soul: "SOUL.md", memory: "MEMORY.md" };
-
-function message(failure: unknown): string {
-  return failure instanceof Error ? failure.message : String(failure);
-}
 
 export function BotNoteEditor({ botId, note, readOnly, onDirtyChange }: { botId: string; note: BotNote; readOnly: boolean; onDirtyChange: (dirty: boolean) => void }) {
   const t = useT();
@@ -35,9 +31,9 @@ export function BotNoteEditor({ botId, note, readOnly, onDirtyChange }: { botId:
       setBase(text);
       setDraft(text);
     } catch (failure) {
-      setLoadError(message(failure));
+      setLoadError(botErrorText(failure, t));
     }
-  }, [botId, note]);
+  }, [botId, note, t]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -56,7 +52,7 @@ export function BotNoteEditor({ botId, note, readOnly, onDirtyChange }: { botId:
       setBase(text);
     } catch (failure) {
       // The draft stays as typed, so the text is not lost.
-      setSaveError(message(failure));
+      setSaveError(botErrorText(failure, t));
     } finally {
       setSaving(false);
     }

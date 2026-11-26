@@ -1,0 +1,147 @@
+{
+  "(earlier output cut)": {
+    "ko": "(앞부분 출력은 잘렸습니다)",
+    "ja": "(前の出力は省略されました)",
+    "zh": "(较早的输出已截断)"
+  },
+  "Agent is responding": {
+    "ko": "에이전트가 응답하고 있습니다",
+    "ja": "エージェントが応答しています",
+    "zh": "代理正在回复"
+  },
+  "Background result delivered": {
+    "ko": "백그라운드 결과 도착",
+    "ja": "バックグラウンドの結果が届きました",
+    "zh": "后台结果已送达"
+  },
+  "Context compacted": {
+    "ko": "컨텍스트 압축됨",
+    "ja": "コンテキストを圧縮しました",
+    "zh": "上下文已压缩"
+  },
+  "Conversation": {
+    "ko": "대화",
+    "ja": "会話",
+    "zh": "对话"
+  },
+  "Conversation interrupted": {
+    "ko": "대화가 중단되었습니다",
+    "ja": "会話が中断されました",
+    "zh": "对话已中断"
+  },
+  "Conversation unavailable — show terminal output": {
+    "ko": "대화를 읽을 수 없습니다. 터미널 출력 보기",
+    "ja": "会話を読み取れません。ターミナルの出力を表示",
+    "zh": "对话不可用。显示终端输出"
+  },
+  "Copied": {
+    "ko": "복사됨",
+    "ja": "コピーしました",
+    "zh": "已复制"
+  },
+  "Copy as markdown": {
+    "ko": "마크다운으로 복사",
+    "ja": "Markdown としてコピー",
+    "zh": "复制为 Markdown"
+  },
+  "Copy as plain text": {
+    "ko": "일반 텍스트로 복사",
+    "ja": "プレーンテキストとしてコピー",
+    "zh": "复制为纯文本"
+  },
+  "Copy message": {
+    "ko": "메시지 복사",
+    "ja": "メッセージをコピー",
+    "zh": "复制消息"
+  },
+  "Couldn't load earlier messages.": {
+    "ko": "이전 메시지를 불러오지 못했습니다.",
+    "ja": "以前のメッセージを読み込めませんでした。",
+    "zh": "无法加载更早的消息。"
+  },
+  "Jump to latest": {
+    "ko": "최신 메시지로 이동",
+    "ja": "最新に移動",
+    "zh": "跳转到最新"
+  },
+  "Loading conversation…": {
+    "ko": "대화를 불러오는 중…",
+    "ja": "会話を読み込んでいます…",
+    "zh": "正在加载对话…"
+  },
+  "Loading earlier messages…": {
+    "ko": "이전 메시지 불러오는 중…",
+    "ja": "以前のメッセージを読み込んでいます…",
+    "zh": "正在加载更早的消息…"
+  },
+  "Locked — authenticate again": {
+    "ko": "잠김 — 다시 인증하세요",
+    "ja": "ロック中 — 再認証してください",
+    "zh": "已锁定 — 请重新认证"
+  },
+  "No conversation yet — say something below": {
+    "ko": "아직 대화가 없습니다. 아래에 말을 걸어 보세요",
+    "ja": "まだ会話はありません。下から話しかけてください",
+    "zh": "暂无对话。在下方说点什么吧"
+  },
+  "Open terminal": {
+    "ko": "터미널 열기",
+    "ja": "ターミナルを開く",
+    "zh": "打开终端"
+  },
+  "Reasoning": {
+    "ko": "추론",
+    "ja": "推論",
+    "zh": "推理"
+  },
+  "Retry": {
+    "ko": "다시 시도",
+    "ja": "再試行",
+    "zh": "重试"
+  },
+  "Scroll this message to top": {
+    "ko": "이 메시지를 맨 위로 스크롤",
+    "ja": "このメッセージを先頭までスクロール",
+    "zh": "将此消息滚动到顶部"
+  },
+  "Show full message": {
+    "ko": "메시지 전체 보기",
+    "ja": "メッセージ全体を表示",
+    "zh": "显示完整消息"
+  },
+  "Show less": {
+    "ko": "접기",
+    "ja": "折りたたむ",
+    "zh": "收起"
+  },
+  "Skill invoked: {name}": {
+    "ko": "스킬 실행: {name}",
+    "ja": "スキル実行: {name}",
+    "zh": "已调用技能：{name}"
+  },
+  "Thinking": {
+    "ko": "생각 중",
+    "ja": "考え中",
+    "zh": "思考中"
+  },
+  "Worked for {duration}": {
+    "ko": "{duration} 작업",
+    "ja": "{duration} 作業しました",
+    "zh": "工作了 {duration}"
+  },
+  "Working…": {
+    "ko": "작업 중…",
+    "ja": "作業中…",
+    "zh": "正在工作…"
+  },
+  "Working for {duration}": {
+    "ko": "{duration} 작업 중",
+    "ja": "{duration} 作業中",
+    "zh": "已工作 {duration}"
+  },
+  "Yesterday {time}": {
+    "ko": "어제 {time}",
+    "ja": "昨日 {time}",
+    "zh": "昨天 {time}"
+  }
+}

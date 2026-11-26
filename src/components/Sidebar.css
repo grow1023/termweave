@@ -491,6 +491,28 @@
   min-width: 0;
 }
 
+/* Install app with its put-away button: the row is the footer's, the × keeps the touch target */
+.sidebar-install-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.sidebar-install-row > .sidebar-footer-action {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.sidebar-install-hide { color: var(--text-dim); }
+
+/* an offline PC's "+": it stays focusable to say why, and looks unavailable */
+.sidebar-row-action[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .sidebar-install-help {
   margin: 0;
   padding: 0 var(--space-2) var(--space-1);
@@ -552,6 +574,10 @@
   .workspace-menu {
     opacity: 1;
   }
+
+  /* a finger-sized grip with a gap before the chevron: a tap aimed at the chevron must not start a drag */
+  .sidebar-drag-handle { width: 28px; height: 44px; }
+  .workspace .pane-row { padding-left: 32px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -563,7 +589,7 @@
 }
 
 .workspace-terminals { display: flex; flex-direction: column; gap: 3px; padding: 3px 8px 6px 26px; min-width: 0; }
-.workspace-terminal { display: flex; align-items: center; gap: 7px; width: 100%; min-width: 0; padding: 6px; border: 0; border-radius: 5px; color: var(--text-dim); background: transparent; font: inherit; font-size: 11px; text-align: left; cursor: pointer; }
+.workspace-terminal { display: flex; align-items: center; gap: 7px; width: 100%; min-width: 0; padding: 6px; border: 0; border-radius: 5px; color: var(--text); background: transparent; font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; }
 .workspace-terminal[aria-current="true"] { background: var(--bg-hover); color: var(--text-strong); }
 .workspace-terminal:focus-visible { outline: 1px solid var(--text-dim); }
 .workspace-terminal-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

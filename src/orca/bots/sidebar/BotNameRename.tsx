@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 
 import { useT } from "../../../lib/i18n.ts";
 import { LoadingSpinner } from "../../ui/LoadingSpinner.tsx";
-import { botsApi } from "../data.ts";
+import { botErrorText, botsApi } from "../data.ts";
 
 export function BotNameRename({ botId, name, onDone, onError }: { botId: string; name: string; onDone: () => void; onError: (message: string) => void }): JSX.Element {
   const t = useT();
@@ -18,7 +18,7 @@ export function BotNameRename({ botId, name, onDone, onError }: { botId: string;
     const next = value.trim();
     if (next === "" || next === name) { onDone(); return; }
     setSaving(true);
-    try { await botsApi.update(botId, { name: next }); } catch (error) { onError(error instanceof Error ? error.message : String(error)); }
+    try { await botsApi.update(botId, { name: next }); } catch (error) { onError(botErrorText(error, t)); }
     onDone();
   };
   return (

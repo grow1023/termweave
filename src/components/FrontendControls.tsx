@@ -74,8 +74,8 @@ export function FrontendControls() {
       aria-label={t("Update web app")} title={t("Use the already deployed web app. Does not install server or native updates.")}
       onClick={() => { setNotice(false); void controller.current?.update(); }}>{t("Update web app")}</button>}
     <button type="button" className="icon-button frontend-refresh" disabled={state.busy}
-      aria-label={t("Refresh page")} title={t("Reload this web page. Terminal sessions keep running.")}
-      onClick={() => { setNotice(false); controller.current?.refresh(); }}><RefreshCw aria-hidden="true" /><span>{t("Refresh page")}</span></button>
+      aria-label={t("Reload page")} title={t("Reload this web page. Terminal sessions keep running.")}
+      onClick={() => { setNotice(false); controller.current?.refresh(); }}><RefreshCw aria-hidden="true" /><span>{t("Reload page")}</span></button>
     {notice && <span className="frontend-reload-note" role="status">{t("Input is still being sent. Please wait, then try again.")}</span>}
   </div>;
 }

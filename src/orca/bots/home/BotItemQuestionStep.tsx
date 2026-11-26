@@ -3,7 +3,7 @@
 // An item that needs the owner, as Orca's question card: the question, one tile per answer, a typed answer,
 // and Submit. An approval (the bot asks to act in a terminal) has no tiles: only Approve and Deny.
 import { Check, MessageCircleQuestionMark, Pencil } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { APPROVE, DENY } from "../../../../shared/bots/types.ts";
 import { type Translate, useT } from "../../../lib/i18n.ts";
@@ -26,7 +26,7 @@ const BUTTON =
 const FILLED = "border-primary bg-primary text-primary-foreground hover:bg-primary/90";
 const OUTLINED = "border-question-option-border text-foreground hover:bg-foreground/5";
 
-function Option({ index, label, selected, disabled, onSelect }: { index: number; label: string; selected: boolean; disabled: boolean; onSelect: () => void }) {
+function Option({ index, label, selected, disabled, describedBy, onSelect }: { index: number; label: string; selected: boolean; disabled: boolean; describedBy: string; onSelect: () => void }) {
   return (
     // Focus is an outline outside the tile and picked is a ring inside it, so a focused row never reads as picked.
     <div
@@ -39,7 +39,8 @@ function Option({ index, label, selected, disabled, onSelect }: { index: number;
         type="button"
         disabled={disabled}
         onClick={onSelect}
-        aria-pressed={selected}
+        // it sends at once, so it is not a toggle: no aria-pressed, and the description says so
+        aria-describedby={describedBy}
         className="flex w-full items-start gap-2.5 rounded-[10px] px-3 py-2.5 text-left focus-visible:outline-none disabled:pointer-events-none disabled:opacity-60 pointer-coarse:min-h-11"
       >
         <span className={cn("flex size-5.5 shrink-0 items-center justify-center rounded-md text-xs font-semibold", selected ? "bg-primary text-primary-foreground" : "bg-chat-composer-surface ring-1 ring-inset ring-question-option-border")}>
@@ -78,21 +79,26 @@ function AnswerField({ value, disabled, onChange, onEnter }: { value: string; di
   );
 }
 
-export function BotItemQuestionStep({ botId, item, readOnly, onOpenItem }: {
+export function BotItemQuestionStep({ botId, item, readOnly, onOpenItem, canAnswer }: {
   botId: string;
   item: BotItem;
   readOnly: boolean;
   /** Lists name the item above the question and open it from there; the item's own view does not. */
   onOpenItem?: () => void;
+  /** A list whose cards move asks here first; false drops the answer (a card that just moved under the pointer). */
+  canAnswer?: () => boolean;
 }) {
   const t = useT();
   const act = useBotAction();
+  const sendsId = useId();
   const [typed, setTyped] = useState("");
   const [sent, setSent] = useState<string | null>(null);
   const action = item.action ?? null;
   const question = action ? approvalQuestion(action, t) : (item.ask ?? item.title);
   const disabled = readOnly || act.busy;
   const answer = (text: string): void => {
+    // Dropped without a sign: the card has not moved for the owner's eye yet, and the next click goes through.
+    if (canAnswer && !canAnswer()) return;
     setSent(text);
     void act.run(() => botsApi.answerItem(botId, item.n, text)).then((ok) => {
       setSent(null);
@@ -128,8 +134,9 @@ export function BotItemQuestionStep({ botId, item, readOnly, onOpenItem }: {
         <>
           {item.options.length > 0 ? (
             <div className="flex flex-col gap-1.5 px-3.5 pt-2.5 pb-1">
+              <span id={sendsId} className="sr-only">{t("Sends this answer")}</span>
               {item.options.map((option, index) => (
-                <Option key={`${index}:${option}`} index={index} label={option} selected={sent === option} disabled={disabled} onSelect={() => answer(option)} />
+                <Option key={`${index}:${option}`} index={index} label={option} selected={sent === option} disabled={disabled} describedBy={sendsId} onSelect={() => answer(option)} />
               ))}
             </div>
           ) : null}

@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "../../ui/input.tsx";
 import { Label } from "../../ui/label.tsx";
 import { LoadingSpinner } from "../../ui/LoadingSpinner.tsx";
-import { botsApi } from "../data.ts";
+import { botErrorText, botsApi } from "../data.ts";
 import type { Bot, BotAgent } from "../data.ts";
 import { PictureButton } from "./BotPicturePicker.tsx";
 import type { PictureChoice } from "./BotPicturePicker.tsx";
@@ -59,7 +59,8 @@ function PurposeField({ value, tooLong, onChange, disabled }: { value: string; t
           className="scrollbar-sleek block h-[5lh] w-full resize-none border-0 bg-transparent p-0 text-sm leading-5 outline-none placeholder:text-muted-foreground"
           rows={5}
           autoComplete="off"
-          aria-label={t("Identity")}
+          // the text becomes SOUL.md, which settings calls Soul: one name for one thing
+          aria-label={t("Soul")}
           aria-invalid={tooLong || undefined}
           aria-describedby={tooLong ? counterId : undefined}
           value={value}
@@ -84,7 +85,8 @@ function CreateButton({ busy }: { busy: boolean }) {
     <Button type="submit" size="sm" disabled={busy} className="pointer-coarse:min-h-11">
       {busy ? <LoadingSpinner className="size-4" /> : null}
       <span className="text-xs">{t("Create")}</span>
-      <span aria-hidden className="ml-1 inline-flex items-center gap-0.5 rounded border border-white/20 px-1.5 py-0.5 text-[10px] leading-none font-medium text-current/80">
+      {/* a touch screen has no ⌘ or Ctrl to press */}
+      <span aria-hidden className="ml-1 inline-flex items-center pointer-coarse:hidden gap-0.5 rounded border border-white/20 px-1.5 py-0.5 text-[10px] leading-none font-medium text-current/80">
         <span>{isMacPlatform() ? "⌘" : "Ctrl"}</span>
         <CornerDownLeft className="size-3" />
       </span>
@@ -129,7 +131,7 @@ function NewBotForm({ onClose, onCreated }: { onClose: () => void; onCreated: (b
       onClose();
       onCreated(bot);
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : String(failure));
+      setError(botErrorText(failure, t));
       nameRef.current?.focus();
     } finally {
       setCreating(false);
@@ -197,7 +199,7 @@ function NewBotForm({ onClose, onCreated }: { onClose: () => void; onCreated: (b
               disabled={creating}
               autoComplete="off"
               spellCheck={false}
-              placeholder="~/projects/app"
+              placeholder={t("Optional · a git repository, e.g. ~/projects/app")}
               className="pointer-coarse:min-h-11"
               onChange={(event) => setRepo(event.target.value)}
             />

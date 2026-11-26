@@ -7,7 +7,7 @@ import { botAge } from "../../../components/BotVisuals.tsx";
 import { useT } from "../../../lib/i18n.ts";
 import { cn } from "../../cn.ts";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "../../ui/dropdown-menu.tsx";
-import { botsApi, type BotAutomation } from "../data.ts";
+import { botErrorText, botsApi, type BotAutomation } from "../data.ts";
 import { BotAvatar } from "../BotAvatar.tsx";
 import { BotFoldToggle } from "./BotFoldToggle.tsx";
 import { BotHoverDetails } from "./BotHoverDetails.tsx";
@@ -53,7 +53,7 @@ export function BotRow({ facts, automations, isActive, readOnly, folded, onToggl
   const togglePause = (): void => {
     if (pausing) return;
     setPausing(true);
-    botsApi.update(bot.id, { paused: !bot.paused }).catch((error: unknown) => onError(error instanceof Error ? error.message : String(error))).finally(() => setPausing(false));
+    botsApi.update(bot.id, { paused: !bot.paused }).catch((error: unknown) => onError(botErrorText(error, t))).finally(() => setPausing(false));
   };
   const menu: BotMenuActions = {
     readOnly: readOnly || pausing,

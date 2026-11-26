@@ -99,7 +99,8 @@ try {
   const folderColors = await page.locator('.pane-select[data-workspace-id] .agent-mark-holder').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).color));
   assert.equal(new Set(folderColors).size, 3, 'Three distinct workspace folder colors');
   await capture(page, 'desktop-workspaces', 'Real three-pane terminal layout; synthetic native terminal output; three folder-icon colors, not colored rows.');
-  await page.locator('.dock-group').first().getByRole('button', { name: 'Terminal tools', exact: true }).click();
+  // the gear names what the panel holds; the panel region itself is still "Terminal tools"
+  await page.locator('.dock-group').first().getByRole('button', { name: 'Terminal tools and search', exact: true }).click();
   await page.locator('.dock-tools-panel').waitFor();
   await capture(page, 'desktop-pane-tools', 'Actual terminal tools panel over the native terminal layout.');
   await page.locator('.dock-tools-panel').getByRole('button', { name: 'Close', exact: true }).click();
@@ -132,6 +133,9 @@ try {
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.locator('.settings-dialog').waitFor();
+  // Settings opens on "Alerts and phone": bring the Appearance section up for this capture
+  const appearanceTop = () => page.locator('.settings-dialog').getByRole('heading', { name: 'Appearance', exact: true }).evaluate(node => node.scrollIntoView({ block: 'start' }));
+  await appearanceTop();
   await capture(page, 'desktop-settings', 'Actual appearance settings; no configuration has been published.');
   await page.getByRole('button', { name: 'Customize these colors', exact: true }).click();
   await page.locator('.color-picker').scrollIntoViewIfNeeded();
@@ -149,13 +153,16 @@ try {
   await capture(page, 'mobile-sidebar', 'Actual mobile workspace drawer with colored folder icons.');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.locator('.settings-dialog').waitFor();
+  await appearanceTop();
   await capture(page, 'mobile-appearance', 'Actual mobile appearance settings at 390x844.');
   for (const [heading, file, description] of [
     ['Alerts', 'mobile-notification-settings', 'Actual notification preferences only; no simulated event or device push delivery.'],
-    ['My Android devices', 'mobile-companion-settings', 'Actual Android devices settings in a browser; no companion pairing or Android device delivery tested.'],
+    ['Android screen mirroring', 'mobile-companion-settings', 'Actual Android devices settings in a browser; no companion pairing or Android device delivery tested.'],
   ]) {
     const section = page.locator('.settings-section').filter({ has: page.getByRole('heading', { name: heading, exact: true }) });
     await section.evaluate(node => node.scrollIntoView({ block: 'start' }));
+    // the Android panel loads once its section scrolls into view (it polls devices): wait for it
+    if (file === 'mobile-companion-settings') await section.locator('.android-panel').waitFor();
     await capture(page, file, description);
   }
   assert.deepEqual(errors, []);

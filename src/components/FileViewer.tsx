@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useEffect, useRef, useState } from "react";
 import { Download, ExternalLink, X } from "lucide-react";
 
 import "./FileViewer.css";
@@ -10,6 +10,8 @@ import { formatBytes } from "../lib/bridgeProgress.ts";
 import { LOCAL_MACHINE } from "../../shared/machines.ts";
 import { useMachineApi, useMachineId } from "../lib/machineContext.tsx";
 import { useT } from "../lib/i18n.ts";
+import { useModalFocus } from "../lib/modalFocus.ts";
+import { LISTABLE_ON_REMOTE, parentFolder } from "../lib/parentFolder.ts";
 
 /** Bigger images are offered as a download: a phone decodes an image whole. */
 const MAX_INLINE_IMAGE_BYTES = 20 * 1024 * 1024;
@@ -47,7 +49,7 @@ export function FileViewer({ path: asked, paneId, onClose, onOpen }: FileViewerP
 
   useEffect(() => {
     let cancelled = false;
-    setInfo(null); setCandidates(null); setError(null); setText(null); setDirectory(null);
+    setInfo(null); setCandidates(null); setError(null); setText(null); setDirectory(null); setBrowseError(false);
     fetchFileInfo(path, paneId).then(async (next) => {
       if (cancelled) return;
       if ("candidates" in next) { setCandidates(next.candidates); return; }
@@ -60,7 +62,7 @@ export function FileViewer({ path: asked, paneId, onClose, onOpen }: FileViewerP
     }).catch(async (reason: unknown) => {
       if (cancelled) return;
       // a folder is listed from the pane's folder, as a file is found from it
-      if (reason instanceof ApiError && reason.status === 404 && (!remote || /^(?:\/|~(?:\/|$)|[A-Za-z]:[\\/])/.test(path))) {
+      if (reason instanceof ApiError && reason.status === 404 && (!remote || LISTABLE_ON_REMOTE.test(path))) {
         try {
           const listing = await fetchDirectories(path, false, true, paneId);
           if (!cancelled) setDirectory(listing.path);
@@ -73,19 +75,33 @@ export function FileViewer({ path: asked, paneId, onClose, onOpen }: FileViewerP
     return () => { cancelled = true; };
   }, [path, paneId, fetchFileInfo, fileUrl, fetchDirectories, remote]);
 
-  useEffect(() => {
-    // the FilesDialog beneath listens on window too (and stands down while this is open); this
-    // one is the topmost overlay, so it takes the key
-    const onKey = (event: KeyboardEvent): void => { if (event.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // the FilesDialog beneath stands down while this is open: this one is the topmost overlay, so
+  // it takes Tab and Escape, and the focus starts on its title so a reader hears which file opened
+  const surface = useRef<HTMLElement>(null);
+  const titleRef = useRef<HTMLDivElement>(null);
+  useModalFocus(surface, { open: true, onClose });
+  useLayoutEffect(() => { titleRef.current?.focus({ preventScroll: true }); }, []);
+
+  // a missing file's next step: list the folder it was meant to be in
+  const [browseError, setBrowseError] = useState(false);
+  const parent = parentFolder(path);
+  const canBrowse = parent !== null && (!remote || LISTABLE_ON_REMOTE.test(parent));
+  const browseParent = async () => {
+    if (parent === null) return;
+    setBrowseError(false);
+    try { setDirectory((await fetchDirectories(parent, false, true, paneId)).path); }
+    catch { setBrowseError(true); }
+  };
 
   // the file found (a bare name may have been found deeper in the folder), else as asked
   const url = fileUrl(info?.path ?? path, paneId);
   const body = (() => {
     if (directory !== null) return <DirectoryBrowser key={directory} start={directory} onOpenFile={onOpen ?? setPath} />;
-    if (error !== null) return <p className="file-viewer-note" role="alert">{error}</p>;
+    if (error !== null) return <>
+      <p className="file-viewer-note" role="alert">{error}</p>
+      {canBrowse && <p className="file-viewer-note"><button type="button" className="btn" onClick={() => void browseParent()}>{t("Browse this folder")}</button></p>}
+      {browseError && <p className="file-viewer-note" role="alert">{t("This folder could not be opened either.")}</p>}
+    </>;
     if (candidates !== null) return <div className="file-viewer-choices">
       <p className="file-viewer-note">{t("Several files are named {name}:", { name: path.split("/").pop() ?? path })}</p>
       <ul>{candidates.map((candidate) => <li key={candidate}><button type="button" className="btn btn-ghost" onClick={() => setPath(candidate)}>{candidate}</button></li>)}</ul>
@@ -114,9 +130,9 @@ export function FileViewer({ path: asked, paneId, onClose, onOpen }: FileViewerP
 
   return (
     <div className="modal-scrim file-viewer-scrim" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="modal file-viewer" role="dialog" aria-modal="true" aria-label={info?.name ?? path}>
+      <section ref={surface} className="modal file-viewer" role="dialog" aria-modal="true" aria-label={info?.name ?? path}>
         <header className="modal-header file-viewer-header">
-          <div className="file-viewer-title">
+          <div ref={titleRef} className="file-viewer-title" tabIndex={-1}>
             <h2 className="modal-title">{info?.name ?? path.split("/").pop()}</h2>
             <p className="file-viewer-meta" title={info?.path ?? path}>
               {info && <span className="file-viewer-size">{formatBytes(info.size)}</span>}

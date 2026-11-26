@@ -3,6 +3,7 @@
  * hands code work to worker agents in their own git worktrees, and keeps the owner's view in items.
  * The design follows Orca Bots (stablyai/orca, MIT): the item statuses are Orca's.
  */
+import type { BotChatStatus, BotPermissionMode } from "./chat.ts";
 
 export type BotAgent = "claude" | "codex";
 export const BOT_AGENTS: readonly BotAgent[] = ["claude", "codex"];
@@ -23,7 +24,16 @@ export interface Bot {
   avatar?: string | null;
   /** what it is for, as given when it was made: the sidebar's line while it has nothing to say */
   purpose?: string;
+  /** where its chat runs: a herdr pane, or a Claude session with no terminal (server/bots/session); absent is pane */
+  runtime?: BotRuntimeKind;
+  /** the Claude session its chat continues: a session bot resumes it, a pane switched back starts with --resume */
+  claudeSessionId?: string | null;
+  /** a session bot's tool permissions; absent is ask */
+  permissionMode?: BotPermissionMode;
 }
+
+export type BotRuntimeKind = "pane" | "session";
+export const BOT_RUNTIMES: readonly BotRuntimeKind[] = ["pane", "session"];
 
 export type BotItemStatus = "planned" | "working" | "waiting" | "needs_you" | "done" | "canceled";
 export const BOT_ITEM_STATUSES: readonly BotItemStatus[] = ["planned", "working", "waiting", "needs_you", "done", "canceled"];
@@ -118,4 +128,6 @@ export interface BotsView {
   items: BotItem[];
   automations: BotAutomation[];
   workers: BotWorker[];
+  /** GET /api/bots only: each session bot's chat status, by bot id */
+  chatStatus?: Record<string, BotChatStatus>;
 }

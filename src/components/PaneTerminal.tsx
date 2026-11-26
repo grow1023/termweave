@@ -20,11 +20,13 @@ import { parseOsc52 } from "../lib/osc52.ts";
 import { matchHerdrWidths } from "../lib/terminalWidths.ts";
 import { useMachineApi, useMachineId } from "../lib/machineContext.tsx";
 import { BotSide } from "../orca/bots/BotSide.tsx";
+import { OrcaChat } from "../orca/chat/OrcaChat.tsx";
+import { useBotsView } from "../lib/bots.ts";
 import { paneStorageId } from "../../shared/machines.ts";
 import { KeyBar } from "./KeyBar.tsx";
 import { TerminalInput } from "./TerminalInput.tsx";
 import { SecretInput } from "./SecretInput.tsx";
-import { secretPrompt } from "../../shared/secret-prompt.ts";
+import { mayAskForSecret, secretPrompt } from "../../shared/secret-prompt.ts";
 import { ChatView } from "./ChatView.tsx";
 import { RenderBoundary } from "./RenderBoundary.tsx";
 import { Composer } from "./Composer.tsx";
@@ -34,7 +36,7 @@ import { BIONIC_RATIO, createBionic } from "../lib/bionic.ts";
 import { useSettings, terminalTheme, terminalContrast, type Palette, type ResolvedTheme } from "../lib/settings.ts";
 import { imeEdit, imeSpaces } from "../lib/imeDiff.ts";
 import { loadFontStack, TERMINAL_FONT_STACK, terminalFontStack } from "../lib/fontFamily.ts";
-import { useT } from "../lib/i18n.ts";
+import { useT, type Translate } from "../lib/i18n.ts";
 import { isAppShortcut } from "../lib/shortcuts.ts";
 import { spatialChord } from "../lib/spatialFocus.ts";
 import { OpenFileContext } from "../lib/filePaths.ts";
@@ -62,6 +64,10 @@ export interface PaneTerminalProps {
   backgroundTasks?: number;
   /** the lens over the pane: the chat transcript, or the live xterm grid (App remembers it per pane) */
   view: PaneView;
+  /** switches this pane to the chat lens: the terminal lens offers it where held messages wait */
+  onOpenChat?: () => void;
+  /** switches this pane to the terminal lens: the chat offers it where only the raw screen can help */
+  onShowTerminal?: () => void;
   /** App selected this pane itself (the selected one closed): switching to it must not take the keyboard */
   autoSelected?: boolean;
   /** xterm font size (settings) */
@@ -108,6 +114,8 @@ function useCoarsePointer(): boolean {
 export function PaneTerminal({
   paneId,
   endedAction,
+  onOpenChat,
+  onShowTerminal,
   restoreError = null,
   agent = null,
   agentStatus,
@@ -125,6 +133,10 @@ export function PaneTerminal({
   onServerMessage,
 }: PaneTerminalProps) {
   const t = useT();
+  // the copy handlers are attached once for the terminal's life: they read the current language here
+  const tRef = useRef(t);
+  tRef.current = t;
+  const tt = useCallback<Translate>((key, vars) => tRef.current(key, vars), []);
   const openFile = useContext(OpenFileContext);
   const openFileRef = useRef(openFile);
   openFileRef.current = openFile;
@@ -178,6 +190,9 @@ export function PaneTerminal({
   const [observing, setObserving] = useState(role === "observe");
   const [secret, setSecret] = useState<{ pane: string; prompt: string } | null>(null);
   const secretRef = useRef<string | null>(null);
+  const wrapWidthsRef = useRef<readonly number[]>([]);
+  // looser than `secret`: the input line keeps its draft in memory only while this is true
+  const [secretLikely, setSecretLikely] = useState(false);
   const secretActive = secret !== null && secret.pane === paneId;
   // a touch screen writes in the terminal's input line; typing straight into the grid is chosen
   const coarse = useCoarsePointer();
@@ -451,16 +466,16 @@ export function PaneTerminal({
       // Native copy still works in a user gesture when a Chromium/PWA site has
       // denied the async clipboard permission, or plain HTTP has no clipboard API.
       if (document.execCommand("copy")) {
-        noteClipboard("copied to clipboard");
+        noteClipboard(tt("Copied to clipboard"));
         return;
       }
       if (!navigator.clipboard) {
-        noteClipboard("clipboard write blocked by the browser");
+        noteClipboard(tt("The browser blocked copying"));
         return;
       }
       void navigator.clipboard.writeText(text).then(
-        () => { if (!disposed) noteClipboard("copied to clipboard"); },
-        () => { if (!disposed) noteClipboard("clipboard write blocked by the browser"); },
+        () => { if (!disposed) noteClipboard(tt("Copied to clipboard")); },
+        () => { if (!disposed) noteClipboard(tt("The browser blocked copying")); },
       );
     };
     const selectionChange = term.onSelectionChange(() => {
@@ -646,7 +661,7 @@ export function PaneTerminal({
       }
       if (!range) return;
       const text = fetchPaneSelection(d.pane, range[0], range[1], machineId).catch(() => {
-        if (current() && d.scrolled) noteClipboard("could not read the selection from herdr");
+        if (current() && d.scrolled) noteClipboard(tt("Could not read the selection from herdr"));
         return visibleText;
       }).then((value) => {
         if (!current()) throw new Error("selection changed");
@@ -663,13 +678,13 @@ export function PaneTerminal({
         // Denied (the case native copy covers), the clipboard keeps only the visible rows of a
         // scrolled drag: say so, since the whole text waits for an explicit Copy or Ctrl+C
         void navigator.clipboard.write([new ClipboardItem({ "text/plain": blob })]).catch(() => {
-          if (current() && d.scrolled) noteClipboard("copied the visible part; Copy or Ctrl+C copies the whole selection");
+          if (current() && d.scrolled) noteClipboard(tt("Copied the visible part. Copy or Ctrl+C copies the whole selection."));
         });
       } else {
         // Native copy already captured the visible text; the full text stays
         // available for the next explicit Copy where delayed items are unsupported.
         void text.then(() => {
-          if (current() && d.scrolled) noteClipboard("copied the visible part; Copy or Ctrl+C copies the whole selection");
+          if (current() && d.scrolled) noteClipboard(tt("Copied the visible part. Copy or Ctrl+C copies the whole selection."));
         }, () => {});
       }
     };
@@ -685,8 +700,8 @@ export function PaneTerminal({
       const text = parseOsc52(payload);
       if (text !== null) {
         void navigator.clipboard?.writeText(text).then(
-          () => noteClipboard("copied to clipboard"),
-          () => noteClipboard("clipboard write blocked by the browser"),
+          () => noteClipboard(tt("Copied to clipboard")),
+          () => noteClipboard(tt("The browser blocked copying")),
         );
       }
       return true;
@@ -720,7 +735,12 @@ export function PaneTerminal({
             if (line?.isWrapped && lines.length) lines[lines.length - 1] += text;
             else lines.push(text);
           }
-          const prompt = secretPrompt(lines.join("\n"), term.cols);
+          // the widths the screen may have been wrapped at: a prompt wrapped before the pane grew
+          // keeps its old row break, and only the old width shows it was a wrap
+          if (wrapWidthsRef.current.at(-1) !== term.cols) wrapWidthsRef.current = [...wrapWidthsRef.current.filter((cols) => cols !== term.cols).slice(-3), term.cols];
+          const screenText = lines.join("\n");
+          const prompt = secretPrompt(screenText, [...wrapWidthsRef.current].reverse());
+          setSecretLikely(prompt !== null || mayAskForSecret(screenText));
           secretRef.current = prompt;
           term.options.disableStdin = observeRef.current || prompt !== null || heldRef.current;
           setSecret((previous) => previous?.pane === owner && previous.prompt === prompt ? previous : prompt ? { pane: owner, prompt } : null);
@@ -1162,6 +1182,8 @@ export function PaneTerminal({
     hostRef.current?.toggleAttribute("data-adopted-grid", observeRef.current);
     secretRef.current = null;
     setSecret(null);
+    setSecretLikely(false);
+    wrapWidthsRef.current = [];
     // a key-bar Ctrl armed on the previous pane must not turn the next pane's first key into ^C
     ctrlRef.current = false;
     setCtrlArmed(false);
@@ -1323,14 +1345,24 @@ export function PaneTerminal({
 
   // the composer's stop button: Escape interrupts the agent's current turn in every
   // supported TUI (Claude Code, omp, codex) without killing the process the way ^C would
+  const stopFailedRef = useRef(false);
   const abortTurn = useCallback(() => {
     const term = termRef.current;
     const socket = socketRef.current;
-    if (!term || !socket || !paneRef.current) return;
+    if (!term || !paneRef.current) return;
     // straight to the pane, not through term.input: with stdin disabled or input not ready that
-    // Escape went into the held draft or nowhere, and the agent kept running without a word
-    if (!socket.sendInput(paneRef.current, "\u001b")) setInputError(t("Stop was not sent: the terminal is not connected."));
+    // Escape went into the held draft or nowhere, and the agent kept running without a word.
+    // No socket yet is the same refusal: the press must not vanish
+    if (socket?.sendInput(paneRef.current, "\u001b")) return;
+    stopFailedRef.current = true;
+    setInputError(t("Stop was not sent: the terminal is not connected."));
   }, [t]);
+  // that refusal was about the connection: once it is back, Stop works again and the note would be stale
+  useEffect(() => {
+    if (!connected || !stopFailedRef.current) return;
+    stopFailedRef.current = false;
+    setInputError(null);
+  }, [connected]);
 
   // While the agent runs, append to its held messages. Each requires an explicit send.
   // a question in Codex's queue leaves the composer alone: Codex keeps working, and a
@@ -1379,6 +1411,54 @@ export function PaneTerminal({
   // Capture the owner's pane for the entire upload batch, even across a pane switch.
   const uploadImage = useCallback((file: File) => uploadPaneImage(paneId ?? "", file), [paneId]);
 
+  // A bot's chat on this PC shows Orca's chat (src/orca/chat): transcript, the bot's dock, the queue
+  // and the composer in one column. Every other pane keeps ChatView and the composer below.
+  const botsView = useBotsView();
+  const orcaChat = paneId !== null && chatView && machineId === "local" && (botsView?.bots.some((bot) => bot.paneId === paneId) ?? false);
+  // Send now of one queued message: the same steps as the old queue section's button
+  const sendQueued = (owner: string, id: string): void => {
+    const message = queued.find((item) => item.id === id);
+    if (!message || sendingRef.current || !queueStore.beginSend(owner, id)) return;
+    sendingRef.current = true;
+    setQueueSending(id); setQueueError(null);
+    void Promise.resolve(sendComposerText(message.text))
+      .then((result) => {
+        if (result === true) { queueStore.remove(owner, id); }
+        else setQueueError({ owner, id, text: typeof result === "string" ? result : t("Not sent. Reconnect and try again.") });
+      })
+      .catch(() => setQueueError({ owner, id, text: t("Not confirmed. Check the terminal before sending again.") }))
+      .finally(() => { queueStore.endSend(owner, id); sendingRef.current = false; setQueueSending(null); });
+  };
+  const queueBlocked = !connected || held || secretActive ? t("Not sent. Reconnect and try again.")
+    : heldByOpenQueue ? t("Codex has a question open in the terminal: answer it above first") : null;
+  const composerProps = paneId !== null && !secretActive && !observing && !ended ? {
+    paneId,
+    autoFocus: !autoSelected && !coarse,
+    agent,
+    agentStatus,
+    backgroundTasks,
+    metadata: chatMetadata?.pane === paneId ? chatMetadata.value : null,
+    connected: connected && !held,
+    queueMode: busy,
+    answerHint: answering === null ? null
+      : pendingAnswer?.promptId === answering.id ? t("Confirm your answer in the card above, or type another…") : answerHint(answering),
+    suggestion: chatPrompt?.pane !== paneId && chatSuggestion?.pane === paneId ? chatSuggestion.value : null,
+    onSend: composerSend,
+    onAbort: abortTurn,
+    onUploadImage: uploadImage,
+  } : null;
+  const queueProps = orcaChat && !observing && !ended && queueOwner !== null && queued.length > 0 ? {
+    messages: queued,
+    sendingId: queueSending ?? queued.find((item) => queueStore.isSending(item.id))?.id ?? null,
+    error: queueError?.owner === queueOwner ? { id: queueError.id, text: queueError.text } : null,
+    unsaved: queueStore.isUnsaved(queueOwner),
+    blockedReason: queueBlocked,
+    heading: t("Held messages ({n})", { n: queued.length }),
+    onEdit: (id: string, text: string) => queueStore.edit(queueOwner, id, text),
+    onSend: (id: string) => sendQueued(queueOwner, id),
+    onDiscard: (id: string) => queueStore.remove(queueOwner, id),
+  } : null;
+
   return (
     // data-direct-typing: xterm's own field raises the soft keyboard here (lib/viewport.ts)
     <div className={`terminal-stack${chatView ? " is-chat" : ""}`} data-direct-typing={coarse && directTyping && !chatView ? "" : undefined}>
@@ -1420,7 +1500,8 @@ export function PaneTerminal({
             <button className="btn" onClick={reattach}>{t("Reconnect")}</button>
           </div>
         )}
-        {!chatView && inputError && <div className="terminal-banner" role="status">{inputError}<button className="btn" onClick={() => setInputError(null)}>{t("Dismiss")}</button></div>}
+        {/* both lenses: a refused Stop comes from the chat lens's button */}
+        {inputError && <div className="terminal-banner" role="alert">{inputError}<button className="btn" onClick={() => setInputError(null)}>{t("Dismiss")}</button></div>}
         {!chatView && !observing && connected && !inputReady && !held && !ended && <div className="terminal-banner" role="status">{t("Waiting for terminal input…")}</div>}
         {/* the chat lens says these itself (ChatView), inline; the pills are the grid's */}
         {paneId !== null && !chatView && ended && !outputError && (
@@ -1457,6 +1538,13 @@ export function PaneTerminal({
             {t("View only — operator screen size is unchanged")}
           </div>
         )}
+        {/* held messages are sent from the chat lens only: here they would be forgotten */}
+        {paneId !== null && !chatView && !observing && !ended && queued.length > 0 && (
+          <div className="terminal-banner terminal-banner-held" role="status">
+            <span>{t(queued.length === 1 ? "{n} held message. Send it from Chat." : "{n} held messages. Send them from Chat.", { n: queued.length })}</span>
+            {onOpenChat && <button type="button" className="btn" onClick={onOpenChat}>{t("Open Chat")}</button>}
+          </div>
+        )}
         {clipboardNote && (
           <div className="terminal-banner" role="status">
             {clipboardNote}
@@ -1467,7 +1555,36 @@ export function PaneTerminal({
       {paneId !== null && chatView && machineId === "local" && <BotSide paneId={paneId} readOnly={observing} />}
       <div className="terminal-surface">
         <div className={`pane-terminal${paneId === null ? " is-idle" : ""}`} ref={hostRef} />
-        {paneId !== null && chatView && (
+        {paneId !== null && orcaChat && (
+          <RenderBoundary resetKey={paneId} fallback={(retry) => (
+            <div className="chat-view"><div className="chat-empty" role="alert">
+              <p>{t("The chat can't be shown. The terminal still works.")}</p>
+              <button type="button" className="btn" onClick={retry}>{t("Try again")}</button>
+            </div></div>
+          )}>
+          <OrcaChat
+            key={paneId}
+            paneId={paneId}
+            refreshKey={chatRefresh}
+            sentKey={chatSent}
+            connected={connected}
+            ended={ended}
+            agent={agent}
+            agentStatus={agentStatus}
+            onMetadata={onChatMetadata}
+            onPrompt={onChatPrompt}
+            onSuggestion={onChatSuggestion}
+            promptRefreshKey={promptRefresh}
+            pendingAnswer={pendingAnswer !== null && pendingAnswer.pane === paneId ? pendingAnswer : null}
+            onPendingAnswerDone={clearPendingAnswer}
+            composer={composerProps}
+            queue={queueProps}
+            readOnly={observing}
+            onShowTerminal={onShowTerminal}
+          />
+          </RenderBoundary>
+        )}
+        {paneId !== null && chatView && !orcaChat && (
           <RenderBoundary resetKey={paneId} fallback={(retry) => (
             <div className="chat-view"><div className="chat-empty" role="alert">
               <p>{t("The chat can't be shown. The terminal still works.")}</p>
@@ -1494,11 +1611,12 @@ export function PaneTerminal({
       </div>
       {/* the queue is the composer's, so it shows under the chat lens only: there alone is an open
           Codex question known (heldByOpenQueue), and Send now must not type into one */}
-      {paneId !== null && chatView && !observing && !ended && queueOwner !== null && queued.length > 0 && (
-        <section className="composer-queue" aria-label={t("Queued messages")}>
+      {paneId !== null && chatView && !orcaChat && !observing && !ended && queueOwner !== null && queued.length > 0 && (
+        <section className="composer-queue" aria-label={t("Held messages")}>
           <div className="composer-queue-heading">
-            <strong>{t("Queued messages ({n})", { n: queued.length })}</strong>
-            <span className="composer-queue-label">{t(readyForQueue ? "Held message — review and send" : "Held until the agent is ready")}</span>
+            <strong>{t("Held messages ({n})", { n: queued.length })}</strong>
+            {/* nothing sends these on its own: the words must not promise delivery */}
+            <span className="composer-queue-label">{t(readyForQueue ? "The agent is ready. Send or discard each message." : "Held. Send it yourself when the agent is ready.")}</span>
           </div>
           {queueStore.isUnsaved(queueOwner) && <p className="composer-queue-error" role="status">{t("Queue could not be saved. Keep this tab open or copy the messages before reloading.")}</p>}
           <ol className="composer-queue-list">
@@ -1509,14 +1627,14 @@ export function PaneTerminal({
               className="composer-queue-text"
               value={message.text}
               rows={Math.min(4, message.text.split("\n").length)}
-              aria-label={t("Queued message {n}", { n: index + 1 })}
+              aria-label={t("Held message {n}", { n: index + 1 })}
               maxLength={MAX_COMPOSER_CHARS}
               disabled={queueStore.isSending(message.id)}
               spellCheck={false} autoCapitalize="off" autoCorrect="off"
               onChange={(event) => { queueStore.edit(queueOwner, message.id, event.target.value); }}
             />
             <div className="composer-queue-actions">
-              <button type="button" className="composer-queue-send"
+              <button type="button" className={`composer-queue-send${readyForQueue ? " is-ready" : ""}`}
                 disabled={!connected || held || secretActive || queueSending !== null || queued.some((item) => queueStore.isSending(item.id)) || heldByOpenQueue || message.text.trim().length === 0}
                 title={heldByOpenQueue ? t("Codex has a question open in the terminal: answer it above first") : undefined}
                 onClick={() => {
@@ -1547,7 +1665,7 @@ export function PaneTerminal({
         onSend={(value) => socketRef.current?.sendSecret(paneId, secret.prompt, value) ?? null}
         onCancel={() => { if (socketRef.current?.connected) socketRef.current.sendInput(paneId, "\u0003"); }}
       />}
-      {paneId !== null && chatView && !secretActive && !observing && !ended && (
+      {paneId !== null && chatView && !orcaChat && !secretActive && !observing && !ended && (
         <Composer
           key={paneId}
           paneId={paneId}
@@ -1567,7 +1685,7 @@ export function PaneTerminal({
           onUploadImage={uploadImage}
         />
       )}
-      {paneId !== null && !secretActive && !observing && !ended && inputLine && <TerminalInput key={paneId} owner={paneStorageId(machineId, paneId)} paneId={paneId} onComposing={setComposing} connected={connected && !held} onSend={sendTerminalLine} onEnter={pressEnter} onBackspace={() => pressKey("Backspace")} />}
+      {paneId !== null && !secretActive && !observing && !ended && inputLine && <TerminalInput key={paneId} owner={paneStorageId(machineId, paneId)} paneId={paneId} secretLikely={secretLikely} onComposing={setComposing} connected={connected && !held} onSend={sendTerminalLine} onEnter={pressEnter} onBackspace={() => pressKey("Backspace")} />}
       {paneId !== null && !secretActive && !observing && !chatView && <KeyBar disabled={composing} onKey={pressKey} ctrlArmed={ctrlArmed} onToggleCtrl={toggleCtrl}
         {...(coarse ? { directTyping, onToggleDirect: toggleDirect } : {})} />}
     </div>

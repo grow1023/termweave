@@ -10,6 +10,8 @@ import {
   type DragEvent,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactElement,
+  type ReactNode,
 } from "react";
 import { Clock, FileText, Paperclip, SendHorizontal, Square, X } from "lucide-react";
 
@@ -56,6 +58,69 @@ export interface ComposerProps {
   onSend: (text: string) => boolean | string | Promise<boolean | string>;
   onAbort: () => void;
   onUploadImage: (file: File) => Promise<string>;
+  /**
+   * Draws the composer in another frame (the Orca chat's). Every state, effect and handler stays
+   * here; the frame only places the parts. Unset: the composer renders as it always has.
+   */
+  renderFrame?: (parts: ComposerFrameParts) => ReactNode;
+}
+
+/** One entry of the slash or @ menu, numbered across groups as the textarea's aria-activedescendant counts them. */
+export interface ComposerMenuGroup {
+  key: string;
+  heading: string;
+  options: { key: string; main: string; hint?: string }[];
+}
+
+/** What a frame needs to draw the composer: its elements as they are, and the data its buttons need. */
+export interface ComposerFrameParts {
+  /** The `<textarea>` with every handler (IME guard, keys, paste, caret, draft). */
+  textarea: ReactElement;
+  /** The height grip; it sits above the box (`bottom: 100%` of its positioned parent). */
+  resizeGrip: ReactElement;
+  /** The hidden file input that `openFilePicker` opens. */
+  fileInput: ReactElement;
+  /** TermWeave's own slash/@ menu element, while open. */
+  menu: ReactNode;
+  /** The same menu as data, for a frame that draws its own list. */
+  menuState: { open: boolean; id: string; label: string; groups: ComposerMenuGroup[]; selectedIndex: number; choose: (index: number) => void };
+  suggestionChip: ReactNode;
+  quickReplies: ReactNode;
+  /** The OmO background-task button (draws nothing for other agents). */
+  backgroundTasks: ReactNode;
+  attachments: { id: number; name: string; previewUrl: string; state: "uploading" | "ready" | "error"; remove: () => void }[];
+  openFilePicker: () => void;
+  dictation: { shown: boolean; micButton: ReactNode; recordingPill: ReactNode };
+  dragging: boolean;
+  onDragEnter: (event: DragEvent<HTMLDivElement>) => void;
+  onDragOver: (event: DragEvent<HTMLDivElement>) => void;
+  onDragLeave: (event: DragEvent<HTMLDivElement>) => void;
+  onDrop: (event: DragEvent<HTMLDivElement>) => void;
+  send: () => void;
+  sendDisabled: boolean;
+  onAbort: () => void;
+  isWorking: boolean;
+  queueMode: boolean;
+  connected: boolean;
+  uploading: boolean;
+  /** The composer's note (a refusal, an upload failure), shown with role="alert". */
+  note: string | null;
+  /**
+   * What the note is: "error" (a refusal, a failure: role="alert", the error colour) or "info"
+   * (a neutral report such as "Sent as it was…": role="status", the dim text colour).
+   */
+  noteTone: "error" | "info";
+  /**
+   * Visible words for the action buttons. `stop`: the word beside Stop's square, which sits before
+   * the send slot while `isWorking`, so the right-most slot always sends (or holds). `hold`,
+   * `holdTitle`, `holdAria`: the label, tooltip and accessible name of the button that holds a
+   * message while `queueMode` (it is never sent on its own; the user sends it later).
+   */
+  labels: { stop: string; hold: string; holdTitle: string; holdAria: string };
+  /** The terminal-only command hint, shown while there is no note. */
+  hint: string | null;
+  status: { agent: string | null; agentLabel: string; word: string; agentStatus: AgentStatus | undefined };
+  metadata: ConversationMetadata | null;
 }
 
 const MAX_IMAGES_PER_ACTION = 4;
@@ -188,6 +253,7 @@ export function Composer({
   onSend,
   onAbort,
   onUploadImage,
+  renderFrame,
 }: ComposerProps) {
   const t = useT();
   const machineId = useMachineId();
@@ -243,7 +309,7 @@ export function Composer({
   // the agent's suggestion stands in the empty box as it does in its own input, until anything is typed
   const offered = connected && answerHint === null && suggestion !== null ? suggestion : null;
   const placeholder = !connected
-    ? t("Reconnecting… message held here, never queued")
+    ? t("Reconnecting… Keep typing; you can send once it reconnects.")
     : answerHint ?? offered ?? t("Message {agent}…", { agent: agentLabel });
 
   useEffect(() => {
@@ -642,39 +708,18 @@ export function Composer({
   const isWorking = agentStatus === "working";
   const menuId = `composer-menu-${paneId}`;
 
-  return (
-    <div className="composer" role="group" aria-label={t("Message composer")}>
-      <div className="composer-status" role="status" data-status={agentStatus ?? "unknown"}>
-        {agent && <AgentMark agent={agent} size={14} />}
-        <span className="composer-agent-label">{agentLabel}</span>
-        <span className="composer-status-separator" aria-hidden="true">·</span>
-        <strong>{t(composerStatusWord(agentStatus))}</strong>
-        <BackgroundTasks paneId={paneId} count={backgroundTasks} omo={agent === "omo"} />
-        {(metadata?.model || metadata?.reasoning_effort) && <span className="composer-model-info" aria-label={t("Model and reasoning")}>
-          <span className="composer-model" title={metadata.model ?? t("Model not available")}>{metadata.model ?? t("Model —")}</span>
-          <span className="composer-reasoning" title={metadata.reasoning_effort ? t("Reasoning effort: {effort}", { effort: metadata.reasoning_effort }) : t("Reasoning effort not available")}>
-            <span className="composer-reasoning-full">{t("Reasoning {effort}", { effort: metadata.reasoning_effort ?? "—" })}</span>
-            <span className="composer-reasoning-short" aria-hidden="true">{metadata.reasoning_effort ?? "—"}</span>
-          </span>
-        </span>}
-        {metadata?.context && <ContextRing context={metadata.context} />}
-        {(uploading || !connected) && (
-          <span className="composer-status-hint">
-            <span aria-hidden="true">·</span> {t(uploading ? "Uploading file…" : "Reconnecting… message held here, never queued")}
-          </span>
-        )}
-      </div>
-
-      {/* no Tab key on a phone: the suggestion can be a chip there that fills the box, once chosen in Settings */}
-      {settings.showSuggestionChip && offered !== null && text === "" && (
+  // The pieces below are the composer's JSX as it was, moved unchanged into constants so a frame
+  // (renderFrame) can place them; the default return builds today's markup from the same constants.
+  /* no Tab key on a phone: the suggestion can be a chip there that fills the box, once chosen in Settings */
+  const suggestionChip = settings.showSuggestionChip && offered !== null && text === "" && (
         <div className="composer-quick composer-suggestion-row">
           <button type="button" className="composer-quick-reply composer-suggestion" title={t("Use the suggestion")} onClick={() => setTextAndCaret(offered, offered.length)}>
             <span aria-hidden="true">↹ </span>{offered}
           </button>
         </div>
-      )}
+      );
 
-      {quickOpen && quickReplies.length > 0 && (
+  const quickReplyRow = quickOpen && quickReplies.length > 0 && (
         <div className="composer-quick" role="group" aria-label={t("Quick replies")}>
           {quickReplies.map((reply, index) => (
             <button
@@ -689,20 +734,18 @@ export function Composer({
             </button>
           ))}
         </div>
-      )}
+      );
 
-      <div
-        className={`composer-surface${dragging ? " is-dragging" : ""}`}
-        onDragEnter={(event) => {
+  const onDragEnter = (event: DragEvent<HTMLDivElement>): void => {
           event.preventDefault();
           setDragging(true);
-        }}
-        onDragOver={(event) => event.preventDefault()}
-        onDragLeave={(event) => {
+        };
+  const onDragOver = (event: DragEvent<HTMLDivElement>): void => event.preventDefault();
+  const onDragLeave = (event: DragEvent<HTMLDivElement>): void => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
-        }}
-        onDrop={onDrop}
-      >
+        };
+
+  const resizeGrip = (
         <div
           className="composer-resize"
           role="separator"
@@ -717,7 +760,9 @@ export function Composer({
           onPointerDown={startResize}
           onKeyDown={onResizeKey}
         />
-        {menuOpen && trigger && (
+      );
+
+  const menu = menuOpen && trigger && (
           <div id={menuId} className="menu composer-menu" role="listbox" aria-label={t(trigger.kind === "slash" ? "Slash commands" : "Files")}>
             {trigger.kind === "slash" ? (
               COMMAND_SOURCES.map((source) => {
@@ -767,25 +812,9 @@ export function Composer({
               </div>
             )}
           </div>
-        )}
+        );
 
-        {attachments.length > 0 && (
-          <div className="composer-attachments" aria-label={t("Attached files")}>
-            {attachments.map((attachment) => (
-              <div className={`composer-attachment is-${attachment.state}`} key={attachment.id}>
-                {attachment.previewUrl ? <img src={attachment.previewUrl} alt={attachment.file.name} />
-                  : <span className="composer-attachment-file" title={attachment.file.name}><FileText aria-hidden="true" /><span>{attachment.file.name}</span></span>}
-                <span className="composer-attachment-state">
-                  {t(attachment.state === "uploading" ? "Uploading" : attachment.state === "error" ? "Failed" : "Attached")}
-                </span>
-                <button type="button" aria-label={t("Remove {file}", { file: attachment.file.name })} onClick={() => removeAttachment(attachment)}>
-                  <X aria-hidden="true" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
+  const textarea = (
         <textarea
           ref={textareaRef}
         onCompositionStart={() => { composingRef.current = true; }}
@@ -819,8 +848,9 @@ export function Composer({
             setNote(null);
           }}
         />
+      );
 
-        <div className="composer-controls composer-controls-left">
+  const fileInput = (
           <input
             ref={fileInputRef}
             type="file"
@@ -832,6 +862,107 @@ export function Composer({
               void uploadImages(picked);
             }}
           />
+        );
+
+  const backgroundTaskButton = <BackgroundTasks paneId={paneId} count={backgroundTasks} omo={agent === "omo"} />;
+  const micButton = dictation.shown && <MicButton dictation={dictation} />;
+  const recordingPill = dictation.shown && <VoiceRecordingPill dictation={dictation} align="start" />;
+  const sendDisabled = !connected || uploading || sending || text.trim().length === 0;
+  const hint = terminalOnly !== null ? t("{command} opens a tree the chat cannot show. It runs in the terminal. Switch to Terminal (⌘⇧J) to choose a branch.", { command: `/${terminalOnly}` }) : null;
+  // "Queue" read as automatic delivery; a held message is sent only by its own Send now
+  // the one note that reports instead of refusing: neutral colour, announced politely
+  const noteTone: "error" | "info" = note !== null && note === t("Sent as it was. Your changes made while it was sending stayed here and were not sent.") ? "info" : "error";
+  const stopLabel = t("Stop");
+  const holdLabel = t("Hold");
+  const holdTitle = t("Hold this message. You send it when the agent is ready.");
+
+  if (renderFrame) {
+    const groups: ComposerMenuGroup[] = !menuOpen || !trigger ? []
+      : trigger.kind === "slash"
+        ? COMMAND_SOURCES.map((source) => ({
+            key: source,
+            heading: t(SOURCE_LABEL[source]),
+            options: orderedCommands.filter((command) => command.source === source)
+              .map((command) => ({ key: `${command.source}:${command.name}`, main: `${command.trigger ?? "/"}${command.name}`, hint: command.description })),
+          })).filter((group) => group.options.length > 0)
+        : [{ key: "files", heading: t("Files"), options: files.map((file) => ({ key: file, main: file })) }];
+    return renderFrame({
+      textarea, resizeGrip, fileInput, menu, suggestionChip, quickReplies: quickReplyRow, backgroundTasks: backgroundTaskButton,
+      menuState: {
+        open: menuOpen && trigger !== null, id: menuId, label: t(trigger?.kind === "slash" ? "Slash commands" : "Files"), groups, selectedIndex,
+        choose: (index) => { const choice = choices[index]; if (choice !== undefined && trigger) selectCompletion(choice, trigger); },
+      },
+      attachments: attachments.map((attachment) => ({
+        id: attachment.id, name: attachment.file.name, previewUrl: attachment.previewUrl, state: attachment.state, remove: () => removeAttachment(attachment),
+      })),
+      openFilePicker: () => fileInputRef.current?.click(),
+      dictation: { shown: dictation.shown, micButton, recordingPill },
+      dragging, onDragEnter, onDragOver, onDragLeave, onDrop,
+      send, sendDisabled, onAbort, isWorking, queueMode, connected, uploading, note, noteTone, hint,
+      labels: { stop: stopLabel, hold: holdLabel, holdTitle, holdAria: t("Hold message") },
+      status: { agent, agentLabel, word: t(composerStatusWord(agentStatus)), agentStatus },
+      metadata: metadata ?? null,
+    });
+  }
+
+  return (
+    <div className="composer" role="group" aria-label={t("Message composer")}>
+      <div className="composer-status" role="status" data-status={agentStatus ?? "unknown"}>
+        {agent && <AgentMark agent={agent} size={14} />}
+        <span className="composer-agent-label">{agentLabel}</span>
+        <span className="composer-status-separator" aria-hidden="true">·</span>
+        <strong>{t(composerStatusWord(agentStatus))}</strong>
+        {backgroundTaskButton}
+        {(metadata?.model || metadata?.reasoning_effort) && <span className="composer-model-info" aria-label={t("Model and reasoning")}>
+          <span className="composer-model" title={metadata.model ?? t("Model not available")}>{metadata.model ?? t("Model —")}</span>
+          <span className="composer-reasoning" title={metadata.reasoning_effort ? t("Reasoning effort: {effort}", { effort: metadata.reasoning_effort }) : t("Reasoning effort not available")}>
+            <span className="composer-reasoning-full">{t("Reasoning {effort}", { effort: metadata.reasoning_effort ?? "—" })}</span>
+            <span className="composer-reasoning-short" aria-hidden="true">{metadata.reasoning_effort ?? "—"}</span>
+          </span>
+        </span>}
+        {metadata?.context && <ContextRing context={metadata.context} />}
+        {(uploading || !connected) && (
+          <span className="composer-status-hint">
+            <span aria-hidden="true">·</span> {t(uploading ? "Uploading file…" : "Reconnecting… Keep typing; you can send once it reconnects.")}
+          </span>
+        )}
+      </div>
+
+      {suggestionChip}
+
+      {quickReplyRow}
+
+      <div
+        className={`composer-surface${dragging ? " is-dragging" : ""}`}
+        onDragEnter={onDragEnter}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+      >
+        {resizeGrip}
+        {menu}
+
+        {attachments.length > 0 && (
+          <div className="composer-attachments" aria-label={t("Attached files")}>
+            {attachments.map((attachment) => (
+              <div className={`composer-attachment is-${attachment.state}`} key={attachment.id}>
+                {attachment.previewUrl ? <img src={attachment.previewUrl} alt={attachment.file.name} />
+                  : <span className="composer-attachment-file" title={attachment.file.name}><FileText aria-hidden="true" /><span>{attachment.file.name}</span></span>}
+                <span className="composer-attachment-state">
+                  {t(attachment.state === "uploading" ? "Uploading" : attachment.state === "error" ? "Failed" : "Attached")}
+                </span>
+                <button type="button" aria-label={t("Remove {file}", { file: attachment.file.name })} onClick={() => removeAttachment(attachment)}>
+                  <X aria-hidden="true" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {textarea}
+
+        <div className="composer-controls composer-controls-left">
+          {fileInput}
           <button
             type="button"
             className="icon-button composer-attach"
@@ -842,23 +973,12 @@ export function Composer({
           >
             <Paperclip aria-hidden="true" />
           </button>
-          {dictation.shown && <MicButton dictation={dictation} />}
+          {micButton}
         </div>
+        {/* the right edge always sends (or holds, while the agent works): a habitual tap there
+            must never interrupt the agent. Stop has its own place before it, and a word */}
         <div className="composer-controls composer-controls-right">
-          {queueMode && (
-            <button
-              type="button"
-              className="composer-queue-button"
-              aria-label={t("Queue message")}
-              title={t("Queue as the next message")}
-              disabled={!connected || uploading || sending || text.trim().length === 0}
-              onClick={send}
-            >
-              <Clock aria-hidden="true" />
-              {t("Queue")}
-            </button>
-          )}
-          {isWorking ? (
+          {isWorking && (
             <button
               type="button"
               className="composer-action composer-stop"
@@ -868,30 +988,44 @@ export function Composer({
               onClick={onAbort}
             >
               <Square aria-hidden="true" />
+              <span>{stopLabel}</span>
             </button>
-          ) : !queueMode ? (
+          )}
+          {queueMode ? (
+            <button
+              type="button"
+              className="composer-queue-button"
+              aria-label={t("Hold message")}
+              title={holdTitle}
+              disabled={sendDisabled}
+              onClick={send}
+            >
+              <Clock aria-hidden="true" />
+              {holdLabel}
+            </button>
+          ) : (
             <button
               type="button"
               className="composer-action composer-send"
               aria-label={t("Send message")}
               title={t("Send message")}
-              disabled={!connected || uploading || sending || text.trim().length === 0}
+              disabled={sendDisabled}
               onClick={send}
             >
               <SendHorizontal aria-hidden="true" />
             </button>
-          ) : null}
+          )}
         </div>
       </div>
-      {note && <div className="composer-note" role="alert">{note}</div>}
+      {note && <div className={`composer-note${noteTone === "info" ? " is-info" : ""}`} role={noteTone === "info" ? "status" : "alert"}>{note}</div>}
       {/* said while typing, before the send: after it the browser is already open and the reader is
           already in the state the words describe. Not a block — the text still goes, and pi runs the
           command in the terminal the way its own palette would */}
-      {!note && terminalOnly !== null && (
-        <div className="composer-hint">{t("{command} opens a tree the chat cannot show. It runs in the terminal — tap the terminal button at the top of the screen to choose a branch.", { command: `/${terminalOnly}` })}</div>
+      {!note && hint !== null && (
+        <div className="composer-hint">{hint}</div>
       )}
       {/* above the whole composer: inside the surface it would cover the agent status line */}
-      {dictation.shown && <VoiceRecordingPill dictation={dictation} align="start" />}
+      {recordingPill}
     </div>
   );
 }

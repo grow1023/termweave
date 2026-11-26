@@ -129,9 +129,10 @@ try {
   const fallback = log.locator(".chat-terminal-fallback");
   await fallback.waitFor();
   await modelInfo.waitFor({ state: "hidden" });
-  assert.equal(await fallback.getAttribute("open"), null, "unmatched Codex output stays folded");
+  // the fallback starts open: with no readable conversation, the terminal output is the only thing to read
+  assert.equal(await fallback.getAttribute("open"), "", "unmatched Codex output is labeled and shown open");
   assert.deepEqual(errors, []);
-  console.log("PASS mobile layout, explicit collapsed fallback, no browser errors");
+  console.log("PASS mobile layout, explicit open fallback, no browser errors");
 } finally {
   release?.();
   await browser?.close();

@@ -1,7 +1,7 @@
 // From stablyai/orca (MIT, Copyright (c) 2026 Lovecast Inc.), src/renderer/src/components/bots/settings-view/BotSettingsView.tsx, BotSettingsRoot.tsx and bot-settings-place.ts; adapted for TermWeave.
 // A bot's settings: a root of rows, and drill-in pages (Soul, Memory) that open in place with a back arrow.
 import { Activity, Bot as BotIcon, Brain, ChevronLeft, Copy, FolderGit2, Smile, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { botMascot } from "../../../../shared/bots/avatar.ts";
 import { copyText } from "../../../lib/clipboard.ts";
@@ -11,7 +11,7 @@ import { OrcaRoot } from "../../OrcaRoot.tsx";
 import { Button } from "../../ui/button.tsx";
 import { Input } from "../../ui/input.tsx";
 import { Switch } from "../../ui/switch.tsx";
-import { useBotsView, botsApi } from "../data.ts";
+import { botErrorText, useBotsView, botsApi } from "../data.ts";
 import type { Bot, BotNote } from "../data.ts";
 import { BotNameInlineEdit } from "./BotNameInlineEdit.tsx";
 import { BotNoteEditor } from "./BotNoteEditor.tsx";
@@ -21,10 +21,6 @@ import { SettingsInsetGroup, SettingsInsetRow } from "./BotSettingsRows.tsx";
 import { DeleteBotDialog } from "./DeleteBotDialog.tsx";
 
 type Page = BotNote | null;
-
-function message(failure: unknown): string {
-  return failure instanceof Error ? failure.message : String(failure);
-}
 
 function pageTitle(page: BotNote, t: ReturnType<typeof useT>): string {
   return page === "soul" ? t("Soul") : t("Memory");
@@ -61,6 +57,7 @@ function Crumb({ bot, page, onBack, onRoot }: { bot: Bot; page: Page; onBack: ()
 
 /** Runs one change on the bot; keeps the control off while it runs and shows a refusal. */
 function useSave(botId: string): { busy: boolean; error: string | null; run: (change: Parameters<typeof botsApi.update>[1]) => Promise<boolean> } {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const run = useCallback(async (change: Parameters<typeof botsApi.update>[1]): Promise<boolean> => {
@@ -70,12 +67,12 @@ function useSave(botId: string): { busy: boolean; error: string | null; run: (ch
       await botsApi.update(botId, change);
       return true;
     } catch (failure) {
-      setError(message(failure));
+      setError(botErrorText(failure, t));
       return false;
     } finally {
       setBusy(false);
     }
-  }, [botId]);
+  }, [botId, t]);
   return { busy, error, run };
 }
 
@@ -105,7 +102,7 @@ function RepoRow({ bot, readOnly }: { bot: Bot; readOnly: boolean }) {
         disabled={readOnly || save.busy}
         autoComplete="off"
         spellCheck={false}
-        placeholder="~/projects/app"
+        placeholder={t("Optional · a git repository, e.g. ~/projects/app")}
         density="compact"
         aria-invalid={save.error !== null || undefined}
         className="pointer-coarse:h-11 pointer-coarse:text-base"
@@ -129,17 +126,21 @@ function RepoRow({ bot, readOnly }: { bot: Bot; readOnly: boolean }) {
 function ActiveRow({ bot, readOnly }: { bot: Bot; readOnly: boolean }) {
   const t = useT();
   const save = useSave(bot.id);
+  const detailId = useId();
   return (
     <>
       <SettingsInsetRow
         icon={<Activity />}
         title={t("Active")}
+        // what turning it off does, said where the switch is (server/bots/runtime.ts: flush, tick)
+        detail={<span id={detailId}>{t("When off, it takes no messages and runs no automations. When you turn it on again, it reads the waiting messages and runs each missed automation once.")}</span>}
         end={
           <Switch
             size="compact"
             checked={!bot.paused}
             disabled={readOnly || save.busy}
             aria-label={t("Active")}
+            aria-describedby={detailId}
             className="after:absolute after:-inset-2"
             onCheckedChange={() => void save.run({ paused: !bot.paused })}
           />
@@ -206,7 +207,8 @@ function RootPage({ bot, readOnly, open, onDeleted }: { bot: Bot; readOnly: bool
         {picture.error ? <p role="alert" className="mt-2 text-xs text-destructive">{picture.error}</p> : null}
       </div>
       <SettingsInsetGroup title={t("Soul and memory")}>
-        <SettingsInsetRow icon={<Smile />} title={t("Soul")} onOpen={() => open("soul")} />
+        {/* its first line is what the owner wrote as the soul when making the bot: they see where it went */}
+        <SettingsInsetRow icon={<Smile />} title={t("Soul")} detail={bot.purpose ? <span className="line-clamp-2">{bot.purpose}</span> : undefined} onOpen={() => open("soul")} />
         <SettingsInsetRow icon={<Brain />} title={t("Memory")} onOpen={() => open("memory")} />
       </SettingsInsetGroup>
       <SettingsInsetGroup title={t("Agent")}>
@@ -252,9 +254,11 @@ export function BotSettingsView({ botId, readOnly, onBack, onDeleted }: {
   };
   if (!bot) return null;
   return (
-    <OrcaRoot className="@container/settings-view mx-auto flex w-full min-w-0 max-w-[680px] flex-col">
+    // Its own scroller: the panel around it clips, so on a short screen or with a phone keyboard up the
+    // Save button under the note editor and "Delete bot…" are scrolled to, not cut off.
+    <OrcaRoot className="@container/settings-view mx-auto flex min-h-0 w-full min-w-0 max-w-[680px] flex-1 flex-col overflow-y-auto scrollbar-sleek px-3">
       <Crumb bot={bot} page={page} onBack={() => leave(onBack)} onRoot={() => leave(() => setPage(null))} />
-      <div role="region" aria-label={page ? pageTitle(page, t) : t("Settings")} className="flex min-w-0 flex-col gap-[18px] pt-2 pb-6">
+      <div role="region" aria-label={page ? pageTitle(page, t) : t("Settings")} className="flex min-w-0 shrink-0 flex-col gap-[18px] pt-2 pb-6">
         {page ? (
           <BotNoteEditor key={page} botId={bot.id} note={page} readOnly={readOnly} onDirtyChange={setDirty} />
         ) : (

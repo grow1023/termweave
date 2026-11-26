@@ -331,7 +331,9 @@ function DockWorkspace({ machineId, panes, primaryId, ownerId, terminal, onSelec
       split={edge => { const source = node.active ?? primaryId ?? roster[0]?.pane_id; if (source) void add(source, edge); }}
       canAdd={!!(node.active ?? primaryId ?? roster[0]?.pane_id) && terminal.role !== "observe"}
       zoom={() => setZoom(current => current === node.id ? null : node.id)} detach={detach}
-      viewControls={pane && onPaneView && <div className="dock-view-controls" role="group" aria-label={t("Pane")}>
+      // one pane on a wide screen: the header's Chat/Terminal switch already covers it, a second
+      // switch for the same state only asks which one to use. A phone's header shows icons only
+      viewControls={pane && onPaneView && (phone || groups(tree).length > 1) && <div className="dock-view-controls" role="group" aria-label={t("Pane")}>
         {(["chat", "terminal"] as const).map(mode => <button key={mode} type="button" aria-pressed={paneView === mode}
           onClick={() => { onPaneView(pane.pane_id, mode); onSelectPrimary(pane.pane_id); setFocusDropped(pane.pane_id); }}>
           {mode === "chat" ? t("Chat") : t("Terminal")}</button>)}
@@ -344,6 +346,8 @@ function DockWorkspace({ machineId, panes, primaryId, ownerId, terminal, onSelec
       search={<TerminalSearch key={node.active} paneId={node.active} machineId={machineId} />}>
       <OpenFileContext.Provider value={node.active ? path => onOpenFile(path, node.active!) : null}>
         <PaneTerminal {...terminal} paneId={pane?.restore_error ? null : node.active}
+          onOpenChat={pane && onPaneView ? () => onPaneView(pane.pane_id, "chat") : undefined}
+          onShowTerminal={pane && onPaneView ? () => { onPaneView(pane.pane_id, "terminal"); onSelectPrimary(pane.pane_id); } : undefined}
           endedAction={pane && terminal.role !== "observe" && <TerminatePaneButton pane={pane} machineId={machineId} onTerminated={onRefresh} />} restoreError={pane?.restore_error ?? null}
           agent={pane?.agent ?? null} agentStatus={pane?.agent_status} backgroundTasks={pane?.background_tasks ?? 0}
           view={paneView} autoSelected={true}
@@ -352,18 +356,21 @@ function DockWorkspace({ machineId, panes, primaryId, ownerId, terminal, onSelec
       </OpenFileContext.Provider>
     </DockGroup>;
   };
+  const openIds = new Set(groups(tree).flatMap(node => node.tabs));
+  const closedCount = roster.filter(p => !openIds.has(p.pane_id)).length;
   const visible = zoom ? groups(tree).find(node => node.id === zoom) ?? tree : phone ? groups(tree).find(node => node.active === primaryId) ?? groups(tree)[0] ?? tree : tree;
   return <div className="split-workspace" ref={rootRef} onKeyDownCapture={spatialKey}
     onFocusCapture={event => { const node=terminalTarget(event.target); if (node) setFocusDropped(null); if(node?.dataset.paneId && node.dataset.paneId!==primaryId) onSelectPrimary(node.dataset.paneId); }}
     onPointerDownCapture={event => { setFocusDropped(null); const target=event.target; if(target instanceof HTMLElement && target.closest('.dock-drop-body') && !target.closest('input,button,select,[contenteditable="true"]')) {const id=target.closest<HTMLElement>('.dock-group')?.dataset.paneId; if(id && id!==primaryId) onSelectPrimary(id);} }}>
-    <label className="dock-existing">{t("Existing terminals")} <select aria-label={t("Existing terminals")} value="" onChange={event => {
+    {/* only while a terminal of this workspace is not open in any group: otherwise the row repeats the tabs */}
+    {closedCount > 0 && <label className="dock-existing">{t("Existing terminals")} <select aria-label={t("Existing terminals")} value="" onChange={event => {
       const id = event.target.value; if (!id) return;
       setTree(current => {
         const target = groups(current).find(g => g.tabs.includes(id)) ?? groups(current)[0];
         return target ? updateGroup(current, target.id, g => ({ ...g, tabs: g.tabs.includes(id) ? g.tabs : [...g.tabs, id], active: id })) : group('main', [id]);
       });
       onSelectPrimary(id); setFocusDropped(id);
-    }}><option value="">{t("Choose terminal ({n})", { n: roster.length })}</option>{roster.map(p => <option key={p.pane_id} value={p.pane_id}>{paneNumber(p)} · {p.label || p.title || p.pane_id} · {p.tab_id} · {p.pane_id}</option>)}</select></label>
+    }}><option value="">{t("Choose terminal ({n})", { n: closedCount })}</option>{roster.map(p => <option key={p.pane_id} value={p.pane_id}>{paneNumber(p)} · {p.label || p.title || p.pane_id}</option>)}</select></label>}
     <BrowserPanel key={machineId} machineId={machineId} />
     {renaming && <RenamePaneButton key={renaming.pane_id} dialogOnly pane={renaming} machineId={machineId} onRenamed={onRefresh} onClose={() => setRenaming(null)} />}
     {phone && groups(tree).length > 1 && <div className="dock-phone-nav">

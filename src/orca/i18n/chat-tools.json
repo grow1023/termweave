@@ -1,0 +1,472 @@
+{
+  "1 tool call": {
+    "ko": "도구 호출 1회",
+    "ja": "ツール呼び出し 1 回",
+    "zh": "1 次工具调用"
+  },
+  "Added": {
+    "ko": "추가",
+    "ja": "追加",
+    "zh": "已添加"
+  },
+  "Added {task}": {
+    "ko": "추가: {task}",
+    "ja": "追加: {task}",
+    "zh": "已添加：{task}"
+  },
+  "Completed": {
+    "ko": "완료",
+    "ja": "完了",
+    "zh": "已完成"
+  },
+  "Completed {task}": {
+    "ko": "완료: {task}",
+    "ja": "完了: {task}",
+    "zh": "已完成：{task}"
+  },
+  "Copied": {
+    "ko": "복사됨",
+    "ja": "コピーしました",
+    "zh": "已复制"
+  },
+  "Copy diff": {
+    "ko": "변경 내용 복사",
+    "ja": "差分をコピー",
+    "zh": "复制差异"
+  },
+  "Couldn't copy": {
+    "ko": "복사하지 못했습니다",
+    "ja": "コピーできませんでした",
+    "zh": "无法复制"
+  },
+  "Couldn't load the full output.": {
+    "ko": "전체 출력을 불러오지 못했습니다.",
+    "ja": "出力全体を読み込めませんでした。",
+    "zh": "无法加载完整输出。"
+  },
+  "Deleted": {
+    "ko": "삭제",
+    "ja": "削除",
+    "zh": "已删除"
+  },
+  "Diff truncated": {
+    "ko": "변경 내용 일부 생략",
+    "ja": "差分は一部省略",
+    "zh": "差异已截断"
+  },
+  "Edited": {
+    "ko": "편집",
+    "ja": "編集",
+    "zh": "已编辑"
+  },
+  "Edited 1 file": {
+    "ko": "파일 1개 편집",
+    "ja": "1 件のファイルを編集",
+    "zh": "编辑了 1 个文件"
+  },
+  "Edited {count} files": {
+    "ko": "파일 {count}개 편집",
+    "ja": "{count} 件のファイルを編集",
+    "zh": "编辑了 {count} 个文件"
+  },
+  "Editing": {
+    "ko": "편집 중",
+    "ja": "編集中",
+    "zh": "正在编辑"
+  },
+  "Editing 1 file": {
+    "ko": "파일 1개 편집 중",
+    "ja": "1 件のファイルを編集中",
+    "zh": "正在编辑 1 个文件"
+  },
+  "Editing {count} files": {
+    "ko": "파일 {count}개 편집 중",
+    "ja": "{count} 件のファイルを編集中",
+    "zh": "正在编辑 {count} 个文件"
+  },
+  "exit {code}": {
+    "ko": "종료 코드 {code}",
+    "ja": "終了コード {code}",
+    "zh": "退出码 {code}"
+  },
+  "Failed tool calls: {count}": {
+    "ko": "실패한 도구 호출: {count}개",
+    "ja": "失敗したツール呼び出し: {count} 件",
+    "zh": "失败的工具调用：{count} 个"
+  },
+  "Fetched": {
+    "ko": "가져옴",
+    "ja": "取得",
+    "zh": "已获取"
+  },
+  "Fetching": {
+    "ko": "가져오는 중",
+    "ja": "取得中",
+    "zh": "正在获取"
+  },
+  "Full task list": {
+    "ko": "전체 작업 목록",
+    "ja": "タスク一覧",
+    "zh": "完整任务列表"
+  },
+  "In progress": {
+    "ko": "진행 중",
+    "ja": "進行中",
+    "zh": "进行中"
+  },
+  "Lines not shown": {
+    "ko": "표시하지 않은 줄",
+    "ja": "表示されていない行",
+    "zh": "未显示的行"
+  },
+  "Listed": {
+    "ko": "목록 확인",
+    "ja": "一覧表示",
+    "zh": "已列出"
+  },
+  "Listed 1 directory": {
+    "ko": "폴더 1개 목록 확인",
+    "ja": "1 件のフォルダを一覧表示",
+    "zh": "列出了 1 个目录"
+  },
+  "Listed {count} directories": {
+    "ko": "폴더 {count}개 목록 확인",
+    "ja": "{count} 件のフォルダを一覧表示",
+    "zh": "列出了 {count} 个目录"
+  },
+  "Listing": {
+    "ko": "목록 확인 중",
+    "ja": "一覧表示中",
+    "zh": "正在列出"
+  },
+  "Listing 1 directory": {
+    "ko": "폴더 1개 목록 확인 중",
+    "ja": "1 件のフォルダを一覧表示中",
+    "zh": "正在列出 1 个目录"
+  },
+  "Listing {count} directories": {
+    "ko": "폴더 {count}개 목록 확인 중",
+    "ja": "{count} 件のフォルダを一覧表示中",
+    "zh": "正在列出 {count} 个目录"
+  },
+  "Marked pending: {task}": {
+    "ko": "대기로 변경: {task}",
+    "ja": "保留に戻しました: {task}",
+    "zh": "已改为待办：{task}"
+  },
+  "No tasks": {
+    "ko": "작업 없음",
+    "ja": "タスクはありません",
+    "zh": "没有任务"
+  },
+  "Pending": {
+    "ko": "대기",
+    "ja": "保留中",
+    "zh": "待办"
+  },
+  "Ran": {
+    "ko": "실행",
+    "ja": "実行",
+    "zh": "已运行"
+  },
+  "Ran 1 agent": {
+    "ko": "에이전트 1개 실행",
+    "ja": "1 件のエージェントを実行",
+    "zh": "运行了 1 个代理"
+  },
+  "Ran 1 command": {
+    "ko": "명령 1개 실행",
+    "ja": "1 件のコマンドを実行",
+    "zh": "运行了 1 条命令"
+  },
+  "Ran {count} agents": {
+    "ko": "에이전트 {count}개 실행",
+    "ja": "{count} 件のエージェントを実行",
+    "zh": "运行了 {count} 个代理"
+  },
+  "Ran {count} commands": {
+    "ko": "명령 {count}개 실행",
+    "ja": "{count} 件のコマンドを実行",
+    "zh": "运行了 {count} 条命令"
+  },
+  "Read": {
+    "ko": "읽음",
+    "ja": "読み取り",
+    "zh": "已读取"
+  },
+  "Read 1 file": {
+    "ko": "파일 1개 읽음",
+    "ja": "1 件のファイルを読み取り",
+    "zh": "读取了 1 个文件"
+  },
+  "Read {count} files": {
+    "ko": "파일 {count}개 읽음",
+    "ja": "{count} 件のファイルを読み取り",
+    "zh": "读取了 {count} 个文件"
+  },
+  "Reading": {
+    "ko": "읽는 중",
+    "ja": "読み取り中",
+    "zh": "正在读取"
+  },
+  "Reading 1 file": {
+    "ko": "파일 1개 읽는 중",
+    "ja": "1 件のファイルを読み取り中",
+    "zh": "正在读取 1 个文件"
+  },
+  "Reading {count} files": {
+    "ko": "파일 {count}개 읽는 중",
+    "ja": "{count} 件のファイルを読み取り中",
+    "zh": "正在读取 {count} 个文件"
+  },
+  "Removed {task}": {
+    "ko": "삭제: {task}",
+    "ja": "削除: {task}",
+    "zh": "已移除：{task}"
+  },
+  "Renamed": {
+    "ko": "이름 변경",
+    "ja": "名前を変更",
+    "zh": "已重命名"
+  },
+  "Result": {
+    "ko": "결과",
+    "ja": "結果",
+    "zh": "结果"
+  },
+  "Running": {
+    "ko": "실행 중",
+    "ja": "実行中",
+    "zh": "正在运行"
+  },
+  "Running 1 agent": {
+    "ko": "에이전트 1개 실행 중",
+    "ja": "1 件のエージェントを実行中",
+    "zh": "正在运行 1 个代理"
+  },
+  "Running 1 command": {
+    "ko": "명령 1개 실행 중",
+    "ja": "1 件のコマンドを実行中",
+    "zh": "正在运行 1 条命令"
+  },
+  "Running {count} agents": {
+    "ko": "에이전트 {count}개 실행 중",
+    "ja": "{count} 件のエージェントを実行中",
+    "zh": "正在运行 {count} 个代理"
+  },
+  "Running {count} commands": {
+    "ko": "명령 {count}개 실행 중",
+    "ja": "{count} 件のコマンドを実行中",
+    "zh": "正在运行 {count} 条命令"
+  },
+  "Searched": {
+    "ko": "검색함",
+    "ja": "検索",
+    "zh": "已搜索"
+  },
+  "Searched 1 time": {
+    "ko": "1회 검색",
+    "ja": "1 回検索",
+    "zh": "搜索了 1 次"
+  },
+  "Searched the web": {
+    "ko": "웹 검색함",
+    "ja": "ウェブ検索",
+    "zh": "已搜索网页"
+  },
+  "Searched the web 1 time": {
+    "ko": "웹 1회 검색",
+    "ja": "ウェブを 1 回検索",
+    "zh": "搜索了网页 1 次"
+  },
+  "Searched the web {count} times": {
+    "ko": "웹 {count}회 검색",
+    "ja": "ウェブを {count} 回検索",
+    "zh": "搜索了网页 {count} 次"
+  },
+  "Searched {count} times": {
+    "ko": "{count}회 검색",
+    "ja": "{count} 回検索",
+    "zh": "搜索了 {count} 次"
+  },
+  "Searching": {
+    "ko": "검색 중",
+    "ja": "検索中",
+    "zh": "正在搜索"
+  },
+  "Searching 1 time": {
+    "ko": "1회 검색 중",
+    "ja": "1 回検索中",
+    "zh": "正在搜索 1 次"
+  },
+  "Searching the web": {
+    "ko": "웹 검색 중",
+    "ja": "ウェブ検索中",
+    "zh": "正在搜索网页"
+  },
+  "Searching the web 1 time": {
+    "ko": "웹 1회 검색 중",
+    "ja": "ウェブを 1 回検索中",
+    "zh": "正在搜索网页 1 次"
+  },
+  "Searching the web {count} times": {
+    "ko": "웹 {count}회 검색 중",
+    "ja": "ウェブを {count} 回検索中",
+    "zh": "正在搜索网页 {count} 次"
+  },
+  "Searching {count} times": {
+    "ko": "{count}회 검색 중",
+    "ja": "{count} 回検索中",
+    "zh": "正在搜索 {count} 次"
+  },
+  "Show full output": {
+    "ko": "전체 출력 보기",
+    "ja": "出力全体を表示",
+    "zh": "显示完整输出"
+  },
+  "Started {task}": {
+    "ko": "시작: {task}",
+    "ja": "開始: {task}",
+    "zh": "已开始：{task}"
+  },
+  "Subagent": {
+    "ko": "서브에이전트",
+    "ja": "サブエージェント",
+    "zh": "子代理"
+  },
+  "Tasks": {
+    "ko": "작업",
+    "ja": "タスク",
+    "zh": "任务"
+  },
+  "Tasks unchanged": {
+    "ko": "작업 변경 없음",
+    "ja": "タスクの変更はありません",
+    "zh": "任务没有变化"
+  },
+  "Tried to edit": {
+    "ko": "편집 실패",
+    "ja": "編集に失敗",
+    "zh": "编辑失败"
+  },
+  "Tried to fetch": {
+    "ko": "가져오기 실패",
+    "ja": "取得に失敗",
+    "zh": "获取失败"
+  },
+  "Tried to list": {
+    "ko": "목록 확인 실패",
+    "ja": "一覧表示に失敗",
+    "zh": "列出失败"
+  },
+  "Tried to read": {
+    "ko": "읽기 실패",
+    "ja": "読み取りに失敗",
+    "zh": "读取失败"
+  },
+  "Tried to search": {
+    "ko": "검색 실패",
+    "ja": "検索に失敗",
+    "zh": "搜索失败"
+  },
+  "Tried to search the web": {
+    "ko": "웹 검색 실패",
+    "ja": "ウェブ検索に失敗",
+    "zh": "网页搜索失败"
+  },
+  "Updated the plan": {
+    "ko": "계획 갱신",
+    "ja": "計画を更新",
+    "zh": "更新了计划"
+  },
+  "Updated the plan {count} times": {
+    "ko": "계획 {count}회 갱신",
+    "ja": "計画を {count} 回更新",
+    "zh": "更新了计划 {count} 次"
+  },
+  "Updated {task}": {
+    "ko": "변경: {task}",
+    "ja": "更新: {task}",
+    "zh": "已更新：{task}"
+  },
+  "Updating the plan": {
+    "ko": "계획 갱신 중",
+    "ja": "計画を更新中",
+    "zh": "正在更新计划"
+  },
+  "Updating the plan {count} times": {
+    "ko": "계획 {count}회 갱신 중",
+    "ja": "計画を {count} 回更新中",
+    "zh": "正在更新计划 {count} 次"
+  },
+  "Used 1 integration": {
+    "ko": "연동 1개 사용",
+    "ja": "1 件の連携を使用",
+    "zh": "使用了 1 个集成"
+  },
+  "Used 1 tool": {
+    "ko": "도구 1개 사용",
+    "ja": "1 件のツールを使用",
+    "zh": "使用了 1 个工具"
+  },
+  "Used {count} integrations": {
+    "ko": "연동 {count}개 사용",
+    "ja": "{count} 件の連携を使用",
+    "zh": "使用了 {count} 个集成"
+  },
+  "Used {count} tools": {
+    "ko": "도구 {count}개 사용",
+    "ja": "{count} 件のツールを使用",
+    "zh": "使用了 {count} 个工具"
+  },
+  "Using 1 integration": {
+    "ko": "연동 1개 사용 중",
+    "ja": "1 件の連携を使用中",
+    "zh": "正在使用 1 个集成"
+  },
+  "Using 1 tool": {
+    "ko": "도구 1개 사용 중",
+    "ja": "1 件のツールを使用中",
+    "zh": "正在使用 1 个工具"
+  },
+  "Using {count} integrations": {
+    "ko": "연동 {count}개 사용 중",
+    "ja": "{count} 件の連携を使用中",
+    "zh": "正在使用 {count} 个集成"
+  },
+  "Using {count} tools": {
+    "ko": "도구 {count}개 사용 중",
+    "ja": "{count} 件のツールを使用中",
+    "zh": "正在使用 {count} 个工具"
+  },
+  "{completed} of {count} task completed": {
+    "ko": "작업 {count}개 중 {completed}개 완료",
+    "ja": "{count} 件中 {completed} 件のタスクが完了",
+    "zh": "{count} 项任务中已完成 {completed} 项"
+  },
+  "{completed} of {count} tasks completed": {
+    "ko": "작업 {count}개 중 {completed}개 완료",
+    "ja": "{count} 件中 {completed} 件のタスクが完了",
+    "zh": "{count} 项任务中已完成 {completed} 项"
+  },
+  "{count} failed": {
+    "ko": "{count}개 실패",
+    "ja": "{count} 件失敗",
+    "zh": "{count} 个失败"
+  },
+  "{count} tool calls": {
+    "ko": "도구 호출 {count}회",
+    "ja": "ツール呼び出し {count} 回",
+    "zh": "{count} 次工具调用"
+  },
+  "{first} and {second}": {
+    "ko": "{first}, {second}",
+    "ja": "{first}、{second}",
+    "zh": "{first}，{second}"
+  },
+  "{leading}, and {last}": {
+    "ko": "{leading}, {last}",
+    "ja": "{leading}、{last}",
+    "zh": "{leading}，{last}"
+  }
+}

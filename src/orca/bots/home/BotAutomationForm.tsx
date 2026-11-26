@@ -3,17 +3,33 @@
 // A refused form keeps what was typed and shows the server's words.
 import { useId, useState } from "react";
 
-import { useT } from "../../../lib/i18n.ts";
+import { useLocale, useT } from "../../../lib/i18n.ts";
 import { Button } from "../../ui/button.tsx";
 import { Input } from "../../ui/input.tsx";
 import { Label } from "../../ui/label.tsx";
 import { Switch } from "../../ui/switch.tsx";
 import { Textarea } from "../../ui/textarea.tsx";
 import { botsApi } from "../data.ts";
+import { nextTwoRuns, runText } from "./schedule-preview.ts";
 import { ActionError, useBotAction } from "./use-bot-action.tsx";
 
 const DEFAULT_CRON = "0 9 * * 1-5";
 const FIELD = "pointer-coarse:h-11 h-8 text-xs md:text-xs";
+
+/** Under the When field: the field order, and while the schedule reads, its next two runs. */
+function WhenHelp({ id, when }: { id: string; when: string }) {
+  const t = useT();
+  const locale = useLocale();
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const runs = nextTwoRuns(when, Date.now(), timezone);
+  return (
+    <span id={id} className="flex flex-col text-muted-foreground">
+      <span>{t("Minute, hour, day, month, weekday")}</span>
+      {/* a schedule the server would refuse shows no runs; Add automation still says why */}
+      {runs ? <span className="text-foreground/80 tabular-nums">{t("Next: {first}, then {second}", { first: runText(runs[0], locale), second: runText(runs[1], locale) })}</span> : null}
+    </span>
+  );
+}
 
 export function BotAutomationForm({ botId, onClose }: { botId: string; onClose: () => void }) {
   const t = useT();
@@ -48,7 +64,7 @@ export function BotAutomationForm({ botId, onClose }: { botId: string; onClose: 
       <div className="flex flex-col gap-1">
         <Label htmlFor={`${id}-when`} variant="settings">{t("When")}</Label>
         <Input id={`${id}-when`} className={`${FIELD} font-mono`} value={when} disabled={act.busy} aria-describedby={`${id}-when-help`} spellCheck={false} onChange={(event) => setWhen(event.target.value)} />
-        <span id={`${id}-when-help`} className="text-muted-foreground">{t("Minute, hour, day, month, weekday")}</span>
+        <WhenHelp id={`${id}-when-help`} when={when} />
       </div>
       <div className="flex flex-col gap-1">
         <Label htmlFor={`${id}-prompt`} variant="settings">{t("What to do")}</Label>

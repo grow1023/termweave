@@ -10,11 +10,11 @@ import { cn } from "../../cn.ts";
 import { OrcaRoot } from "../../OrcaRoot.tsx";
 import { Button } from "../../ui/button.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip.tsx";
-import { botsApi, type Bot, type BotsView } from "../data.ts";
+import { botErrorText, botsApi, type Bot, type BotsView } from "../data.ts";
 import { BotCollapsedPreview } from "./BotCollapsedPreview.tsx";
 import { BotRow } from "./BotRow.tsx";
 import { BotWorkerRow } from "./BotWorkerRow.tsx";
-import { botFacts, type BotFacts } from "./bot-facts.ts";
+import { botFacts, botNeedsOwner, type BotFacts } from "./bot-facts.ts";
 import { useFoldedBots, useSectionFolded } from "./fold-memory.ts";
 import "./sidebar.css";
 
@@ -44,7 +44,7 @@ function SectionHeader({ collapsed, onToggle, facts, readOnly, onNewBot, preview
 }): JSX.Element {
   const t = useT();
   const action = collapsed ? t("Expand Bots") : t("Collapse Bots");
-  const attention = facts.filter((fact) => !fact.bot.paused && (fact.needs.length > 0 || fact.agentStatus === "blocked")).length;
+  const attention = facts.filter(botNeedsOwner).length;
   const working = facts.filter((fact) => fact.working).length;
   const summary = t("{action}, {total} bots, {attention} need you, {working} working", { action, total: facts.length, attention, working });
   const newLabel = t("New bot");
@@ -119,7 +119,7 @@ export function SidebarBotsSection({ view, snapshot, selectedPaneId, readOnly, o
       const result = await botsApi.open(bot.id);
       onOpenPane(result.pane_id);
     } catch (error) {
-      setFailed(error instanceof Error ? error.message : String(error));
+      setFailed(botErrorText(error, t));
     } finally { setOpening(null); }
   };
   const preview = collapsed && facts.length > 0

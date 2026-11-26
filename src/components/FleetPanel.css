@@ -381,3 +381,4 @@
   .fleet-map-project { grid-template-columns: minmax(72px, 34%) 24px minmax(0, 1fr); }
   .fleet-map-pane-agent { display: none; }
 }
+.fleet-waiting-title { margin: 0; font-size: 13px; font-weight: 600; text-wrap: balance; }

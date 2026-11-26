@@ -112,3 +112,6 @@
 .devices-link a {
   color: var(--accent);
 }
+
+/* the line that says a device paired or a code expired: always present, so a screen reader hears what lands in it */
+.devices-panel .devices-news:empty { margin: 0; padding: 0; }

@@ -33,8 +33,10 @@ function isError(usage: ProviderUsage): boolean {
 
 function Chip({ usage, count }: { usage: ProviderUsage; count: UsageCount }) {
   const window = tightestWindow(usage);
+  // counting what is left, a full bar is good news: its color, not its length, carries the danger
+  const tone = window && count === "left" ? ` is-left-${leftLevel(window)}` : "";
   return (
-    <span className={`usage-chip${level(window)}${usage.problem ? " has-problem" : ""}`}>
+    <span className={`usage-chip${level(window)}${tone}${usage.problem ? " has-problem" : ""}`}>
       <AgentMark agent={PROVIDER_MARK[usage.id]} size={14} />
       <span className="usage-chip-value">{window ? formatPercent(meterPercent(window, count)) : "—"}</span>
       <span className="usage-chip-bar" style={{ "--fill": `${window ? meterPercent(window, count) : 0}%` } as CSSProperties} />
@@ -141,6 +143,8 @@ export function UsageMeters() {
       >
         {chips.map((usage) => <Chip key={usage.key} usage={usage} count={count} />)}
         {folded > 0 && <span className="usage-more">+{folded}</span>}
+        {/* one word for the whole strip: whether the numbers count what is used or what is left */}
+        <span className="usage-strip-unit" aria-hidden="true">{t(count === "left" ? "left" : "used")}</span>
       </button>
       {open && (
         <div className="usage-popover" role="dialog" aria-label={t("Subscription usage")}>

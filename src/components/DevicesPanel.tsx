@@ -7,6 +7,7 @@ import { ApiError, fetchDevices, pairDevice, renameDevice, revokeDevice, startPa
 import { copyText } from "../lib/clipboard.ts";
 import { deviceLabel } from "../lib/phone.ts";
 import type { HealthAuth, PairedDevice, PairingCode } from "../../shared/protocol.ts";
+import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { QrCode } from "./QrCode.tsx";
 import { currentLocale, t as tt, useT } from "../lib/i18n.ts";
 
@@ -50,6 +51,10 @@ export function DevicesPanel({ pairUrl, auth, onPaired }: DevicesPanelProps) {
   const [renaming, setRenaming] = useState<{ id: string; label: string } | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [justPaired, setJustPaired] = useState<string | null>(null);
+  /** the code ran out before a device used it: said once, beside the button that makes a new one */
+  const [expired, setExpired] = useState(false);
+  /** revoking this very browser locks it out: that one asks in a dialog that says so */
+  const [revokingSelf, setRevokingSelf] = useState<PairedDevice | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
   const linkRef = useRef<HTMLAnchorElement>(null);
   const known = useRef(new Set<string>());
@@ -76,7 +81,7 @@ export function DevicesPanel({ pairUrl, auth, onPaired }: DevicesPanelProps) {
     if (code === null) return;
     const tick = () => {
       const ms = Date.parse(code.expires_at) - Date.now();
-      if (ms <= 0) { setCode(null); return; }
+      if (ms <= 0) { setCode(null); setExpired(true); return; }
       setLeft(`${Math.floor(ms / 60_000)}:${String(Math.floor((ms % 60_000) / 1000)).padStart(2, "0")}`);
     };
     tick();
@@ -87,6 +92,7 @@ export function DevicesPanel({ pairUrl, auth, onPaired }: DevicesPanelProps) {
 
   const pair = async () => {
     setJustPaired(null);
+    setExpired(false);
     try { setCode(await startPairing()); setError(null); } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   };
   /** an "open" browser pairs itself: a code, used at once, so the gate closes to everyone else */
@@ -102,7 +108,9 @@ export function DevicesPanel({ pairUrl, auth, onPaired }: DevicesPanelProps) {
     if (!renaming) return;
     try { await renameDevice(renaming.id, renaming.label); setRenaming(null); await load(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   };
-  const revoke = async (id: string) => {
+  const revoke = async (device: PairedDevice) => {
+    const { id } = device;
+    if (device.current) { setRevokingSelf(device); return; }
     if (confirming !== id) { setConfirming(id); window.setTimeout(() => setConfirming((c) => (c === id ? null : c)), 4000); return; }
     setConfirming(null);
     try { await revokeDevice(id); await load(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
@@ -136,7 +144,7 @@ export function DevicesPanel({ pairUrl, auth, onPaired }: DevicesPanelProps) {
                   </div>
                   <div className="devices-actions">
                     <button type="button" className="icon-button" aria-label={t("Rename {name}", { name: d.label })} onClick={() => setRenaming({ id: d.id, label: d.label })}><Pencil /></button>
-                    <button type="button" className={`btn ${confirming === d.id ? "btn-danger" : "btn-ghost"}`} onClick={() => void revoke(d.id)}>
+                    <button type="button" className={`btn ${confirming === d.id ? "btn-danger" : "btn-ghost"}`} onClick={() => void revoke(d)}>
                       <Trash2 aria-hidden="true" />{t(confirming === d.id ? "Revoke?" : "Revoke")}
                     </button>
                   </div>
@@ -146,11 +154,14 @@ export function DevicesPanel({ pairUrl, auth, onPaired }: DevicesPanelProps) {
           ))}
         </ul>
       )}
-      {justPaired !== null && <p className="settings-hint" role="status">{t("Paired: {name}.", { name: justPaired })}</p>}
+      <p className="settings-hint devices-news" aria-live="polite">
+        {justPaired !== null ? t("Paired: {name}.", { name: justPaired }) : expired ? t("The code expired. Make a new one.") : null}
+      </p>
       {code === null ? (
         <div className="phone-actions"><button type="button" className="btn btn-primary" onClick={() => void pair()} disabled={unavailable}>{t("Pair a device")}</button></div>
       ) : (
-        <div className="devices-pairing" role="status">
+        // no live region here: the countdown changes every second and a screen reader would read each one
+        <div className="devices-pairing">
           {qrValue !== null && <QrCode value={qrValue} label={t("QR code that pairs a phone with code {code}", { code: code.code })} />}
           <div>
             <p className="settings-label">{t("On the other device, enter this code")}</p>
@@ -173,6 +184,13 @@ export function DevicesPanel({ pairUrl, auth, onPaired }: DevicesPanelProps) {
         </div>
       )}
       {error !== null && <p className="settings-hint" role="alert">{error}</p>}
+      {revokingSelf && <ConfirmDialog
+        title={t("Revoke this device?")}
+        body={t("This browser will need a new pairing code to get back in.")}
+        confirmLabel={t("Revoke")}
+        onClose={() => setRevokingSelf(null)}
+        onConfirm={async () => { await revokeDevice(revokingSelf.id); setRevokingSelf(null); await load(); }}
+      />}
     </div>
   );
 }

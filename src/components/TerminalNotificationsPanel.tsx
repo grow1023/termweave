@@ -10,7 +10,39 @@ type Props = { readOnly: boolean; onSelect: (target: NotificationTarget) => void
 /** Separate from OS alert permission: this local inbox is available without push permission. */
 export function TerminalNotificationCenter({ readOnly, onSelect }: Props) {
   const t = useT(); const [open, setOpen] = useState(false);
-  return <><button className="icon-button" aria-label={t("Terminal inbox")} title={t("Terminal inbox")} onClick={() => setOpen(true)}><Inbox size={16} /></button>{open && <TerminalNotificationsPanel readOnly={readOnly} onSelect={onSelect} onClose={() => setOpen(false)} />}</>;
+  const unread = useUnreadCount(open);
+  const label = unread > 0 ? t("Terminal inbox, {n} unread", { n: unread }) : t("Terminal inbox");
+  return <><button className="icon-button nav-count-host" aria-label={label} title={label} onClick={() => setOpen(true)}>
+    <Inbox size={16} aria-hidden="true" />
+    <span className="header-tool-label header-label-wide">{t("Inbox")}</span>
+    {unread > 0 && <span className="nav-count" aria-hidden="true">{unread > 99 ? "99+" : unread}</span>}
+  </button>{open && <TerminalNotificationsPanel readOnly={readOnly} onSelect={onSelect} onClose={() => setOpen(false)} />}</>;
+}
+
+/** how often the closed inbox checks for unread messages while the app is on screen */
+const UNREAD_POLL_MS = 30_000;
+
+/**
+ * The inbox's unread count while its panel is closed (the open panel loads every 5 s itself).
+ * A hidden tab asks nothing; closing the panel asks at once, so a read message leaves the count.
+ */
+function useUnreadCount(panelOpen: boolean): number {
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    if (panelOpen) return;
+    const controller = new AbortController();
+    const load = async (): Promise<void> => {
+      if (document.visibilityState === "hidden") return;
+      try { const next = await listTerminalNotifications(controller.signal); if (!controller.signal.aborted) setUnread(next.unread); }
+      catch { /* the count keeps its last value: the panel itself reports a failed load */ }
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), UNREAD_POLL_MS);
+    const onVisible = (): void => { if (document.visibilityState === "visible") void load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { controller.abort(); window.clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, [panelOpen]);
+  return unread;
 }
 export function TerminalNotificationsPanel({ readOnly, onSelect, onClose }: Props & { onClose: () => void }) {
   const t = useT(); const id = useId(); const dialog = useRef<HTMLDialogElement>(null);

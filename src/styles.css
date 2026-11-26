@@ -108,7 +108,7 @@
   --header-h: 52px;
   --sidebar-w: 320px;
   --control-h: 34px;
-  --touch-target: 40px;
+  --touch-target: 44px;
   --keybar-h: 48px;
   --row-h: 56px;
   --chip-h: 20px;
@@ -413,6 +413,9 @@ button {
      status-bar layout is controlled by index.html; see docs/ios-home-screen-testing.md. */
   position: sticky;
   top: 0;
+  /* its popovers (the alerts bell) hang down over the body: without a level of its own the
+     header paints under the body's positioned parts, and they took the clicks */
+  z-index: var(--z-popover);
 }
 
 .app-body {
@@ -1268,7 +1271,8 @@ button, a, [role="button"] {
 .header-more { display: none; position: relative; margin-left: auto; }
 .header-more-dot { position: absolute; top: 4px; right: 4px; display: flex; }
 @media (max-width: 640px) {
-  .header-more-wrap { display: block; margin-left: auto; }
+  /* search and the tools button share one row; as a block they stacked and doubled the header */
+  .header-more-wrap { display: flex; align-items: center; flex: 0 0 auto; margin-left: auto; }
   .header-more { display: inline-flex; }
   :root .app-header:has(.frontend-controls) { flex-wrap: nowrap; }
   :root .app-header:has(#header-meta[data-open]) { z-index: 45; } /* the open dropdown sits over the app body */
@@ -1278,4 +1282,88 @@ button, a, [role="button"] {
     gap: 4px; max-width: calc(100vw - 16px); padding: 6px; margin: 0; background: var(--bg-panel);
     border: var(--hairline) solid var(--border-strong); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop);
   }
+}
+
+/* ---------- header: what waits, groups, labels ---------- */
+
+/* a count on a closed list's toggle (agents waiting) or on the inbox (unread): no motion, it only
+   changes when the number does; --bg-panel on the state red reads in every theme */
+.nav-count-host { position: relative; }
+.nav-count {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--status-blocked);
+  color: var(--bg-panel);
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* the connection dot on the phone's More button: it only shows while reconnecting, and stays still */
+.header-more-dot .conn-dot { animation: none; }
+
+/* two groups in the header tools: the places it opens, then search, alerts and sign out */
+.header-meta > .header-group-start,
+.header-meta > .bell-wrap + .header-group-start { margin-left: var(--space-3); }
+
+/* tool names: hidden by default; wide desktops name the three icons that are not universal */
+.header-tool-label { display: none; }
+@media (min-width: 1200px) {
+  .header-meta .icon-button:has(> .header-label-wide) { width: auto; gap: var(--space-1); padding: 0 var(--space-2); }
+  .header-meta .header-label-wide { display: inline; font-size: var(--fs-xs); }
+}
+
+/* the bell, on: its state and the off switch, in a small popover under it */
+.bell-wrap { position: relative; display: inline-flex; }
+.bell-popover {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: var(--z-popover);
+  display: grid;
+  gap: var(--space-2);
+  width: min(280px, calc(100vw - 32px));
+  padding: var(--space-3);
+  background: var(--bg-panel);
+  border: var(--hairline) solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.bell-popover-text { margin: 0; word-break: keep-all; overflow-wrap: anywhere; text-wrap: pretty; }
+.bell-popover .btn { justify-self: start; white-space: normal; height: auto; min-height: var(--control-h); }
+
+/* search on a phone sits outside the tools menu; on wider screens the menu's own button serves */
+.header-search-phone { display: none; }
+@media (max-width: 640px) {
+  :root .header-search-phone { display: inline-flex; width: 44px; height: 44px; }
+  :root #header-meta .header-search-desktop { display: none; }
+  /* the open tools menu is a list: one named row per tool, each a thumb's height */
+  :root #header-meta[data-open] { flex-direction: column; flex-wrap: nowrap; align-items: stretch; min-width: 220px; }
+  :root #header-meta[data-open] > .header-group-start,
+  :root #header-meta[data-open] > .bell-wrap + .header-group-start { margin-left: 0; }
+  :root #header-meta[data-open] .icon-button:has(> .header-tool-label) {
+    justify-content: flex-start;
+    gap: var(--space-2);
+    width: 100%;
+    height: auto;
+    min-height: 44px;
+    padding: 0 var(--space-3);
+  }
+  /* a column: the popover opens under the bell's row, inside the menu, not beside it past the screen edge */
+  :root #header-meta[data-open] .bell-wrap { display: flex; flex-direction: column; align-items: stretch; min-width: 0; }
+  :root #header-meta[data-open] .header-tool-label { display: inline; font-size: var(--fs-sm); word-break: keep-all; }
+  :root #header-meta[data-open] .bell-popover { position: static; width: auto; max-width: 100%; box-shadow: none; }
+  :root #header-meta[data-open] .bell-popover .btn { min-height: 44px; justify-self: stretch; }
 }

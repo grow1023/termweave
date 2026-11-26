@@ -40,6 +40,7 @@ import {
   agentPrompt,
   agentStart,
   HerdrError,
+  herdrRpc,
   herdrSocketPath,
   paneClose,
   paneRead,
@@ -57,7 +58,7 @@ import {
   workspaceRename, PANE_GONE_CODES } from "./herdr/client.ts";
 import { type AlertTiming, createPushService, defaultStateDir, handlePushRequest } from "./push.ts";
 import { codexQuestionsCollapsed, handlePromptRequest } from "./prompt.ts";
-import { secretPrompt, validSecret } from "../shared/secret-prompt.ts";
+import { rememberWidth, secretPrompt, validSecret } from "../shared/secret-prompt.ts";
 import { PasteImageError, savePaneImage } from "./paste.ts";
 import { PtySession } from "./pty/session.ts";
 import { attachableIdentity, sidecarAvailable } from "./pty/sidecar.ts";
@@ -87,6 +88,10 @@ import { TmuxTerminal } from "./tmux/terminal.ts";
 import { BotStore } from "./bots/store.ts";
 import { trustFolder } from "./bots/trust.ts";
 import { BotRuntime } from "./bots/runtime.ts";
+import { BotJournal } from "./bots/session/journal.ts";
+import { BotSessionHost } from "./bots/session/session.ts";
+import { claudeSessionOfProcesses } from "./claude-store.ts";
+import type { BotChatStatus, JournalRow } from "../shared/bots/chat.ts";
 import { handleBotCliRequest, handleBotsRequest } from "./bots/api.ts";
 
 const MAX_REPLAY_BYTES = 256 * 1024;
@@ -226,6 +231,11 @@ interface PaneAttachment {
   /** the pty's current grid: interact clients set it, observe clients adopt it */
   cols: number;
   rows: number;
+  /**
+   * the widths before `cols`, newest first (`rememberWidth`): a password prompt wrapped before a
+   * resize keeps its old row break, and the client finds it at that width, so the secret check must too
+   */
+  previousCols?: number[];
   /** bounded tail so a client joining late still sees the current screen */
   replay: ReplayBuffer;
   stalled: Map<Client, number>;
@@ -304,7 +314,7 @@ export function createServer(
     openrigService?: OpenRigService;
     mobileRelay?: MobileRelayGateway;
   } = {},
-): { port: number; hostname: string; stop: () => void } {
+): { port: number; hostname: string; stop: () => void; closeBotSessions: () => Promise<void> } {
   const attachments = new Map<string, PaneAttachment>();
   const android = options.android ?? new AndroidRuntime(options.stateDir ?? defaultStateDir());
   const openrig = options.openrig ?? new OpenRigRuntime({
@@ -591,6 +601,7 @@ export function createServer(
     const attachment = attachments.get(paneId);
     // a mirrored pane's grid is herdr's own: no browser resizes it
     if (!attachment || attachment.mirror || (attachment.cols === cols && attachment.rows === rows)) return;
+    attachment.previousCols = rememberWidth(attachment.previousCols ?? [], attachment.cols, cols);
     attachment.cols = cols;
     attachment.rows = rows;
     attachment.pty.resize(cols, rows);
@@ -649,6 +660,7 @@ export function createServer(
         // the grid follows herdr's layout: the clients adopt the new size before the screen
         onResize: (cols, rows) => {
           if (attachments.get(paneId) !== attachment) return;
+          attachment.previousCols = rememberWidth(attachment.previousCols ?? [], attachment.cols, cols);
           attachment.cols = cols;
           attachment.rows = rows;
           broadcast(paneId, { type: "pane-geometry", pane_id: paneId, cols, rows, fixed: true });
@@ -943,6 +955,31 @@ export function createServer(
 
   /** Bots (server/bots): agent sessions that take jobs from their chat and schedules and hand code work to workers */
   const botStore = new BotStore(options.stateDir ?? defaultStateDir());
+  /** Session bots (server/bots/session): a bot's chat as a Claude session with no terminal, kept in one journal */
+  const botJournal = new BotJournal(join(options.stateDir ?? defaultStateDir(), "bot-journal.sqlite"));
+  let botChatOutbox: ReadonlyMap<string, { rows: JournalRow[]; status: BotChatStatus }> = new Map();
+  let botChatTimer: ReturnType<typeof setTimeout> | null = null;
+  /** a streaming reply revises its row many times a second: clients get the newest revision per 100 ms */
+  function queueBotChat(botId: string, rows: JournalRow[], status: BotChatStatus): void {
+    const held = botChatOutbox.get(botId)?.rows ?? [];
+    const merged = [...held.filter((row) => !rows.some((next) => next.itemId === row.itemId)), ...rows].sort((a, b) => a.sequence - b.sequence);
+    botChatOutbox = new Map([...botChatOutbox, [botId, { rows: merged, status }]]);
+    botChatTimer ??= setTimeout(() => {
+      botChatTimer = null;
+      const out = botChatOutbox;
+      botChatOutbox = new Map();
+      for (const [botId, batch] of out) broadcastAll({ type: "bot-chat", bot_id: botId, epoch: botJournal.chat(botId)?.epoch ?? "", ...batch });
+    }, 100);
+  }
+  const botSessions = new BotSessionHost({
+    journal: botJournal,
+    store: botStore,
+    env: async () => process.env,
+    changed: queueBotChat,
+    statusChanged: () => broadcastAll({ type: "bots-changed" }),
+    notify: (title, body, paneId, tag) => push.announce({ pane_id: paneId, title, body, tag }),
+    paneLive: async (bot) => bot.paneId !== null && (await sessionSnapshot()).panes.some((pane) => pane.pane_id === bot.paneId),
+  });
   const bots: BotRuntime = new BotRuntime({
     store: botStore,
     homeRoot: options.botHomeRoot ?? join(homedir(), ".termweave", "bots"),
@@ -952,10 +989,11 @@ export function createServer(
       const created = await workspaceCreate({ cwd, label });
       return { workspaceId: created.workspace.workspace_id, paneId: created.root_pane.pane_id };
     },
-    startAgent: async (kind, paneId, cwd) => {
+    startAgent: async (kind, paneId, cwd, resume) => {
       const trust = await trustFolder(kind, cwd);
       if (trust === "locked" || trust === "unreadable") console.warn(`bots: could not mark ${cwd} trusted for ${kind} (${trust})`);
-      await startAgentInPane(kind, paneId);
+      // herdr appends `args` to the agent's command: a bot back from a session continues its conversation
+      await startAgentInPane(kind, paneId, null, resume ? ["--resume", resume] : undefined);
     },
     submit: (paneId, text) => serialize(paneId, () => submitText(paneId, text, text, (options.submitNow ?? performance.now.bind(performance))())),
     pressEnter: (paneId) => serialize(paneId, () => paneSendKeys(paneId, ["Enter"])),
@@ -972,6 +1010,17 @@ export function createServer(
     },
     notify: (title, body, paneId, tag) => push.announce({ pane_id: paneId, title, body, tag }),
     changed: () => broadcastAll({ type: "bots-changed" }),
+    sessions: botSessions,
+    // as conversation.ts finds a pane's transcript: herdr's hook names the session, else the pane's processes do
+    paneClaudeSession: async (paneId) => {
+      const info = await herdrRpc<{ agent?: { agent_session?: { value?: unknown } } }>("agent.get", { target: paneId }).catch(() => null);
+      const named = info?.agent?.agent_session?.value;
+      if (typeof named === "string" && CLAUDE_SESSION_ID.test(named)) return named;
+      const processes = await herdrRpc<{ process_info?: { foreground_processes?: { pid?: unknown }[] } }>("pane.process_info", { pane_id: paneId }).catch(() => null);
+      const pids = (processes?.process_info?.foreground_processes ?? []).map((entry) => entry.pid).filter((pid): pid is number => typeof pid === "number");
+      const found = await claudeSessionOfProcesses(homedir(), pids);
+      return found !== null && CLAUDE_SESSION_ID.test(found) ? found : null;
+    },
   });
 
   /** every new terminal gets a "pane N" name the agents in its workspace can address (docs/pane-mesh.md) */
@@ -1184,7 +1233,7 @@ export function createServer(
       }
       if (pathname === "/api/herdr/update") return handleHerdrUpdateRequest(request, options.herdrUpdate);
 
-      if (pathname === "/api/bots" || pathname.startsWith("/api/bots/")) { bunServer.timeout(request, 120); return handleBotsRequest(request, pathname, bots, botStore, readOnly); }
+      if (pathname === "/api/bots" || pathname.startsWith("/api/bots/")) { bunServer.timeout(request, 120); return handleBotsRequest(request, pathname, bots, botStore, readOnly, botSessions); }
       if (pathname === "/api/usage") return handleUsageRequest(request, url, usage);
       if (pathname === "/api/host-status") return handleHostStatusRequest(request, hostStatus);
       // a long clip can keep the provider silent past Bun's 10 s idle limit before the first line
@@ -1948,7 +1997,7 @@ export function createServer(
                   authorizeSocket(client);
                   if (!attachment.clients.has(client) || attachments.get(message.pane_id) !== attachment) { result(false, "not_attached"); return; }
                   if (!attachment.ready || attachment.held) { result(false, "input_not_ready"); return; }
-                  if (secretPrompt(screen.text, attachment.cols) !== message.prompt) { result(false, "prompt_changed"); return; }
+                  if (secretPrompt(screen.text, [attachment.cols, ...(attachment.previousCols ?? [])]) !== message.prompt) { result(false, "prompt_changed"); return; }
                   if (attachment.mirror) {
                     // A mirrored pane has no pty to type into: the secret is herdr's text, then the
                     // Enter key (a `\r` inside the text is not Enter to every shell). Both are awaited,
@@ -2050,8 +2099,11 @@ export function createServer(
   return {
     port: server.port ?? 0,
     hostname,
+    /** ends every bot session's Claude child; shutdown waits for it before the process exits */
+    closeBotSessions: () => botSessions.closeAll(),
     stop: () => {
       clearInterval(outputTimer);
+      void botSessions.closeAll();
       android.dispose();
       terminalNotifications.close();
       mobileRelay.dispose();
@@ -2069,6 +2121,8 @@ export function createServer(
   };
 }
 
+const CLAUDE_SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 if (import.meta.main) {
   if (existsSync(join(import.meta.dir, '..', '.termweave-owned.json')) && process.env.TERMWEAVE_OWNED_LAUNCH !== '1') throw new Error('Owned installation requires the recorded foreground lifecycle launcher');
   const configuredHost = process.env.HOST ?? '127.0.0.1';
@@ -2081,9 +2135,11 @@ if (import.meta.main) {
     if (stopping) return;
     stopping = true;
     owned?.stop();
+    const botSessionsClosed = instance.closeBotSessions();
     instance.stop();
-    // Attach sidecars need ~1.2s to release herdr's exclusive client slot.
-    setTimeout(() => process.exit(0), 2000);
+    // Attach sidecars need ~1.2s to release herdr's exclusive client slot. Bot sessions end their
+    // Claude children first (a few seconds at most); the cap keeps a stuck one from holding the exit.
+    void Promise.race([Promise.all([botSessionsClosed, Bun.sleep(2000)]), Bun.sleep(12_000)]).then(() => process.exit(0));
   };
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);

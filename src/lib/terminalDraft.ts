@@ -19,13 +19,22 @@ export function readTerminalDraft(owner: string): string {
   if (memory.has(owner)) return memory.get(owner)!;
   try { return (localStorage.getItem(PREFIX + owner) ?? "").slice(0, TERMINAL_LINE_LIMIT); } catch { return ""; }
 }
-export function writeTerminalDraft(owner: string, text: string): void {
+/** Lines typed while the screen may have asked for a secret: never on disk until the line is empty again. */
+const memoryOnly = new Set<string>();
+/**
+ * `persist: false` (the screen looks like a password prompt) keeps the line in memory only, and
+ * every later write of that line too: what was typed then may be a secret, and it stays in the
+ * text after the prompt is gone. Emptying the line ends it.
+ */
+export function writeTerminalDraft(owner: string, text: string, persist = true): void {
   const value = text.slice(0, TERMINAL_LINE_LIMIT).replace(/[\uD800-\uDBFF]$/, "");
   const sent = pending.get(owner);
   if (sent && !value.startsWith(sent.written)) sent.canClear = false;
   memory.set(owner, value);
+  if (!value) memoryOnly.delete(owner);
+  else if (!persist) memoryOnly.add(owner);
   try {
-    if (value) localStorage.setItem(PREFIX + owner, value);
+    if (value && !memoryOnly.has(owner)) localStorage.setItem(PREFIX + owner, value);
     else localStorage.removeItem(PREFIX + owner);
   } catch { /* private mode: preserve across view changes in memory */ }
   notify();

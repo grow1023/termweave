@@ -15,6 +15,9 @@ export interface DirectoryBrowserProps {
   /** the folder chosen, in the dialog's own syntax (`~/…` inside home); without it there is no "Use this folder" */
   onPick?: (path: string) => void;
   onBusyChange?: (busy: boolean) => void;
+  /** each folder the user goes into, in the dialog's syntax: the new-session field follows it, so the
+      folder on screen is the folder used (the first listing is not reported: it must not replace a typed path) */
+  onNavigate?: (path: string) => void;
   /** lists files too, and opens the one clicked (its absolute path) */
   onOpenFile?: (path: string) => void;
 }
@@ -33,7 +36,7 @@ function childPath(parent: string, name: string): string {
  * A folder browser for the new-session dialog: one directory at a time, fetched from the
  * PC the session starts on. Nothing is kept but the folder shown now.
  */
-export function DirectoryBrowser({ start, onPick, onOpenFile, onBusyChange }: DirectoryBrowserProps) {
+export function DirectoryBrowser({ start, onPick, onOpenFile, onBusyChange, onNavigate }: DirectoryBrowserProps) {
   const t = useT();
   const { fetchDirectories, createProjectDirectory } = useMachineApi();
   const [creating, setCreating] = useState(false);
@@ -47,7 +50,8 @@ export function DirectoryBrowser({ start, onPick, onOpenFile, onBusyChange }: Di
   const request = useRef(0);
   const listRef = useRef<HTMLUListElement>(null);
 
-  const open = useCallback(async (path: string, showHidden: boolean, fallbackHome: boolean) => {
+  const navigateRef = useRef(onNavigate); navigateRef.current = onNavigate;
+  const open = useCallback(async (path: string, showHidden: boolean, fallbackHome: boolean, report = true) => {
     setCreating(false);
     setCreateError(null);
     const id = ++request.current;
@@ -57,11 +61,12 @@ export function DirectoryBrowser({ start, onPick, onOpenFile, onBusyChange }: Di
       if (id !== request.current) return;
       setListing(next);
       setError(null);
+      if (report) navigateRef.current?.(homeRelative(next.path, next.home));
       listRef.current?.scrollTo({ top: 0 });
     } catch (reason: unknown) {
       if (id !== request.current) return;
       // a path typed half-way opens home instead of an error
-      if (fallbackHome && reason instanceof ApiError && reason.code === "invalid_cwd") return void open("", showHidden, false);
+      if (fallbackHome && reason instanceof ApiError && reason.code === "invalid_cwd") return void open("", showHidden, false, report);
       setError(reason instanceof ApiError && reason.status === 404
         ? t("This PC's bridge cannot browse folders yet. Type the path instead.")
         : reason instanceof ApiError && reason.code === "invalid_cwd" ? t("This folder cannot be opened.") : t("Folders could not be loaded."));
@@ -70,7 +75,7 @@ export function DirectoryBrowser({ start, onPick, onOpenFile, onBusyChange }: Di
     }
   }, [fetchDirectories]);
 
-  useEffect(() => { void open(start, false, true); }, []);
+  useEffect(() => { void open(start, false, true, false); }, []);
 
   const path = listing?.path ?? "";
   const shown = listing ? homeRelative(listing.path, listing.home) : start || "~";
@@ -149,8 +154,10 @@ export function DirectoryBrowser({ start, onPick, onOpenFile, onBusyChange }: Di
           <input type="checkbox" checked={hidden} disabled={saving || (loading && listing === null)} onChange={(event) => { setHidden(event.target.checked); if (listing) void open(listing.path, event.target.checked, false); }} />
           {t("Show hidden")}
         </label>
-        {onPick && <button type="button" className="btn btn-primary" disabled={listing === null || loading || saving} onClick={() => listing && onPick(homeRelative(listing.path, listing.home))}>
-          {t("Use this folder")}
+        {/* with onNavigate the field already follows the folder on screen: this only closes the browser,
+            and the dialog's own button stays the one primary action */}
+        {onPick && <button type="button" className={onNavigate ? "btn" : "btn btn-primary"} disabled={listing === null || loading || saving} onClick={() => listing && onPick(homeRelative(listing.path, listing.home))}>
+          {onNavigate ? t("Done browsing") : t("Use this folder")}
         </button>}
       </div>
     </div>

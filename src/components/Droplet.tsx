@@ -2,20 +2,21 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Poin
 import { flickVelocity, onDroplet, type PressSample, type QueuedDroplet } from "../lib/droplet.ts";
 import { useT } from "../lib/i18n.ts";
 import { AgentMark } from "./AgentMark.tsx";
+import { dropletHold, queueDroplet, takeDroplet } from "./navModel.ts";
 import "./Droplet.css";
 
 /**
  * The in-app alert (lib/droplet.ts): a drop falls from the top edge and spreads into a card,
  * like the iPhone's Dynamic Island. It hangs from the safe area's top, so a phone with an
  * island, one with a notch, and a desktop window all take the same path: no device is
- * guessed. One shows at a time; a newer one folds the current one away and takes its place.
- * A tap opens the pane, a flick up puts it away, and it leaves by itself after a while.
+ * guessed. One shows at a time; the next waits its turn (up to three), and a waiting agent goes
+ * first: it folds a "finished" card away at once. A tap opens the pane, a flick up puts it away,
+ * and it leaves by itself after a while: a waiting agent stays longer, and none leaves while
+ * pointed at or focused.
  */
 
 /** enter: the drop falls, then spreads, then its text shows (Droplet.css runs the same clock) */
 const REVEAL_MS = 560;
-/** how long it stays once its text shows */
-export const DROPLET_HOLD_MS = 3600;
 /** exit: the text fades, the card folds back into a drop, the drop rises */
 const EXIT_MS = 820;
 /** a drag up this far, or a flick up this fast, puts it away */
@@ -35,7 +36,7 @@ export function Droplet({ onOpen }: { onOpen: (machineId: string, paneId: string
   const [current, setCurrent] = useState<QueuedDroplet | null>(null);
   const [phase, setPhase] = useState<Phase>("in");
   const [drag, setDrag] = useState(0);
-  const pending = useRef<QueuedDroplet | null>(null);
+  const pending = useRef<QueuedDroplet[]>([]);
   const currentRef = useRef(current); currentRef.current = current;
   const phaseRef = useRef(phase); phaseRef.current = phase;
   const holdTimer = useRef<number | null>(null);
@@ -56,8 +57,8 @@ export function Droplet({ onOpen }: { onOpen: (machineId: string, paneId: string
     phaseRef.current = "out";
     exitTimer.current = window.setTimeout(() => {
       exitTimer.current = null;
-      const next = pending.current;
-      pending.current = null;
+      const { next, rest } = takeDroplet(pending.current);
+      pending.current = rest;
       setDrag(0);
       setCurrent(next);
       setPhase("in");
@@ -77,15 +78,18 @@ export function Droplet({ onOpen }: { onOpen: (machineId: string, paneId: string
       phaseRef.current = "in";
       return;
     }
-    // one at a time: the newest waits for the current one to fold away
-    pending.current = notice;
-    leave();
+    // one at a time: the newest waits its turn, and only a waiting agent cuts in front of a finished one
+    pending.current = queueDroplet(pending.current, notice);
+    if (notice.kind === "blocked" && currentRef.current.kind !== "blocked") leave();
   }), [leave]);
 
   useEffect(() => {
     if (!current || phase !== "in") return;
-    hold(REVEAL_MS + DROPLET_HOLD_MS);
+    hold(REVEAL_MS + dropletHold(current.kind));
   }, [current, phase, hold]);
+  // pointed at or focused, it stays: reading it is not a reason for it to leave
+  const pause = (): void => { if (phaseRef.current === "in") clearHold(); };
+  const resume = (): void => { if (phaseRef.current === "in" && currentRef.current && !press.current) hold(dropletHold(currentRef.current.kind)); };
 
   useEffect(() => () => {
     clearHold();
@@ -122,7 +126,7 @@ export function Droplet({ onOpen }: { onOpen: (machineId: string, paneId: string
       return;
     }
     setDrag(0);
-    hold(DROPLET_HOLD_MS);
+    hold(dropletHold(currentRef.current?.kind ?? "done"));
   };
 
   if (!current) return null;
@@ -158,6 +162,10 @@ export function Droplet({ onOpen }: { onOpen: (machineId: string, paneId: string
         onPointerMove={onPointerMove}
         onPointerUp={(event) => endPress(event, false)}
         onPointerCancel={(event) => endPress(event, true)}
+        onMouseEnter={pause}
+        onMouseLeave={resume}
+        onFocus={pause}
+        onBlur={resume}
       >
         <span className="droplet-mark">{current.agent ? <AgentMark agent={current.agent} size={22} /> : <span className="droplet-mark-blank" />}</span>
         <span className="droplet-text">

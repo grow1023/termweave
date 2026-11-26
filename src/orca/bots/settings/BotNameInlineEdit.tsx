@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 import { useT } from "../../../lib/i18n.ts";
 import { cn } from "../../cn.ts";
 import { Input } from "../../ui/input.tsx";
-import { botsApi } from "../data.ts";
+import { botErrorText, botsApi } from "../data.ts";
 import type { Bot } from "../data.ts";
 
 const NAME_MAX_LENGTH = 60;
@@ -33,7 +33,7 @@ export function BotNameInlineEdit({ bot, readOnly, className }: { bot: Bot; read
       await botsApi.update(bot.id, { name: next });
       setValue(null);
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : String(failure));
+      setError(botErrorText(failure, t));
     } finally {
       setSaving(false);
     }
@@ -53,7 +53,7 @@ export function BotNameInlineEdit({ bot, readOnly, className }: { bot: Bot; read
           className={cn("group/edit flex max-w-full min-w-0 cursor-text items-center gap-1.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11", className)}
         >
           <span className="min-w-0 truncate">{bot.name}</span>
-          <Pencil aria-hidden className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100 group-focus-visible/edit:opacity-100" />
+          <Pencil aria-hidden className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100 group-focus-visible/edit:opacity-100 pointer-coarse:opacity-100" />
         </button>
       ) : (
         <span className={cn("-mx-1 grid max-w-[calc(100%+0.5rem)] min-w-0 rounded-sm bg-input/30 px-1 outline outline-1 outline-ring ring-[3px] ring-ring/50", className)}>

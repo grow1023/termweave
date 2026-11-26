@@ -4,6 +4,7 @@ import type { PaneInfo, WorkspaceInfo } from "../../shared/protocol.ts";
 import { moveTargets } from "../../shared/paneMove.ts";
 import { paneNumber } from "../lib/paneNumber.ts";
 import { useT } from "../lib/i18n.ts";
+import { useModalFocus } from "../lib/modalFocus.ts";
 import "./SessionColorDialog.css";
 
 /** Pick a folder, the pane to sit beside, and a side. herdr places it; the dock layout is separate. */
@@ -22,13 +23,9 @@ export function MovePaneDialog({ source, panes, workspaces, title, onMove, onClo
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const surface = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    surface.current?.querySelector<HTMLElement>("select")?.focus();
-    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); onClose(); } };
-    window.addEventListener("keydown", escape, true);
-    return () => { window.removeEventListener("keydown", escape, true); if (opener?.isConnected) opener.focus({ preventScroll: true }); };
-  }, [onClose]);
+  // first: it records the opener before the effect below moves the focus into the dialog
+  useModalFocus(surface, { open: true, onClose });
+  useEffect(() => { surface.current?.querySelector<HTMLElement>("select, button")?.focus(); }, []);
   const submit = async () => {
     if (!target || busy) return;
     setBusy(true); setError(null);

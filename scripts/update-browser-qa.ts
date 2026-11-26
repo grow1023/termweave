@@ -63,7 +63,8 @@ try {
   page.on("pageerror", error => errors.push(error.message));
   page.setDefaultTimeout(60_000);
   await page.goto(`${origin}/?pane=${encodeURIComponent(paneId)}`);
-  await page.getByRole("button", { name: "Chat", exact: true }).click();
+  // one dock group on a wide screen: only the header's "Pane view" switch has Chat/Terminal
+  await page.getByRole("group", { name: "Pane view", exact: true }).getByRole("button", { name: "Chat", exact: true }).click();
   const draft = page.getByRole("textbox", { name: "Message", exact: true });
   await draft.fill("Unsent draft preserved across update");
   await page.locator(".sidebar-footer").getByRole("button", { name: "Settings", exact: true }).click();

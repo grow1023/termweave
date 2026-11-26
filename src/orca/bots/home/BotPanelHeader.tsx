@@ -12,9 +12,13 @@ import { botsApi } from "../data.ts";
 import { whenShort } from "./bot-when.ts";
 import { ActionError, useBotAction } from "./use-bot-action.tsx";
 
-/** "Paused", "Running Fix the login bug", "Idle · next 9:00 AM · Morning check", else "Idle". */
+/** "Paused", "Needs you" (or "3 questions wait for you"), "Running Fix the login bug", "Idle · next 9:00 AM · Morning check", else "Idle". */
 export function botStatusLine(bot: Bot, items: readonly BotItem[], automations: readonly BotAutomation[], now: number, locale: string, t: Translate): string {
   if (bot.paused) return t("Paused");
+  // a question waiting under the header comes before anything the bot does on its own
+  const asks = items.filter((item) => item.status === "needs_you").length;
+  if (asks > 1) return t("{n} questions wait for you", { n: asks });
+  if (asks === 1) return t("Needs you");
   const working = items.filter((item) => item.status === "working").sort((a, b) => (Date.parse(b.updatedAt) || 0) - (Date.parse(a.updatedAt) || 0))[0];
   if (working) return t("Running {what}", { what: working.title });
   const next = automations
@@ -107,7 +111,8 @@ export function BotPanelHeader({ bot, items, automations, readOnly, now, onOpenS
           </DropdownMenuContent>
         </DropdownMenu>
         {onClose ? (
-          <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("Close")} onClick={onClose}>
+          // data-bot-side-close: where the phone sheet puts focus when it opens (BotSide.tsx)
+          <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("Close")} data-bot-side-close="" onClick={onClose}>
             <X />
           </Button>
         ) : null}

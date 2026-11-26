@@ -4,9 +4,11 @@ import { basename, join, resolve } from "node:path";
 
 import type { AgentStatus, SessionSnapshot } from "../../shared/protocol.ts";
 import { nextRunAfter, validateBotSchedule } from "../../shared/bots/schedule/index.ts";
-import { APPROVE, DENY, type Bot, type BotAgent, type BotAutomation, type BotItem, type BotPaneAction, type BotPaneEntry, type BotSchedule, type BotWorker } from "../../shared/bots/types.ts";
+import type { BotChatStatus, BotPermissionMode, MessageFrom } from "../../shared/bots/chat.ts";
+import { APPROVE, DENY, type Bot, type BotAgent, type BotRuntimeKind, type BotAutomation, type BotItem, type BotPaneAction, type BotPaneEntry, type BotSchedule, type BotWorker } from "../../shared/bots/types.ts";
 import { randomBotAvatar } from "../../shared/bots/avatar.ts";
 import { buildBotInstructions, workerPrompt } from "./preamble.ts";
+import type { BotSessionHost } from "./session/session.ts";
 import type { BotStore } from "./store.ts";
 
 /** What the runtime needs from herdr, git and web push; index.ts gives the real ones, tests fakes. */
@@ -19,8 +21,9 @@ export interface BotDeps {
   /** absolute path of server/bots/cli.ts */
   cliPath: string;
   createWorkspace(cwd: string, label: string): Promise<{ workspaceId: string; paneId: string }>;
-  /** `cwd`: the folder the agent opens in, marked trusted for it first (server/bots/trust.ts) */
-  startAgent(kind: BotAgent, paneId: string, cwd: string): Promise<void>;
+  /** `cwd`: the folder the agent opens in, marked trusted for it first (server/bots/trust.ts);
+   *  `resume`: a Claude session id to continue (`claude --resume`), for a bot switched back from a session */
+  startAgent(kind: BotAgent, paneId: string, cwd: string, resume?: string | null): Promise<void>;
   /** type a message into an agent's prompt, as the composer does */
   submit(paneId: string, text: string): Promise<void>;
   /** press Enter in a pane: a message an agent took while it was still starting sits in its input line */
@@ -35,6 +38,10 @@ export interface BotDeps {
   notify(title: string, body: string, paneId: string | null, tag: string): Promise<void>;
   /** the bots page should read again */
   changed(): void;
+  /** runs session bots' chats with no terminal; without it every bot is a pane bot */
+  sessions?: BotSessionHost;
+  /** the Claude session id a pane's Claude runs (server/claude-store.ts), for the switch to a session */
+  paneClaudeSession?(paneId: string): Promise<string | null>;
   now?: () => Date;
   /** how long to wait for a new agent to be idle, for a typed message to start a turn, and after idle before typing; tests shorten them */
   timing?: Partial<typeof TIMING>;
@@ -51,6 +58,8 @@ const NOTE_FILE: Record<BotNote, string> = { soul: "SOUL.md", memory: "MEMORY.md
 const NAME = /^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,39}$/u;
 const RESULT_LINES = 40;
 const BUSY_EXPIRY_MS = 20 * 60_000;
+/** what TermWeave itself puts in a bot's chat: worker reports, schedules, item answers */
+const TERMWEAVE_MAIL: MessageFrom = { kind: "termweave", label: null };
 
 /** Bots that run in herdr panes: chat in their own pane, workers in worktrees, schedules on a tick. */
 export class BotRuntime {
@@ -76,6 +85,7 @@ export class BotRuntime {
   constructor(private readonly deps: BotDeps) {
     this.now = deps.now ?? (() => new Date());
     this.timing = { ...TIMING, ...deps.timing };
+    deps.sessions?.setPrepare((bot) => this.writeInstructions(bot));
   }
 
   start(tickMs = 30_000): void {
@@ -85,14 +95,16 @@ export class BotRuntime {
 
   // ---- bots ----
 
-  async createBot(input: { name: string; agent: BotAgent; purpose: string; repo: string | null }): Promise<Bot> {
+  async createBot(input: { name: string; agent: BotAgent; purpose: string; repo: string | null; runtime?: BotRuntimeKind }): Promise<Bot> {
+    const runtime = input.runtime ?? "pane";
+    if (runtime === "session") this.sessionsFor(input.agent);
     const name = input.name.trim();
     if (!NAME.test(name)) throw new BotError("invalid_name", "a name is 1-40 letters, digits, spaces, dots, dashes or underscores");
     if (this.deps.store.view().bots.some((bot) => bot.name.toLowerCase() === name.toLowerCase())) throw new BotError("name_taken", "another bot has this name");
     if (input.repo !== null && !existsSync(join(input.repo, ".git"))) throw new BotError("invalid_repo", "the project must be a git repository");
     const id = randomUUID().slice(0, 8);
     const home = join(this.deps.homeRoot, `${name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-")}-${id}`);
-    const bot: Bot = { id, name, agent: input.agent, home, repo: input.repo, paused: false, paneId: null, createdAt: this.now().toISOString(), avatar: randomBotAvatar(), purpose: input.purpose.trim().split("\n")[0]!.slice(0, 200) };
+    const bot: Bot = { id, name, agent: input.agent, home, repo: input.repo, paused: false, paneId: null, createdAt: this.now().toISOString(), avatar: randomBotAvatar(), purpose: input.purpose.trim().split("\n")[0]!.slice(0, 200), ...(runtime === "session" ? { runtime } : {}) };
     this.deps.store.addBot(bot);
     mkdirSync(join(home, "worktrees"), { recursive: true, mode: 0o700 });
     writeFileSync(join(home, "SOUL.md"), `${input.purpose.trim()}\n`, { flag: "wx" });
@@ -108,7 +120,7 @@ export class BotRuntime {
     return this.deps.store.bot(id)!;
   }
 
-  updateBot(id: string, change: { paused?: boolean; repo?: string | null; avatar?: string; name?: string }): Bot {
+  updateBot(id: string, change: { paused?: boolean; repo?: string | null; avatar?: string; name?: string; permissionMode?: BotPermissionMode }): Bot {
     const bot = this.mustBot(id);
     if (change.name !== undefined) {
       change = { ...change, name: change.name.trim() };
@@ -118,10 +130,73 @@ export class BotRuntime {
     if (change.repo !== undefined && change.repo !== null && !existsSync(join(change.repo, ".git"))) throw new BotError("invalid_repo", "the project must be a git repository");
     const next = this.deps.store.updateBot(bot.id, change)!;
     this.deps.changed();
-    if (change.paused === false) void this.flush(bot.id);
+    if (next.runtime === "session") {
+      // a changed setting is the owner's go-ahead for a bot whose session stopped after failing
+      void this.deps.sessions?.settingsChanged(bot.id, change.permissionMode !== undefined ? { permissionMode: change.permissionMode } : {})
+        .catch((error) => console.error(`bots: ${String(error)}`));
+    } else if (change.paused === false) void this.flush(bot.id);
     // its instructions open with its name; the home folder keeps the name it was made with
     if (change.name !== undefined) this.writeInstructions(next);
     return next;
+  }
+
+  /**
+   * Moves a Claude bot's chat between its terminal and a session with no terminal (spec 8.7). The
+   * Claude session goes along: a session resumes the pane's, a pane started again resumes the session's.
+   */
+  async switchRuntime(id: string, to: BotRuntimeKind): Promise<Bot> {
+    const bot = this.mustBot(id);
+    if ((bot.runtime ?? "pane") === to) return bot;
+    const sessions = this.sessionsFor(bot.agent);
+    if (to === "pane") {
+      await sessions.close(bot.id);
+      const next = this.deps.store.updateBot(bot.id, { runtime: "pane" })!;
+      this.deps.changed();
+      return next;
+    }
+    if (this.starting.has(bot.id)) throw new BotError("pane_starting", "its terminal is starting; switch again in a moment");
+    const alive = bot.paneId !== null && await this.deps.paneAlive(bot.paneId);
+    const found = alive && bot.paneId !== null ? await this.deps.paneClaudeSession?.(bot.paneId) ?? null : null;
+    if (found === null) throw new BotError("no_claude_session", "TermWeave could not find the Claude session running in this bot's terminal. Open the bot's terminal so Claude runs there, then switch again.");
+    // the terminal's Claude must end before the session resumes the same transcript (R6)
+    if (bot.paneId !== null) await this.deps.closePane(bot.paneId);
+    const next = this.deps.store.updateBot(bot.id, { runtime: "session", claudeSessionId: found, paneId: null })!;
+    const held = this.pending.get(bot.id) ?? [];
+    this.pending.delete(bot.id);
+    this.busy.delete(bot.id);
+    this.deps.changed();
+    // messages that waited for the terminal's turn are not lost on the way
+    for (const text of held) await sessions.tell(bot.id, text, TERMWEAVE_MAIL).catch((error) => console.error(`bots: ${String(error)}`));
+    return next;
+  }
+
+  /** Each session bot's chat status, for GET /api/bots. */
+  chatStatuses(): Record<string, BotChatStatus> {
+    const sessions = this.deps.sessions;
+    if (!sessions) return {};
+    return Object.fromEntries(this.deps.store.view().bots.filter((bot) => bot.runtime === "session").map((bot) => [bot.id, sessions.status(bot.id)]));
+  }
+
+  /** A message the owner typed in the bot's chat. A session bot answers whether it went or waits. */
+  async ownerMessage(botId: string, text: string, clientMessageId?: string): Promise<{ clientMessageId: string; state: "accepted" | "queued" } | undefined> {
+    const bot = this.mustBot(botId);
+    if (bot.runtime === "session") return this.sessionsFor(bot.agent).tell(bot.id, text, { kind: "owner" }, clientMessageId);
+    await this.tell(bot.id, text);
+    return undefined;
+  }
+
+  /** Stops the turn a session bot is in. */
+  async stopTurn(botId: string): Promise<{ cancelled: boolean }> {
+    const bot = this.mustBot(botId);
+    if (bot.runtime !== "session") throw new BotError("not_session_bot", "this bot runs in a terminal; stop it there");
+    return this.sessionsFor(bot.agent).stop(bot.id);
+  }
+
+  /** The host, for a bot that may run as a session: Claude only, and only where the server has a host. */
+  private sessionsFor(agent: BotAgent): BotSessionHost {
+    if (agent !== "claude") throw new BotError("session_needs_claude", "only a Claude bot can run as a chat session");
+    if (!this.deps.sessions) throw new BotError("sessions_unavailable", "this server runs no chat sessions");
+    return this.deps.sessions;
   }
 
   /** SOUL.md (who the bot is) or MEMORY.md (what it noted), as the bot's settings show and edit them. */
@@ -172,12 +247,17 @@ export class BotRuntime {
     // the home folder, its memory and its worktrees stay on disk: removing a bot loses no work
     this.deps.store.removeBot(id);
     this.pending.delete(id);
+    void this.deps.sessions?.forget(id).catch((error) => console.error(`bots: ${String(error)}`));
     this.deps.changed();
   }
 
-  /** A message for the bot: typed into its chat now, or once it finishes the turn it is in. */
-  async tell(botId: string, text: string): Promise<void> {
+  /**
+   * A message for the bot: typed into its chat now, or once it finishes the turn it is in. Callers
+   * here are TermWeave's own mail; a session bot shows it apart from what the owner types.
+   */
+  async tell(botId: string, text: string, from: MessageFrom = TERMWEAVE_MAIL): Promise<void> {
     const bot = this.mustBot(botId);
+    if (bot.runtime === "session") { await this.sessionsFor(bot.agent).tell(bot.id, text, from); return; }
     this.pending.set(bot.id, [...(this.pending.get(bot.id) ?? []), text]);
     await this.flush(bot.id);
   }
@@ -187,12 +267,14 @@ export class BotRuntime {
     const inflight = this.starting.get(botId);
     if (inflight) return inflight;
     const bot = this.mustBot(botId);
+    if (bot.runtime === "session") throw new BotError("session_bot", "this bot's chat runs as a session with no terminal; switch it back to a terminal first");
     if (bot.paneId !== null && await this.deps.paneAlive(bot.paneId)) return bot.paneId;
     const start = (async () => {
       this.writeInstructions(bot);
       const { paneId } = await this.deps.createWorkspace(bot.home, `Bot · ${bot.name}`);
       this.deps.store.updateBot(bot.id, { paneId });
-      await this.deps.startAgent(bot.agent, paneId, bot.home);
+      // a bot switched back from a session continues that conversation in the terminal
+      await this.deps.startAgent(bot.agent, paneId, bot.home, bot.agent === "claude" ? bot.claudeSessionId ?? null : null);
       await this.ready(paneId);
       return paneId;
     })();
@@ -202,7 +284,7 @@ export class BotRuntime {
 
   private async flush(botId: string): Promise<void> {
     const bot = this.deps.store.bot(botId);
-    if (!bot || bot.paused || !this.pending.has(botId) || this.busy.has(botId) || this.starting.has(botId)) return;
+    if (!bot || bot.paused || bot.runtime === "session" || !this.pending.has(botId) || this.busy.has(botId) || this.starting.has(botId)) return;
     const paneId = await this.ensurePane(botId);
     // read after the start: what came in meanwhile goes in the same message
     const queue = this.pending.get(botId) ?? [];

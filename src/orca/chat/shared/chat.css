@@ -1,0 +1,265 @@
+/* From stablyai/orca (MIT, Copyright (c) 2026 Lovecast Inc.),
+   src/renderer/src/components/native-chat/appearance/native-chat-appearance.css and
+   src/renderer/src/components/native-chat/markdown/native-chat-markdown.css; adapted for TermWeave.
+   `.native-chat-appearance` is renamed `.orca-chat`. ChatRoot puts `orca` and `orca-chat` on the SAME
+   element, so the root selector is the compound `.orca.orca-chat` (SPEC 4.2 wrote `.orca .orca-chat`,
+   which would never match). Class names `.native-chat-markdown` and `.native-chat-composer-*` stay, so
+   copied class strings work. Not ported: window material and theme images, find highlights, quiet turn
+   leave, composer glow, word fade, empty-state query, dock-fit fades (SPEC 4.1). */
+
+/* Values Orca's appearance hook sets inline (native-chat-appearance-style.ts:200-215), at Orca's defaults. */
+.orca.orca-chat {
+  --chat-font-size: 13px;
+  --chat-ui-font-size: 14px;
+  --chat-line-height: 20px;
+  --chat-code-font-size: 12px;
+  --chat-inline-code-ratio: 0.9231em;
+  --chat-estimated-spacing-scale: 1;
+  --chat-font-family: var(--font-sans);
+  --chat-code-font-family: var(--font-mono);
+}
+
+/* Text steps are ratios of the text size setting, so the tiers scale together. */
+.orca.orca-chat {
+  --text-sm: var(--chat-font-size, 0.875rem);
+  /* One line height for body text, paragraphs and list items alike (20px at the default 13px). */
+  --text-sm--line-height: var(--chat-line-height, calc(1.25 / 0.875));
+  /* Labels and controls follow the chat's 12-20 range even when message text follows the terminal. */
+  --chat-ui-size: var(--chat-ui-font-size, var(--text-sm));
+  --text-xs: min(var(--text-sm), calc(var(--chat-ui-size) * 12 / 14));
+  --text-2xs: min(var(--text-sm), calc(var(--chat-ui-size) * 11 / 14));
+  /* Floored so badges stay legible at the smallest setting. */
+  --text-3xs: max(9px, calc(var(--chat-ui-size) * 10 / 14));
+  --text-chat-code: var(--chat-code-font-size, 0.75rem);
+  --ring: var(--chat-focus-ring);
+  /* Icons, gaps and row heights follow the UI size: 4px at the 13px default (UI size 14px). */
+  --spacing: calc(var(--chat-ui-size) / 3.5);
+  font-family: var(--chat-font-family, var(--font-sans));
+  letter-spacing: 0;
+}
+
+.orca.orca-chat .native-chat-markdown pre {
+  font-size: var(--text-chat-code);
+}
+
+/* On the root only: descendants inherit it as highlight styles, which costs no per-element style work. */
+.orca.orca-chat::selection {
+  background-color: var(--chat-selection-surface);
+  color: var(--chat-selection-foreground, var(--chat-source-foreground));
+}
+
+.orca.orca-chat :is(.font-sans, textarea, [contenteditable='true']) {
+  font-family: inherit;
+}
+
+.orca.orca-chat :is(.font-mono, code, pre) {
+  font-family: var(--chat-code-font-family, var(--font-mono));
+}
+
+/* ---- composer gutter and card (native-chat-appearance.css:97-122); needs ChatRoot's size container ---- */
+.orca.orca-chat [data-composer-field] {
+  --composer-atomic-width: calc(var(--spacing) * 10);
+}
+
+.orca.orca-chat .native-chat-composer-gutter {
+  --composer-gutter: calc(var(--spacing) * 3);
+  padding-inline: clamp(
+    0px,
+    calc((100cqi - var(--composer-atomic-width) - 2px - var(--spacing) * 3) / 2),
+    var(--composer-gutter)
+  );
+}
+
+.orca.orca-chat .native-chat-composer-card {
+  padding-inline: clamp(
+    0px,
+    calc((100cqi - var(--composer-atomic-width) - 2px) / 4),
+    calc(var(--spacing) * 1.5)
+  );
+}
+
+@media (width >= 40rem) {
+  .orca.orca-chat .native-chat-composer-gutter {
+    --composer-gutter: calc(var(--spacing) * 4);
+  }
+}
+
+/* ---- question-card scroll fades (native-chat-appearance.css:124-196), WP2's optional part ----
+   Scroll-driven, not timed: they run only while the box scrolls, never endlessly. Dock-fit selectors are
+   left out with the dock-fit logic. Guarded so browsers without scroll timelines draw no mask. */
+@property --native-chat-scroll-fade {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@keyframes native-chat-scroll-fade {
+  from { --native-chat-scroll-fade: calc(var(--spacing) * 14); }
+  to { --native-chat-scroll-fade: 0px; }
+}
+
+@keyframes native-chat-scroll-shadow {
+  from {
+    box-shadow:
+      0 calc(var(--spacing) * -2) calc(var(--spacing) * 3) calc(var(--spacing) * -2)
+        color-mix(in srgb, black 60%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--foreground) 14%, transparent);
+  }
+  to { box-shadow: none; }
+}
+
+@supports (animation-timeline: scroll()) {
+  .orca.orca-chat .native-chat-question-card-surface {
+    timeline-scope: --native-chat-question-options;
+  }
+
+  .orca.orca-chat :is(.native-chat-question-card-options, .native-chat-question-card-question) {
+    mask-image: linear-gradient(
+      to bottom,
+      black calc(100% - min(var(--native-chat-scroll-fade), 35%)),
+      transparent
+    );
+    animation: native-chat-scroll-fade linear both;
+    animation-timeline: scroll(self);
+  }
+
+  .orca.orca-chat .native-chat-question-card-options {
+    scroll-timeline: --native-chat-question-options block;
+  }
+
+  .orca.orca-chat .native-chat-question-card-footer {
+    animation: native-chat-scroll-shadow linear both;
+    animation-timeline: --native-chat-question-options;
+  }
+}
+
+/* ---- TermWeave: the bot dock above the composer (bot/WorkerApprovals.tsx) ----
+   The dock shrinks before the transcript and scrolls inside. Its cut edges must read as cut, and an open
+   card's answer row must never be cut in the middle: the row sticks to the dock's bottom edge (Orca's
+   pinned question-card footer), with the scroll shadow above it while more lies below; the top edge
+   fades while the box is scrolled. The Home panel's question card (bots/home/BotItemQuestionStep.tsx) is
+   reached by its data attribute: `clip` instead of `hidden` keeps its rounded corners without making it
+   a scroll box, so its last child (the Submit / Deny / Approve row) can stick. */
+.orca.orca-chat .native-chat-worker-approvals [data-bot-item-question] {
+  overflow: clip;
+}
+
+.orca.orca-chat .native-chat-worker-approvals [data-bot-item-question] > :last-child {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background-color: var(--chat-canvas);
+  background-image: linear-gradient(var(--color-chat-composer-surface), var(--color-chat-composer-surface));
+}
+
+@property --tw-dock-fade-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@keyframes tw-dock-fade-top {
+  from { --tw-dock-fade-top: 0px; }
+  to { --tw-dock-fade-top: calc(var(--spacing) * 6); }
+}
+
+@supports (animation-timeline: scroll()) {
+  .orca.orca-chat .native-chat-worker-approvals {
+    scroll-timeline: --tw-dock block;
+    mask-image: linear-gradient(to bottom, transparent, black var(--tw-dock-fade-top));
+    /* scroll-driven, never timed: full fade after the first 24px of scroll */
+    animation: tw-dock-fade-top linear both;
+    animation-timeline: --tw-dock;
+    animation-range: 0px calc(var(--spacing) * 6);
+  }
+
+  .orca.orca-chat .native-chat-worker-approvals :is([data-bot-item-question] > :last-child, .native-chat-approval-actions-stacked) {
+    animation: native-chat-scroll-shadow linear both;
+    animation-timeline: --tw-dock;
+  }
+}
+
+/* ---- markdown look (native-chat-markdown.css:1-79) ---- */
+/* Bold and headings stand out by weight alone, in the text color around them; :where keeps this
+   below the link-label rule, so bold link text takes the link color. */
+.orca.orca-chat .native-chat-markdown :where(strong) {
+  color: var(--chat-bold-foreground, currentColor);
+}
+
+.orca.orca-chat .native-chat-markdown :is(strong, b) {
+  font-weight: 600;
+}
+
+.orca.orca-chat .native-chat-markdown h1 { font-size: 1.2857142857em; }
+.orca.orca-chat .native-chat-markdown h2 { font-size: 1.1428571429em; }
+.orca.orca-chat .native-chat-markdown h3 { font-size: 1.0714285714em; }
+
+/* A step under body text; em follows Text size the way headings do. */
+.orca.orca-chat .native-chat-markdown table {
+  font-size: 0.9285714286em;
+}
+
+.orca.orca-chat .native-chat-markdown a {
+  word-break: normal;
+  overflow-wrap: anywhere;
+  color: var(--chat-link);
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 0.25em;
+}
+
+.orca.orca-chat .native-chat-markdown a :is(code, strong) {
+  color: inherit;
+}
+
+.orca.orca-chat .native-chat-markdown :is(th, td) {
+  min-width: calc(var(--spacing) * 18);
+  overflow-wrap: break-word;
+}
+
+.orca.orca-chat .native-chat-markdown code {
+  border: 1px solid var(--chat-inline-code-border);
+  border-radius: var(--radius-sm, 0.375rem);
+  background: var(--chat-inline-code-surface);
+  padding: 0.0625rem 0.3125rem;
+  color: var(--chat-inline-code-foreground, var(--chat-code-foreground));
+  font-size: var(--chat-inline-code-ratio, 0.8571428571em);
+}
+
+.orca.orca-chat .native-chat-markdown pre:not([data-native-chat-code-content]) {
+  border: 1px solid var(--chat-code-border);
+  border-radius: var(--radius);
+  background: var(--chat-code-surface);
+  color: var(--chat-code-foreground);
+}
+
+.orca.orca-chat .native-chat-markdown pre code {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+.orca.orca-chat [data-native-chat-message-tone='faint']
+  .native-chat-markdown
+  :is(h1, h2, h3, h4, h5, h6, [role='heading'], strong, a, code, pre) {
+  color: inherit;
+}
+
+/* ---- replacements for the forbidden patterns (SPEC 4.3) ---- */
+/* Orca's blockquote is `border-l-2 border-border/70 pl-3`, a vertical bar. A bare blockquote gets a light
+   tint instead; WP2 should still write the classes `my-3 rounded-md bg-chat-foreground/5 px-3 py-1.5
+   text-muted-foreground`, which this matches. :where keeps it below any class. */
+.orca.orca-chat .native-chat-markdown :where(blockquote) {
+  margin-block: calc(var(--spacing) * 3);
+  border: 0;
+  border-radius: var(--radius-md, 0.375rem);
+  background: color-mix(in srgb, var(--chat-foreground) 5%, transparent);
+  padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 3);
+  color: var(--muted-foreground);
+}
+
+/* Endless pulse and spin utilities are not neutralised here on purpose: SPEC 5.0 and 6.4 check that no
+   file under src/orca/chat names them at all. Use LoadingSpinner or AgentWorkingSpinner from src/orca/ui/
+   (stepped rotation in orca.css). A static label or a dot replaces a pulsing one. */

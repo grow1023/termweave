@@ -60,7 +60,8 @@ try {
  page.on('request', request => { if (/\/api\/.*update|install|workspace\/create/.test(request.url())) unsafeRequests++; });
  page.on('load', () => { loads++; });
  await page.goto(`${origin}/controls-test`);
- const refresh = page.getByRole('button', { name: '새로고침', exact: true }), update = page.getByRole('button', { name: '업데이트 하기', exact: true });
+ // "Reload page" (페이지 새로고침, was "Refresh page"): it reloads this web page, not the terminals
+ const refresh = page.getByRole('button', { name: '페이지 새로고침', exact: true }), update = page.getByRole('button', { name: '업데이트 하기', exact: true });
  await refresh.waitFor(); assert.equal(await update.count(), 0);
  deployed = newId; await page.evaluate(() => window.dispatchEvent(new Event('focus'))); await update.waitFor();
  assert.equal(await refresh.count(), 1); assert.ok(await update.getAttribute('title'));

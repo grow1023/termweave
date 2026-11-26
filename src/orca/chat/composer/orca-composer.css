@@ -1,0 +1,204 @@
+/* TermWeave's Composer in Orca's look (stablyai/orca, MIT, Copyright (c) 2026 Lovecast Inc.,
+   NativeChatComposerField.tsx:193-314 and NativeChatComposerActions.tsx), as CSS over Composer.css.
+   Only colours, borders, radii, shadows and the column width change. Untouched on purpose, because
+   the input's behaviour depends on them:
+   - `.composer` padding, including `[data-keyboard] .composer` and the safe-area inset (Composer.css
+     lines 4-19), and `.terminal-host:has(.composer)` (styles.css 455): they keep the box above a
+     phone's keyboard and clear of the home indicator.
+   - `.composer-text` font-size (`--fs-input`, 16px: iOS does not zoom on focus), padding, min-height
+     and max-height (Composer.tsx reads the computed min-height for the grip floor and sets the height).
+   - every `(pointer: coarse)` touch size in Composer.css.
+   Inside `.orca`, Orca redefines --primary, --accent, --border and --radius-*, which Composer.css also
+   reads; the rules below set the shadowed colours explicitly so TermWeave's --primary-text is never
+   drawn on Orca's --primary. */
+
+.orca .orca-composer .composer {
+  background: var(--chat-pane);
+}
+
+.orca .orca-composer .composer-status,
+.orca .orca-composer .composer-quick,
+.orca .orca-composer .composer-surface,
+.orca .orca-composer .composer-note {
+  width: min(100%, var(--chat-content-max-width));
+}
+
+.orca .orca-composer .composer-status {
+  color: var(--chat-foreground-faint);
+}
+
+.orca .orca-composer .composer-status strong {
+  color: var(--chat-foreground-strong);
+}
+
+/* the card: rounded-xl border shadow-xs border-chat-composer-border bg-chat-composer-surface */
+.orca .orca-composer .composer-surface {
+  border: 1px solid var(--chat-composer-border);
+  border-radius: var(--radius-xl);
+  background: var(--chat-composer-surface);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+/* Orca keeps a constant border so focus cannot flash it */
+.orca .orca-composer .composer-surface:focus-within {
+  border-color: var(--chat-composer-border);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.orca .orca-composer .composer-surface.is-dragging {
+  border-color: var(--chat-composer-border);
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.orca .orca-composer .composer-resize::before {
+  background: var(--border);
+}
+
+.orca .orca-composer .composer-resize:hover::before,
+.orca .orca-composer .composer-resize:active::before,
+.orca .orca-composer .composer-resize:focus-visible::before {
+  background: var(--muted-foreground);
+}
+
+.orca .orca-composer .composer-text {
+  color: var(--chat-foreground-strong);
+}
+
+.orca .orca-composer .composer-text::placeholder {
+  color: var(--chat-foreground-faint);
+}
+
+.orca .orca-composer .composer-controls .icon-button,
+.orca .orca-composer .composer-queue-button {
+  color: var(--chat-foreground-faint);
+}
+
+/* the round primary: variant default (send) and secondary (stop), rounded-full */
+.orca .orca-composer .composer-send {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.orca .orca-composer .composer-stop {
+  background: var(--secondary);
+  border-color: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+.orca .orca-composer .composer-queue-button {
+  background: transparent;
+  border-color: transparent;
+  border-radius: calc(var(--radius) * 0.8);
+}
+
+@media (hover: hover) {
+  .orca .orca-composer .composer-send:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--primary) 90%, transparent);
+    border-color: transparent;
+  }
+
+  .orca .orca-composer .composer-stop:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--secondary) 80%, transparent);
+  }
+
+  .orca .orca-composer .composer-queue-button:hover:not(:disabled),
+  .orca .orca-composer .composer-controls .icon-button:hover:not(:disabled) {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+}
+
+/* the slash and @ menu: rounded-lg border bg-popover shadow-floating */
+.orca .orca-composer .composer-menu {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-floating);
+}
+
+.orca .orca-composer .composer-menu .menu-item[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.orca .orca-composer .composer-menu .menu-item-main {
+  font-family: var(--font-mono);
+}
+
+/* attachment tiles: rounded-md border border-border bg-chat-canvas */
+.orca .orca-composer .composer-attachment {
+  border-color: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--chat-canvas);
+}
+
+.orca .orca-composer .composer-attachment.is-error {
+  border-color: var(--destructive);
+}
+
+.orca .orca-composer .composer-attachment button {
+  border-color: var(--border);
+  background: var(--chat-canvas);
+  color: var(--muted-foreground);
+}
+
+.orca .orca-composer .composer-note {
+  color: var(--destructive);
+}
+
+.orca .orca-composer .composer-hint {
+  color: var(--chat-foreground-faint);
+}
+
+/* ---- the Orca frame (OrcaComposer → ComposerFrame with class `composer is-framed`) ----
+   The frame draws its own gutter (native-chat-composer-gutter, pb-4), so `.composer` keeps only
+   the part of the home-indicator inset that the gutter does not already cover, applied once.
+   The textarea keeps `.composer-text` (16px input font, the grip's min-height floor); the frame
+   has no `.composer-surface`, so its control height is set here. */
+.orca .orca-composer .composer.is-framed {
+  --composer-control-h: var(--control-h);
+  padding: 0 0 max(0px, calc(env(safe-area-inset-bottom, 0px) - 2 * var(--space-4)));
+}
+
+[data-keyboard] .orca .orca-composer .composer.is-framed {
+  padding-bottom: 0;
+}
+
+[data-keyboard] .orca .orca-composer .composer.is-framed .native-chat-composer-gutter {
+  padding-bottom: var(--space-2);
+}
+
+@media (pointer: coarse) {
+  .orca .orca-composer .composer.is-framed {
+    --composer-control-h: var(--touch-target);
+  }
+}
+
+.orca .orca-composer .composer.is-framed .composer-text {
+  display: block;
+  padding-inline: var(--space-2);
+}
+
+/* the dictation pill and the grip sit on the frame's column, not on `.composer`'s padding edge */
+.orca .orca-composer .composer.is-framed .voice-pill[data-align="start"] {
+  left: 0;
+}
+
+/* TermWeave's chips above the box, read in Orca's tokens */
+.orca .orca-composer .composer.is-framed .composer-quick {
+  width: 100%;
+}
+
+.orca .orca-composer .composer-quick-reply {
+  border-color: var(--border);
+  background: var(--chat-composer-surface);
+  color: var(--chat-foreground);
+}
+
+/* the height grip hangs above the box (bottom: 100% of the column): the gutter leaves it its own
+   room, so it never sits on the dock's last card */
+.orca .orca-composer .composer.is-framed .native-chat-composer-gutter {
+  padding-top: 14px;
+}

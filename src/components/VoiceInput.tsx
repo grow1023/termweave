@@ -109,6 +109,8 @@ export interface Dictation {
   /** the transcript so far, while it is being made */
   partial: string;
   press: () => void;
+  /** writes the input's one-line note (the mic says there why it cannot record) */
+  note: (note: string | null) => void;
 }
 
 /**
@@ -220,15 +222,19 @@ export function useDictation(options: DictationOptions): Dictation {
     return registerTarget({ mode: latest.current.mode, box: latest.current.box, voice: () => voiceRef.current, press });
   }, [shown, press]);
 
-  return { shown, connected: options.connected, voice: { ...voice, cancel }, forget, partial, press };
+  const note = useCallback((text: string | null): void => latest.current.onNote(text), []);
+  return { shown, connected: options.connected, voice: { ...voice, cancel }, forget, partial, press, note };
 }
 
 /** The mic: press to talk, held (release finishes) or tapped (tap again to finish). */
 export function MicButton({ dictation, className = "" }: { dictation: Dictation; className?: string }) {
   const t = useT();
-  const { voice, connected, press } = dictation;
+  const { voice, connected, press, note } = dictation;
   const recording = voice.state === "starting" || voice.state === "recording";
   const reason = voice.unavailableReason ? errorNote(t, voice.unavailableReason) : null;
+  // unavailable for a reason (plain HTTP, no mic): the button still takes a press and the note
+  // says why. Disabled, a phone gave no answer at all: the reason lived only in a hover title
+  const explains = reason !== null && connected;
   const label = recording ? t("Insert dictation") : t("Dictate (hold)");
   // a pointer already acted on pointerdown, so the click that follows its release is skipped;
   // a touch tap's click has detail 0 like a keyboard's, so detail cannot tell them apart
@@ -242,17 +248,22 @@ export function MicButton({ dictation, className = "" }: { dictation: Dictation;
         aria-label={label}
         aria-pressed={recording}
         title={reason ?? label}
-        disabled={!voice.available || !connected}
+        disabled={!explains && (!voice.available || !connected)}
+        aria-disabled={explains || undefined}
         onPointerDown={(event) => {
           if (event.button !== 0) return;
+          if (explains) { event.preventDefault(); note(reason); return; }
           // focus and the soft keyboard stay where they are
           event.preventDefault();
           event.currentTarget.setPointerCapture(event.pointerId);
           press();
         }}
-        onPointerUp={() => { pointerUpAt.current = performance.now(); voice.release(); }}
-        onPointerCancel={() => voice.release()}
-        onClick={() => { if (performance.now() - pointerUpAt.current > 500) press(); }}
+        onPointerUp={() => { pointerUpAt.current = performance.now(); if (!explains) voice.release(); }}
+        onPointerCancel={() => { if (!explains) voice.release(); }}
+        onClick={() => {
+          if (performance.now() - pointerUpAt.current <= 500) return;
+          if (explains) note(reason); else press();
+        }}
       >
         {recording ? <Square aria-hidden="true" /> : <Mic aria-hidden="true" />}
       </button>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
-import { CornerDownLeft, ImagePlus, SendHorizontal } from "lucide-react";
+import { CornerDownLeft, Paperclip, SendHorizontal } from "lucide-react";
 
 import "./TerminalInput.css";
 import { readTerminalDraft, writeTerminalDraft, TERMINAL_LINE_LIMIT, subscribeTerminalDraft, terminalDraftSending, setTerminalDraftSending, acknowledgeTerminalDraft } from "../lib/terminalDraft.ts";
@@ -21,6 +21,8 @@ export interface TerminalInputProps {
   onEnter: () => boolean;
   /** Backspace in an empty line: erase the character the terminal already has (a sent line, a Tab completion) */
   onBackspace: () => void;
+  /** the screen may be asking for a password: what is typed now stays in memory, never in a stored draft */
+  secretLikely?: boolean;
 }
 
 /** Lines the box grows to before it scrolls. */
@@ -32,15 +34,17 @@ const MAX_ROWS = 4;
  * cannot take back keys it already sent: every revision arrived as more text. Here the line
  * is written with the keyboard's own editing and goes to the pane whole, then Enter.
  */
-export function TerminalInput({ owner, paneId, connected, onSend, onEnter, onBackspace, onComposing }: TerminalInputProps) {
+export function TerminalInput({ owner, paneId, connected, onSend, onEnter, onBackspace, onComposing, secretLikely = false }: TerminalInputProps) {
   const t = useT();
   const text = useSyncExternalStore(subscribeTerminalDraft, () => readTerminalDraft(owner));
+  // a ref: a dictation or an upload that lands later must see the screen as it is then
+  const secretLikelyRef = useRef(secretLikely);
+  secretLikelyRef.current = secretLikely;
   const setText = useCallback((value: string | ((previous: string) => string)) => {
     // Read the owner record even after unmount: a late acknowledgement must not erase
     // edits made in a newly mounted input for the same pane.
     const next = typeof value === "function" ? value(readTerminalDraft(owner)) : value;
-    writeTerminalDraft(owner, next);
-
+    writeTerminalDraft(owner, next, !secretLikelyRef.current);
   }, [owner]);
   const composing = useRef(false);
   const composingCallback = useRef(onComposing);
@@ -81,13 +85,16 @@ export function TerminalInput({ owner, paneId, connected, onSend, onEnter, onBac
   const attach = async (files: File[]): Promise<void> => {
     if (files.length === 0) return;
     setUploading(true); setNote(null);
+    // the file that failed and why: "Try again" alone left a too-large or refused file a mystery
+    let current = files[0]!;
     try {
       const paths: string[] = [];
-      for (const file of files) paths.push(await uploadPaneImage(paneId, file));
+      for (const file of files) { current = file; paths.push(await uploadPaneImage(paneId, file)); }
       const quoted = paths.map((path) => `'${path.replaceAll("'", "'\\''")}'`).join(" ");
       setText((previous) => `${previous}${previous && !/\s$/.test(previous) ? " " : ""}${quoted} `);
-    } catch {
-      setNote(t("Could not attach the image. Try again."));
+    } catch (cause) {
+      const reason = cause instanceof Error && cause.message ? cause.message : t("Try again.");
+      setNote(t("Could not attach {file}: {reason}", { file: current.name, reason }));
     } finally { setUploading(false); }
   };
 
@@ -188,7 +195,7 @@ export function TerminalInput({ owner, paneId, connected, onSend, onEnter, onBac
       }} />
       <button type="button" className="terminal-input-attach" aria-label={t(uploading ? "Uploading file…" : "Attach image")} title={t("Attach image")}
         disabled={!connected || uploading || sending} onPointerDown={(event) => event.preventDefault()} onClick={() => picker.current?.click()}>
-        <ImagePlus aria-hidden="true" />
+        <Paperclip aria-hidden="true" />
       </button>
       {dictation.shown && <MicButton dictation={dictation} className="terminal-input-mic" />}
       <button

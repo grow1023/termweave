@@ -29,3 +29,6 @@
     background: var(--bg-hover);
   }
 }
+
+/* the count changes while the user watches: figures of one width keep the heading still */
+.needs-input-count { font-variant-numeric: tabular-nums; }

@@ -35,29 +35,32 @@ try {
   const address = page.getByLabel("웹 주소", { exact: true });
   check(await address.evaluate(element => element === document.activeElement), "open focuses URL field");
   await address.press("Tab");
-  check(await page.getByRole("button", { name: "주소 확인" }).evaluate(element => element === document.activeElement), "Tab reaches URL action");
-  await page.getByRole("button", { name: "주소 확인" }).press("Control+l");
+  // "Check address" became "Show page" (페이지 보기): one step from a valid address to the page
+  check(await page.getByRole("button", { name: "페이지 보기", exact: true }).evaluate(element => element === document.activeElement), "Tab reaches URL action");
+  await page.getByRole("button", { name: "페이지 보기", exact: true }).press("Control+l");
   check(await address.evaluate(element => element === document.activeElement), "Control+L focuses address from panel controls");
   await address.dispatchEvent("keydown", { key: "Escape", isComposing: true, bubbles: true });
   check(await address.isVisible(), "IME composition Escape does not close panel");
   await address.fill("javascript:alert(1)"); await address.press("Enter");
   check(await page.getByRole("alert").count() === 1 && await page.locator("iframe").count() === 0, "invalid schemes never create a frame");
+  // Enter alone shows a frameable address (it used to need a second press on "try restricted
+  // embedded view"); the frame keeps its sandbox, and the new-tab link stays beside it
   await address.fill(`http://localhost:${fixture.port}/allowed`); await address.press("Enter");
   const link = page.getByRole("link", { name: "새 탭에서 열기" });
   check(await link.getAttribute("rel") === "noopener noreferrer" && await link.getAttribute("target") === "_blank", "safe explicit external link");
-  check(await page.locator("iframe").count() === 0, "URL check does not navigate iframe");
-  await page.getByRole("button", { name: "제한된 내부 표시 시도" }).click();
   await page.frameLocator("iframe").getByRole("heading", { name: "Allowed fixture" }).waitFor();
+  check(await page.getByRole("button", { name: "제한된 내부 표시 시도" }).count() === 0 && await page.getByRole("button", { name: "내부 표시 중지" }).isVisible(), "while a frame shows, only its stop button is offered");
   check(await page.locator("iframe").getAttribute("sandbox") === "allow-scripts", "opaque-origin iframe sandbox");
   check(!(await page.locator("body").getAttribute("data-escaped")), "frame cannot access parent DOM");
   await page.screenshot({ path: `${evidence}/preview-allowed.png` });
   await page.getByRole("button", { name: "내부 표시 중지" }).click();
+  check(await page.locator("iframe").count() === 0 && await page.getByRole("button", { name: "제한된 내부 표시 시도" }).isEnabled(), "stopping removes the frame and offers it again");
   const blockedResponse = await fetch(`http://localhost:${fixture.port}/denied`);
   check(blockedResponse.headers.get("x-frame-options") === "DENY" && blockedResponse.headers.get("content-security-policy") === "frame-ancestors 'none'", "framing security headers preserved");
   const blocked = page.waitForEvent("console", { predicate: message => /frame-ancestors|X-Frame-Options|Refused to frame/.test(message.text()), timeout: 10000 });
-  await address.fill(`http://localhost:${fixture.port}/denied`); await address.press("Enter");
-  await page.getByRole("button", { name: "제한된 내부 표시 시도" }).click(); await blocked;
-  check(await page.getByText(/표시 성공을 보장하지 않습니다/).count() === 1, "blocked framing remains honest, external fallback visible");
+  await address.fill(`http://localhost:${fixture.port}/denied`); await address.press("Enter"); await blocked;
+  // a refused frame gives no reliable JS signal: the panel always says what to do when it stays blank
+  check(await page.getByText(/화면이 비어 있으면 새 탭에서 여세요/).count() === 1 && await link.isVisible(), "blocked framing remains honest, external fallback visible");
   await page.screenshot({ path: `${evidence}/preview-framing-denied.png` });
   await address.focus(); await address.press("Escape");
   check(await page.getByRole("button", { name: "웹 미리보기 열기" }).evaluate(element => element === document.activeElement), "Escape closes and restores focus");

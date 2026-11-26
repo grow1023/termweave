@@ -2,7 +2,9 @@
 // One server call at a time: the control stays off while it runs, and the server's refusal text stays on screen.
 import { useCallback, useRef, useState } from "react";
 
+import { useT } from "../../../lib/i18n.ts";
 import { cn } from "../../cn.ts";
+import { botErrorText } from "../data.ts";
 
 export type BotAction = {
   busy: boolean;
@@ -13,6 +15,7 @@ export type BotAction = {
 };
 
 export function useBotAction(): BotAction {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const running = useRef(false);
@@ -25,13 +28,13 @@ export function useBotAction(): BotAction {
       await job();
       return true;
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(botErrorText(caught, t));
       return false;
     } finally {
       running.current = false;
       setBusy(false);
     }
-  }, []);
+  }, [t]);
   const clear = useCallback(() => setError(null), []);
   return { busy, error, run, clear };
 }

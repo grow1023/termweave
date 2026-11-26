@@ -32,7 +32,7 @@ function StatusMenu({ item, live, disabled, onStatus }: { item: BotItem; live: b
         </DropdownMenuItem>
         <DropdownMenuItem disabled={item.status === "canceled"} onSelect={() => onStatus("canceled")}>
           <span className="flex w-4 justify-center"><BotItemStatusIcon status="canceled" /></span>
-          <span className="flex-1">{t("Cancel")}</span>
+          <span className="flex-1">{t("Cancel item")}</span>
           {item.status === "canceled" ? <Check className="size-3" /> : null}
         </DropdownMenuItem>
         <DropdownMenuItem disabled={!closed} onSelect={() => onStatus("planned")}>

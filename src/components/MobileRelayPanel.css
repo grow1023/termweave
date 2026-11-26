@@ -10,3 +10,5 @@
 .mobile-relay-image { display:block; max-width:100%; width:auto; max-height:65vh; justify-self:center; object-fit:contain; background:#111; }
 .mobile-relay-image.interactive { touch-action:none; cursor:crosshair; }
 .mobile-relay-control { display:flex; align-items:center; gap:.5rem; min-height:44px; }
+/* revoking sits apart from Connect, at the far end of the row, so one is not tapped for the other */
+.mobile-relay-revoke { margin-inline-start:auto; }

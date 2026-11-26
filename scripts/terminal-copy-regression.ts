@@ -19,7 +19,7 @@ process.stdout.write("DRAGCOPY-second-line\\r\\n");
 process.stdout.write("LONG-" + "x".repeat(${300}) + "-END\\r\\n");
 setInterval(() => {}, 1000);
 `);
-  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: "en-US" });
   try {
     await context.addInitScript((id) => {
       localStorage.setItem(`termweave:view:${id}`, "terminal");
@@ -76,7 +76,7 @@ setInterval(() => {}, 1000);
     await page.evaluate(() => { (window as any).clipboardGesture.checking = true; });
     const box = (await first.boundingBox())!;
     const dragged = await drag({ x: box.x + 1, y: box.y + box.height / 2 }, { x: box.x + 400, y: box.y + box.height / 2 });
-    await page.locator(".terminal-banner", { hasText: "copied to clipboard" }).waitFor();
+    await page.locator(".terminal-banner", { hasText: "Copied to clipboard" }).waitFor();
     if (process.env.UI_EVIDENCE_DIR) {
       mkdirSync(process.env.UI_EVIDENCE_DIR, { recursive: true });
       await page.screenshot({ path: join(process.env.UI_EVIDENCE_DIR, "terminal-drag-copy.png") });
@@ -188,7 +188,7 @@ setInterval(() => {}, 1000);
     assert.equal(await clipboard(page), `LONG-${"x".repeat(300)}-END`, "a soft-wrapped line must copy without line breaks");
 
     // plain HTTP (no navigator.clipboard): the copy command takes over
-    const insecure = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const insecure = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: "en-US" });
     try {
       await insecure.addInitScript((id) => {
         localStorage.setItem(`termweave:view:${id}`, "terminal");
@@ -212,7 +212,7 @@ setInterval(() => {}, 1000);
       await plain.mouse.down();
       await plain.mouse.move(rowBox.x + 400, rowBox.y + rowBox.height / 2, { steps: 6 });
       await plain.mouse.up();
-      await plain.locator(".terminal-banner", { hasText: "copied to clipboard" }).waitFor();
+      await plain.locator(".terminal-banner", { hasText: "Copied to clipboard" }).waitFor();
       assert.match(await plain.evaluate(() => (window as any).copied as string), /^DRAGCOPY-first-line/, "plain HTTP drag must copy");
       await plain.evaluate(() => { (window as any).copied = undefined; });
       await plain.mouse.dblclick(rowBox.x + 20, rowBox.y + rowBox.height / 2);

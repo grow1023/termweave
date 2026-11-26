@@ -114,6 +114,8 @@ export function FleetPanel({ machines, onClose, onOpen, onSetup, onConnections }
   const uncounted = fleetUncountedMachines(snapshot.machines, connections);
   const open = (thread: FleetThread) => { onOpen(thread.machineId, thread.paneId); onClose(); };
   const openPane = (machineId: string, paneId: string) => { onOpen(machineId, paneId); onClose(); };
+  const waitingThreads = snapshot.threads.filter((thread) => thread.state === "attention");
+  const machineName = (machineId: string): string => snapshot.machines.find((machine) => machine.id === machineId)?.label ?? machineId;
   const shownMachines = selectedMachine ? machines.filter((machine) => machine.id === selectedMachine.id) : machines;
 
   return createPortal(
@@ -123,14 +125,24 @@ export function FleetPanel({ machines, onClose, onOpen, onSetup, onConnections }
         <button type="button" className="icon-button" aria-label={t("Close")} onClick={onClose} autoFocus><X aria-hidden="true" /></button>
       </header>
       <main className="fleet-body">
+        {/* the first question here is "which agent waits for me": those rows come first, from every PC */}
+        {waitingThreads.length > 0 ? (
+          <section aria-labelledby={`${id}-waiting`} className="fleet-machine-section fleet-waiting">
+            <h3 id={`${id}-waiting`} className="fleet-waiting-title">{t("Needs you")}</h3>
+            <FleetThreadList threads={waitingThreads} subagents={telemetry.subagents} onOpen={open} machineName={machineName} />
+          </section>
+        ) : null}
         <FleetConsole snapshot={snapshot} machines={machines} connections={connections} telemetry={telemetry} reduced={reduced} onSetup={(machine) => { onClose(); onSetup(machine); }} />
-        <p className="fleet-status" role="status">
-          {totals.running + totals.attention === 0
-            ? (totals.machines === 1 ? t("Nothing running on 1 PC") : t("Nothing running on {n} PCs", { n: totals.machines }))
-            : t("{running} running, {attention} need you, on {machines} PCs", { running: totals.running, attention: totals.attention, machines: totals.machines })}
-          {uncounted.length > 0 ? " " : null}
-          <FleetUncountedHosts hosts={uncounted} />.
-          {totals.reported > 0 ? " " + t("{n} done, waiting to be read.", { n: totals.reported }) : null}
+        <p className="fleet-status">
+          {/* only the counts are live: the passing "Reading host status…" would make a reader repeat the sentence */}
+          <span role="status">
+            {totals.running + totals.attention === 0
+              ? (totals.machines === 1 ? t("Nothing running on 1 PC") : t("Nothing running on {n} PCs", { n: totals.machines }))
+              : t("{running} running, {attention} need you, on {machines} PCs", { running: totals.running, attention: totals.attention, machines: totals.machines })}
+            {uncounted.length > 0 ? " " : null}
+            <FleetUncountedHosts hosts={uncounted} />.
+            {totals.reported > 0 ? " " + t("{n} done, waiting to be read.", { n: totals.reported }) : null}
+          </span>
           {telemetry.loading && machines.some((machine) => machine.state === "connected") ? " " + t("Reading host status…") : null}
         </p>
         <section aria-label={t("Fleet graph")} className="fleet-graph-card">
@@ -227,7 +239,7 @@ function fleetMachineWork(machine: FleetMachine): string {
 }
 
 /** One PC's work, in pane order, so rows hold still while statuses change. */
-function FleetThreadList({ threads, subagents, onOpen }: { readonly threads: ReadonlyArray<FleetThread>; readonly subagents: ReadonlyMap<string, ReadonlyArray<FleetSubagent>>; readonly onOpen: (thread: FleetThread) => void }) {
+function FleetThreadList({ threads, subagents, onOpen, machineName }: { readonly threads: ReadonlyArray<FleetThread>; readonly subagents: ReadonlyMap<string, ReadonlyArray<FleetSubagent>>; readonly onOpen: (thread: FleetThread) => void; /** names each row's PC, for a list across PCs */ readonly machineName?: (machineId: string) => string }) {
   return (
     <ul className="fleet-thread-list">
       {threads.map((thread) => (
@@ -238,7 +250,7 @@ function FleetThreadList({ threads, subagents, onOpen }: { readonly threads: Rea
             <button type="button" className="fleet-thread-open" onClick={() => onOpen(thread)}>
               <span className="fleet-thread-number">{thread.number}</span> {thread.title}
             </button>
-            {thread.workspace ? <small>{thread.workspace}</small> : null}
+            {machineName || thread.workspace ? <small>{[machineName?.(thread.machineId), thread.workspace].filter(Boolean).join(" · ")}</small> : null}
             <FleetSubagents subagents={subagents.get(thread.key) ?? []} count={thread.backgroundTasks} />
           </span>
           <span className="fleet-thread-agent"><AgentMark agent={thread.agentDriver} size={14} />{thread.agentLabel}</span>

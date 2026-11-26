@@ -52,7 +52,7 @@
   font-size: var(--fs-sm);
 }
 
-.chat-terminal-fallback summary { cursor: pointer; }
+.chat-terminal-fallback summary { cursor: pointer; font-size: var(--fs-md); font-weight: var(--fw-medium); color: var(--text); word-break: keep-all; overflow-wrap: anywhere; }
 .chat-terminal-fallback pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* a user turn opens a new exchange: a hairline separates it from the answer above */
@@ -491,6 +491,10 @@
 .chat-tool-io pre,
 .chat-tool-io p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .chat-tool-io > :not(:first-child) { margin-top: var(--space-2); }
+/* a command the agent ran, with its copy button at the line's end */
+.chat-tool-command { display: flex; align-items: flex-start; gap: var(--space-2); }
+.chat-tool-command > pre { flex: 1; min-width: 0; }
+.chat-tool-command .chat-copy { flex: none; }
 
 /* a tool's own pictures (pi reads a file into the result): left-aligned, unlike a user's
    attachments, and only fetched when the row is opened, so the bytes are not on the page */

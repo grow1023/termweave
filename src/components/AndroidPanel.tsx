@@ -22,7 +22,7 @@ export function AndroidPanel({ readOnly = false }: {readOnly?: boolean}) {
   useEffect(()=>{let live=true;const poll=()=>request<AndroidOverview>().then(x=>{if(live)setData(x);},()=>{if(live)setError("android_unavailable");});void poll();const timer=setInterval(poll,10000);return()=>{live=false;clearInterval(timer);};},[]);
   const run=async(path:string,body:unknown)=>{setBusy(true);setError("");setNotice("");try{await request(path,body);await load();setNotice(path==="/pair"?t("Pairing saved. Use the connection port to connect."):t("Device action completed."));}catch(e){setError(e instanceof Error?e.message:"android_unavailable");}finally{setCode("");setBusy(false);}};
   const errors:Record<string,string>={device_not_connected:t("Connect and authorize your phone, then refresh."),device_not_registered:t("Register this phone before mirroring."),mirror_already_running:t("This phone already has a mirror window."),pairing_failed:t("Pairing failed. Check the code and pairing port."),invalid_pairing_code:t("Enter the six-digit pairing code."),connection_failed:t("Connection failed. Check the phone's connection port."),private_wifi_endpoint_required:t("Enter a private Wi-Fi IPv4 address and port."),invalid_endpoint:t("Enter a private Wi-Fi IPv4 address and port."),stop_mirror_first:t("Stop the mirror before removing this phone."),mirror_stop_unconfirmed:t("The mirror has not confirmed shutdown."),android_unavailable:t("Android tools are unavailable. Check the host Mac."),adb_command_failed:t("The phone did not respond. Check its connection and authorization."),read_only:t("This device can only watch.")};
-  return <section ref={root} className="android-panel" aria-label={t("My Android devices")}>
+  return <section ref={root} className="android-panel" aria-label={t("Android screen mirroring")}>
     <p>{t("Mirror windows open on the Mac running TermWeave, not on this browser's device.")}</p>
     <p className="settings-description">{t("USB and same-Wi-Fi mirroring need no Tailscale. Unattended LTE recovery is not verified.")}</p>
     {error&&<p role="alert">{errors[error]??t("Device action failed. Refresh and try again.")}</p>}
@@ -51,7 +51,7 @@ export function AndroidPanel({ readOnly = false }: {readOnly?: boolean}) {
       <form onSubmit={e=>{e.preventDefault();void run(code?"/pair":"/connect",code?{endpoint,code}:{endpoint});}}>
         <label>{t("Phone Wi-Fi address and port")}<input className="input" value={endpoint} onChange={e=>setEndpoint(e.target.value)} placeholder="192.168.1.20:37000" autoComplete="off" spellCheck={false} required disabled={busy||readOnly}/></label>
         <label>{t("Pairing code (only for initial pairing)")}<input className="input" type="password" inputMode="numeric" maxLength={6} value={code} autoComplete="off" onChange={e=>setCode(e.target.value)} disabled={busy||readOnly}/></label>
-        <button className="btn" type="submit" disabled={busy||readOnly}>{code?t("Pair phone"):t("Connect")}</button>
+        <button className="btn" type="submit" disabled={busy||readOnly}>{code?t("Pair for mirroring"):t("Connect")}</button>
       </form>
     </details>
     {forget&&<ConfirmDialog title={t("Remove phone registration?")} body={t("This removes only the TermWeave registration. Revoke USB or wireless debugging separately on your phone.")} confirmLabel={t("Remove registration")} onClose={()=>setForget(null)} onConfirm={async()=>{await request("/forget",{id:forget});await load();setForget(null);}}/>}

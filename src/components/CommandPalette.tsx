@@ -1,18 +1,18 @@
 import { paneNumber } from "../lib/paneNumber.ts";
-import { useMachineId } from "../lib/machineContext.tsx";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType } from "react";
-import { Bell, Bold, FolderOpen, LockKeyhole, MessageSquarePlus, Monitor, PanelLeft, RefreshCw, Settings, SunMoon, SwitchCamera, X } from "lucide-react";
+import { Bell, Bold, FolderOpen, LogOut, MessageSquarePlus, Monitor, PanelLeft, RefreshCw, Settings, SunMoon, SwitchCamera, X } from "lucide-react";
 
 import "./CommandPalette.css";
 
-import type { PaneInfo, SessionSnapshot } from "../../shared/protocol.ts";
+import type { Machine } from "../../shared/machines.ts";
 import type { AppActions, PaneView } from "../lib/actions.ts";
-import { rankPanes } from "../lib/paletteSearch.ts";
+import { paletteEntries, paletteStart, searchPalette, type PaletteEntry } from "./navModel.ts";
 import { SHORTCUTS, formatKeys, type ShortcutId } from "../lib/shortcuts.ts";
 import { AgentMark } from "./AgentMark.tsx";
 import { displayPaneTitle, StatusBadge } from "./Sidebar.tsx";
 import { placeLine } from "../lib/paneName.ts";
 import { useT } from "../lib/i18n.ts";
+import { paneStorageId } from "../../shared/machines.ts";
 
 const RECENT_KEY = "termweave:recent-panes";
 const RECENT_LIMIT = 8;
@@ -20,10 +20,13 @@ const RECENT_LIMIT = 8;
 interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
-  snapshot: SessionSnapshot | null;
+  /** every PC: a pane is found wherever it runs, not only on the PC open now */
+  machines: Machine[];
+  selectedMachineId: string;
   selectedPaneId: string | null;
   view: PaneView;
   actions: AppActions;
+  onSelectTarget: (machineId: string, paneId: string) => void;
 }
 
 interface PaletteAction {
@@ -53,6 +56,13 @@ function rememberPane(paneId: string, current: readonly string[], machineId: str
   return recent;
 }
 
+/** Each PC's own recent list, as one rank per pane: the lists interleave, most recent first. */
+function recentRanks(lists: Readonly<Record<string, readonly string[]>>): Map<string, number> {
+  const ranks = new Map<string, number>();
+  for (const [machineId, ids] of Object.entries(lists)) ids.forEach((id, index) => ranks.set(paneStorageId(machineId, id), index));
+  return ranks;
+}
+
 function cwdBasename(path: string | null | undefined): string {
   if (!path) return "";
   const parts = path.replace(/\\/g, "/").split("/").filter(Boolean);
@@ -66,12 +76,13 @@ function ShortcutHint({ shortcutId }: { shortcutId?: ShortcutId }) {
   return <span className="palette-shortcut" aria-label={formatKeys(shortcut.keys).join(" + ")}>{formatKeys(shortcut.keys).map((key) => <kbd className="kbd" key={key}>{key}</kbd>)}</span>;
 }
 
-export function CommandPalette({ open, onClose, snapshot, selectedPaneId, view, actions }: CommandPaletteProps) {
+export function CommandPalette({ open, onClose, machines, selectedMachineId, selectedPaneId, view, actions, onSelectTarget }: CommandPaletteProps) {
   const t = useT();
-  const machineId = useMachineId();
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
-  const [recentPaneIds, setRecentPaneIds] = useState<string[]>(() => loadRecentPanes(machineId));
+  const machineIds = machines.map((machine) => machine.id).join("\n");
+  const loadAll = (): Record<string, string[]> => Object.fromEntries(machines.map((machine) => [machine.id, loadRecentPanes(machine.id)]));
+  const [recentPaneIds, setRecentPaneIds] = useState<Record<string, string[]>>(loadAll);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Terminal attachment can move focus after the palette opens. Escape belongs to
@@ -92,14 +103,14 @@ export function CommandPalette({ open, onClose, snapshot, selectedPaneId, view, 
     if (!open) return;
     setQuery("");
     setActiveIndex(0);
-    setRecentPaneIds(loadRecentPanes(machineId));
+    setRecentPaneIds(loadAll());
     window.requestAnimationFrame(() => inputRef.current?.focus());
-  }, [open]);
+  }, [open, machineIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (selectedPaneId === null) return;
-    setRecentPaneIds((current) => rememberPane(selectedPaneId, current, machineId));
-  }, [selectedPaneId]);
+    setRecentPaneIds((current) => ({ ...current, [selectedMachineId]: rememberPane(selectedPaneId, current[selectedMachineId] ?? [], selectedMachineId) }));
+  }, [selectedPaneId, selectedMachineId]);
 
   const paletteActions = useMemo<PaletteAction[]>(() => [
     { id: "new", label: t("New session"), icon: MessageSquarePlus, shortcut: "new-session", run: actions.openNewSession },
@@ -110,20 +121,22 @@ export function CommandPalette({ open, onClose, snapshot, selectedPaneId, view, 
     { id: "settings", label: t("Settings"), icon: Settings, shortcut: "settings", run: actions.openSettings },
     { id: "add-pc", label: t("Add PC"), icon: Monitor, run: actions.openAddPc },
     ...(actions.enableNotifications ? [{ id: "notifications", label: t("Enable notifications"), icon: Bell, run: actions.enableNotifications }] : []),
-    ...(actions.lock ? [{ id: "lock", label: t("Sign out"), icon: LockKeyhole, run: actions.lock }] : []),
+    ...(actions.lock ? [{ id: "lock", label: t("Sign out"), icon: LogOut, run: actions.lock }] : []),
     ...(actions.openFiles ? [{ id: "files", label: t("Browse files"), icon: FolderOpen, run: actions.openFiles }] : []),
-    { id: "refresh", label: t("Refresh"), icon: RefreshCw, run: actions.refresh },
+    // re-reads the PCs and their terminals; the header's button reloads the web page itself
+    { id: "refresh", label: t("Reload PC list"), icon: RefreshCw, run: actions.refresh },
   ], [actions, view, t]);
 
-  const panes = useMemo(() => {
-    const allPanes = snapshot?.panes ?? [];
-    if (query.trim()) return rankPanes(query, allPanes, snapshot?.workspaces ?? []);
-    const recentOrder = new Map(recentPaneIds.map((id, index) => [id, index]));
-    return allPanes
-      .map((pane, index) => ({ pane, index, recent: recentOrder.get(pane.pane_id) }))
-      .sort((a, b) => (a.recent ?? RECENT_LIMIT + a.index) - (b.recent ?? RECENT_LIMIT + b.index))
-      .map(({ pane }) => pane);
-  }, [query, recentPaneIds, snapshot]);
+  const entries = useMemo(() => paletteEntries(machines), [machines]);
+  // typed: every match on every PC; not yet: what waits on the user, then the few opened last
+  const sections = useMemo<Array<{ id: string; heading: string; entries: PaletteEntry[] }>>(() => {
+    if (query.trim()) return [{ id: "panes", heading: t("Panes"), entries: searchPalette(query, entries) }];
+    const start = paletteStart(entries, recentRanks(recentPaneIds));
+    return [{ id: "waiting", heading: t("Needs you"), entries: start.waiting }, { id: "recent", heading: t("Recent panes"), entries: start.recent }];
+  }, [query, recentPaneIds, entries, t]);
+  const panes = useMemo(() => sections.flatMap((section) => section.entries), [sections]);
+  // P-numbers and workspace names repeat across PCs: with more than one, each row names its PC
+  const manyPcs = new Set(entries.map((entry) => entry.machineId)).size > 1;
 
   const visibleActions = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
@@ -137,9 +150,9 @@ export function CommandPalette({ open, onClose, snapshot, selectedPaneId, view, 
 
   if (!open) return null;
 
-  const runPane = (pane: PaneInfo): void => {
-    setRecentPaneIds((current) => rememberPane(pane.pane_id, current, machineId));
-    actions.selectPane(pane.pane_id);
+  const runPane = (entry: PaletteEntry): void => {
+    setRecentPaneIds((current) => ({ ...current, [entry.machineId]: rememberPane(entry.pane.pane_id, current[entry.machineId] ?? [], entry.machineId) }));
+    onSelectTarget(entry.machineId, entry.pane.pane_id);
     onClose();
   };
   const runAction = (action: PaletteAction): void => {
@@ -172,21 +185,28 @@ export function CommandPalette({ open, onClose, snapshot, selectedPaneId, view, 
     <div className="modal-scrim palette-scrim" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="menu command-palette" role="dialog" aria-modal="true" aria-label={t("Command palette")} onKeyDown={onKeyDown}>
         <div className="palette-search">
-          <input ref={inputRef} className="input" type="search" value={query} placeholder={t("Search panes and actions…")} aria-label={t("Search panes and actions")} aria-controls="palette-results" aria-activedescendant={itemCount ? `palette-item-${activeIndex}` : undefined} onChange={(event) => { setQuery(event.target.value); setActiveIndex(0); }} />
+          <input ref={inputRef} className="input" type="search" value={query} placeholder={t("Search panes on every PC, and actions…")} aria-label={t("Search panes and actions")} aria-controls="palette-results" aria-activedescendant={itemCount ? `palette-item-${activeIndex}` : undefined} onChange={(event) => { setQuery(event.target.value); setActiveIndex(0); }} />
           <button type="button" className="icon-button" aria-label={t("Close command palette")} onClick={onClose}><X /></button>
         </div>
         <div className="palette-results" id="palette-results" role="listbox">
-          {panes.length > 0 && <div className="menu-heading">{t("Panes")}</div>}
-          {panes.map((pane, index) => {
-            const workspace = snapshot?.workspaces.find((item) => item.workspace_id === pane.workspace_id);
-            const selected = pane.pane_id === selectedPaneId;
-            return (
-              <button key={pane.pane_id} id={`palette-item-${index}`} type="button" role="option" className="menu-item palette-pane" aria-selected={activeIndex === index} onMouseEnter={() => setActiveIndex(index)} onClick={() => runPane(pane)}>
-                <span className="palette-mark"><AgentMark agent={pane.agent ?? "shell"} /></span>
-                <span className="menu-item-main"><span className="palette-row-title"><span className="pane-number">{paneNumber(pane)}</span> {displayPaneTitle(pane)}{selected && <span className="palette-selected">{t("Selected")}</span>}</span><span className="palette-row-subtitle">{placeLine(workspace?.label ?? t("Unknown workspace"), cwdBasename(pane.foreground_cwd ?? pane.cwd) || t("Unknown working directory"))}</span></span>
-                <StatusBadge status={pane.agent_status} />
-              </button>
-            );
+          {sections.map((section, sectionIndex) => {
+            const offset = sections.slice(0, sectionIndex).reduce((sum, previous) => sum + previous.entries.length, 0);
+            return section.entries.length > 0 && <div key={section.id} role="group" aria-label={section.heading}>
+              <div className="menu-heading" aria-hidden="true">{section.heading}</div>
+              {section.entries.map((entry, entryIndex) => {
+                const index = offset + entryIndex;
+                const { pane } = entry;
+                const selected = entry.machineId === selectedMachineId && pane.pane_id === selectedPaneId;
+                const place = placeLine(entry.workspaceLabel ?? t("Unknown workspace"), cwdBasename(pane.foreground_cwd ?? pane.cwd) || t("Unknown working directory"));
+                return (
+                  <button key={entry.key} id={`palette-item-${index}`} type="button" role="option" className="menu-item palette-pane" aria-selected={activeIndex === index} onMouseEnter={() => setActiveIndex(index)} onClick={() => runPane(entry)}>
+                    <span className="palette-mark"><AgentMark agent={pane.agent ?? "shell"} /></span>
+                    <span className="menu-item-main"><span className="palette-row-title"><span className="pane-number">{paneNumber(pane)}</span> {displayPaneTitle(pane)}{selected && <span className="palette-selected">{t("Selected")}</span>}</span><span className="palette-row-subtitle">{manyPcs ? `${entry.machineName} · ${place}` : place}</span></span>
+                    <StatusBadge status={pane.agent_status} />
+                  </button>
+                );
+              })}
+            </div>;
           })}
           {visibleActions.length > 0 && <div className="menu-heading">{t("Actions")}</div>}
           {visibleActions.map((action, actionIndex) => {

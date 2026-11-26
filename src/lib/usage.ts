@@ -48,10 +48,13 @@ export function meterPercent(window: UsageWindow, count: UsageCount): number {
   return count === "left" ? Math.round((100 - window.used_percent) * 10) / 10 : window.used_percent;
 }
 
-/** A meter's value as text: "77%" used, "23% left". */
+/**
+ * A meter's value with what it counts, in both modes: "77% used" or "23% left". A bare "77%"
+ * meant either, depending on a setting the reader may not remember.
+ */
 export function meterText(window: UsageWindow, count: UsageCount): string {
   const value = formatPercent(meterPercent(window, count));
-  return count === "left" ? t("{percent} left", { percent: value }) : value;
+  return count === "left" ? t("{percent} left", { percent: value }) : t("{percent} used", { percent: value });
 }
 
 /** "2d 4h", "3h 12m", "12m" until a reset; null when it is unknown or already past. */

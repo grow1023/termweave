@@ -3,7 +3,7 @@ import { TeamFolders } from "./TeamFolders.tsx";
 import { paneNumber } from "../lib/paneNumber.ts";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent } from "react";
 import { fullOrderIndex, useWorkspaceReorder } from "../lib/workspaceReorder.ts";
-import { ChevronRight, Ellipsis, Folder, GripVertical, Layers, Palette, Pencil, Plus, X } from "lucide-react";
+import { ChevronRight, Ellipsis, Folder, FolderPlus, GripVertical, Layers, Palette, Pencil, Plus, X } from "lucide-react";
 import { readCollapsedWorkspaces, workspaceCollapseId, writeCollapsedWorkspaces } from "../lib/workspaceCollapse.ts";
 
 import "./Sidebar.css";
@@ -139,6 +139,8 @@ export function Sidebar({ snapshot, selectedPaneId, selectedWorkspaceId, onSelec
   const [paneDrag, setPaneDrag] = useState<{ source: PaneInfo; over: string | null } | null>(null);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(null);
+  // the row menu's "Add team folder": which workspace's TeamFolders opens its editor, and a count so a repeat opens it again
+  const [teamAdd, setTeamAdd] = useState<{ workspaceId: string; n: number } | null>(null);
   const [workspaceLabel, setWorkspaceLabel] = useState("");
   const [workspaceOrder, setWorkspaceOrder] = useState<string[]>([]);
   const [reorderPending, setReorderPending] = useState(false);
@@ -205,7 +207,13 @@ export function Sidebar({ snapshot, selectedPaneId, selectedWorkspaceId, onSelec
     const paneCount = workspacePaneCounts.get(workspace.workspace_id) ?? 1;
     const renameWorkspaceItem: RowMenuItem = { id: "rename-workspace", label: t("Rename workspace"), icon: Pencil, run: () => beginWorkspaceRename(workspace, state.scope) };
     const colorItem: RowMenuItem = { id: "session-color", label: t("Session color"), icon: Palette, run: () => setColorTarget({ id: workspace.workspace_id, label: workspace.label }) };
-    return [renameWorkspaceItem, colorItem,
+    const teamItem: RowMenuItem = { id: "add-team-folder", label: t("Add team folder"), icon: FolderPlus, run: () => {
+      // the editor lives among the terminals: a collapsed workspace opens first
+      const collapseId = workspaceCollapseId(machineId, workspace.workspace_id);
+      if (collapsed.has(collapseId)) toggleTerminals(collapseId);
+      setTeamAdd(previous => ({ workspaceId: workspace.workspace_id, n: (previous?.n ?? 0) + 1 }));
+    } };
+    return [renameWorkspaceItem, colorItem, teamItem,
       { id: "close", label: t("Close workspace"), icon: X, danger: true, divider: true, run: () => setConfirm({ title: t("Close workspace {name}?", { name: workspace.label }), body: t("{n} panes close with it, and the agents in them stop.", { n: paneCount }), run: () => leave(() => closeWorkspace(workspace.workspace_id)) }) },
     ];
   };
@@ -230,11 +238,14 @@ export function Sidebar({ snapshot, selectedPaneId, selectedWorkspaceId, onSelec
     setWorkspaceLabel(workspace.label);
   };
 
-  const saveWorkspaceRename = (workspaceId: string): void => {
+  const saveWorkspaceRename = (workspace: WorkspaceInfo): void => {
     if (renameSettled.current) return;
     renameSettled.current = true;
     const label = workspaceLabel.trim();
     setEditingWorkspaceId(null);
+    // a cleared or untouched field is a change of mind, not a request for a blank name
+    if (label === "" || label === workspace.label) return;
+    const workspaceId = workspace.workspace_id;
     void renameWorkspace(workspaceId, label).catch((reason: unknown) => {
       noteError(t("Rename failed: {reason}", { reason: reason instanceof Error ? reason.message : String(reason) }));
     });
@@ -361,13 +372,14 @@ export function Sidebar({ snapshot, selectedPaneId, selectedWorkspaceId, onSelec
           <span className="agent-mark-holder is-shell" style={{ color: resolveSessionColor(colorOf(workspace.workspace_id)) }}><Folder aria-hidden="true" /></span>
           <span className="pane-copy"><span className="pane-primary">
             {editing ? <input className="input workspace-rename-input" aria-label={t("Workspace name")} autoFocus value={workspaceLabel}
-              onClick={event => event.stopPropagation()} onChange={event => setWorkspaceLabel(event.target.value)} onBlur={() => saveWorkspaceRename(workspace.workspace_id)}
-              onKeyDown={event => { event.stopPropagation(); if (event.key === "Enter") saveWorkspaceRename(workspace.workspace_id); if (event.key === "Escape") { event.preventDefault(); renameSettled.current = true; setEditingWorkspaceId(null); } }} />
+              onClick={event => event.stopPropagation()} onChange={event => setWorkspaceLabel(event.target.value)} onBlur={() => saveWorkspaceRename(workspace)}
+              onKeyDown={event => { event.stopPropagation(); if (event.key === "Enter") saveWorkspaceRename(workspace); if (event.key === "Escape") { event.preventDefault(); renameSettled.current = true; setEditingWorkspaceId(null); } }} />
               : <span className="pane-title" onDoubleClick={() => beginWorkspaceRename(workspace, scope)}>{workspace.label}</span>}
-            {selected && !editing && <span className="workspace-current-chip">{t("Current")}</span>}
           </span><span className="pane-meta">
             <BackgroundBadge count={summary.backgroundTasks} />
-            <span className="pane-subtitle">{t("{n} terminals", { n: visiblePanes.length })}</span>
+            <span className="pane-subtitle">{visiblePanes.length === 1 ? t("1 terminal") : t("{n} terminals", { n: visiblePanes.length })}</span>
+            {/* after the count, not beside the name: the name of the open workspace is the one most needed whole */}
+            {selected && !editing && <span className="workspace-current-chip">{t("Current")}</span>}
           </span></span>
         </div>
         <button type="button" className="sidebar-row-action row-menu-toggle" aria-label={t("More for workspace {name}",{name:workspace.label})}
@@ -385,7 +397,8 @@ export function Sidebar({ snapshot, selectedPaneId, selectedWorkspaceId, onSelec
           ))}
         </div>
         <div className="workspace-terminals" id={terminalsId} hidden={!expanded}>
-          {<TeamFolders key={collapseId} machineId={machineId} workspaceId={workspace.workspace_id} panes={visiblePanes} paneTitle={displayPaneTitle} renderPane={pane => <div className="workspace-terminal-row" key={pane.terminal_id || pane.pane_id}
+          {<TeamFolders key={collapseId} machineId={machineId} workspaceId={workspace.workspace_id} panes={visiblePanes}
+            addRequest={teamAdd?.workspaceId === workspace.workspace_id ? teamAdd.n : 0} paneTitle={displayPaneTitle} renderPane={pane => <div className="workspace-terminal-row" key={pane.terminal_id || pane.pane_id}
             draggable={!!pane.terminal_id && !pane.restore_error} title={t("Drag to another folder or terminal to move it")}
             onDragStart={event => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", paneNumber(pane)); setPaneDrag({ source: pane, over: null }); }}
             onDragEnd={() => setPaneDrag(null)}><button type="button"
@@ -430,7 +443,7 @@ export function Sidebar({ snapshot, selectedPaneId, selectedWorkspaceId, onSelec
           setWorkspaceColor(id, color).catch(() => setColorVersion(v => v + 1));
         }}
         onClose={() => setColorTarget(null)} />}
-      {confirm && <ConfirmDialog title={confirm.title} body={confirm.body} confirmLabel={t("Close")} onConfirm={confirm.run} onClose={() => setConfirm(null)} />}
+      {confirm && <ConfirmDialog title={confirm.title} body={confirm.body} confirmLabel={t("Close workspace")} onConfirm={confirm.run} onClose={() => setConfirm(null)} />}
     </div>
   );
 }

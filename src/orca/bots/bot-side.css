@@ -6,3 +6,5 @@
 .bot-side.is-docked { width: 360px; border-left: 1px solid var(--border); }
 .bot-side.is-sheet { left: 0; }
 .bot-side-toggle { position: absolute; top: 8px; right: 12px; z-index: 4; }
+/* the closed panel's button floats over the chat's top right: Orca's chat leaves it room above the first row */
+.terminal-stack:has(> .bot-side-toggle) .native-chat-transcript-inset { padding-top: 60px; }

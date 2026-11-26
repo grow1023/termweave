@@ -24,11 +24,6 @@
     "ja": "承認",
     "zh": "批准"
   },
-  "Ask {name} in chat to run something on a schedule or when something happens.": {
-    "ko": "일정에 맞춰 또는 어떤 일이 생겼을 때 실행할 작업이 있으면 채팅에서 {name}에게 요청하세요.",
-    "ja": "スケジュールや出来事に合わせて実行したいことは、チャットで{name}に頼んでください。",
-    "zh": "需要按计划或在某事发生时运行的任务，请在聊天中告诉{name}。"
-  },
   "Automations": {
     "ko": "자동화",
     "ja": "自動化",
@@ -85,7 +80,7 @@
     "zh": "复制路径"
   },
   "Deny": {
-    "ko": "거부",
+    "ko": "거절",
     "ja": "拒否",
     "zh": "拒绝"
   },

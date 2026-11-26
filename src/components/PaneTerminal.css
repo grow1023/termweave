@@ -139,7 +139,17 @@
   background: var(--bg-elevated);
   font-size: var(--fs-xs);
   color: var(--text-dim);
-  white-space: nowrap;
+  /* a long notice in a narrow split pane wraps by word instead of running past its edge */
+  max-width: 100%;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+/* the column passes clicks to the pty, but a banner's own controls must take them (Dismiss,
+   Terminate terminal, Open chat): only the controls, so a drag beside them still selects text */
+.terminal-banner :is(button, a, input, select) {
+  pointer-events: auto;
 }
 
 .terminal-banner-warning {
@@ -247,10 +257,6 @@
 /* phones: banners wrap instead of overflowing - a wrapping box stops being a chip, so it
    takes padding and --radius-md (the review banner already does) */
 @media (max-width: 480px) {
-  .terminal-banner {
-    white-space: normal;
-  }
-
   .terminal-banner-observe,
   .terminal-banner-soon,
   .terminal-banner-warning {

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronRight, Folder, Pencil, Plus, X } from "lucide-react";
 import type { PaneInfo } from "../../shared/protocol.ts";
 import { browserColorStorage } from "../lib/sessionColor.ts";
@@ -12,15 +12,24 @@ interface Props {
   panes: PaneInfo[];
   renderPane: (pane: PaneInfo) => ReactNode;
   paneTitle: (pane: PaneInfo) => string;
+  /** counts up each time the workspace's row menu asks for a new top-level team folder */
+  addRequest?: number;
 }
 
 /** Browser-local organization, scoped to the PC and native workspace, not filesystem folders. */
-export function TeamFolders({ machineId, workspaceId, panes, renderPane, paneTitle }: Props) {
+export function TeamFolders({ machineId, workspaceId, panes, renderPane, paneTitle, addRequest = 0 }: Props) {
   const t = useT();
   const key = teamFoldersKey(machineId, workspaceId);
   const [state, setState] = useState(() => readTeamFolders(browserColorStorage(), key));
   const [editor, setEditor] = useState<{ id?: string; parentId: string | null; name: string } | null>(null);
   const [storageError, setStorageError] = useState(false);
+  // only a request made while mounted opens the editor: a remount must not replay an old one
+  const seenRequest = useRef(addRequest);
+  useEffect(() => {
+    if (addRequest === seenRequest.current) return;
+    seenRequest.current = addRequest;
+    setEditor({ parentId: null, name: "" });
+  }, [addRequest]);
   const save = (next: FolderState): void => {
     setStorageError(!writeTeamFolders(browserColorStorage(), key, next));
     setState(next);
@@ -64,9 +73,11 @@ export function TeamFolders({ machineId, workspaceId, panes, renderPane, paneTit
     </section>;
   });
   return <div className="team-folders">
-    <button type="button" className="team-folder-add" onClick={() => setEditor({ parentId: null, name: "" })}>
+    {/* with no team folder yet the line would repeat under every workspace as if it were content:
+        the workspace's row menu offers it then (Sidebar.tsx) */}
+    {state.folders.length > 0 && <button type="button" className="team-folder-add" onClick={() => setEditor({ parentId: null, name: "" })}>
       <Plus aria-hidden="true" />{t("Add team folder")}
-    </button>
+    </button>}
     {editor && <form className="team-folder-editor" onSubmit={event => { event.preventDefault(); submit(); }}>
       <label>{t("Team folder name")}<input className="input" autoFocus value={editor.name} required maxLength={120}
         onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); setEditor(null); } }}

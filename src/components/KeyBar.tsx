@@ -88,14 +88,22 @@ export function KeyBar({ onKey, ctrlArmed, onToggleCtrl, directTyping, onToggleD
   const t = useT();
   return (
     <div className="key-bar" role="group" aria-label={t("Terminal keys")}>
-      {/* first: on a narrow cover screen the row scrolls, and the mode toggle must not be the key cut off */}
+      {/* order: mode toggle, Esc, ^C, Tab, ⌫, Ctrl, arrows (the frequent menu keys) last.
+          First: on a narrow cover screen the row scrolls, and the mode toggle must not be the key cut off */}
       {onToggleDirect && (
         <Key disabled={disabled} dataKey="direct" label={t("Type straight into the terminal")} pressed={directTyping} onPress={onToggleDirect}>
           <Keyboard aria-hidden="true" />
+          {/* an icon alone did not say what the key does; the accessible name stays the full sentence */}
+          <span className="key-word" aria-hidden="true">{t("Direct")}</span>
         </Key>
       )}
       <Key disabled={disabled} dataKey="Escape" onPress={() => onKey("Escape")}>
         Esc
+      </Key>
+      {/* ^C ends the running command: near the left, away from the right thumb and the line's Send,
+          and drawn in the warning colour so it never reads as one more ordinary key */}
+      <Key disabled={disabled} dataKey="ctrl-c" label={t("Control C")} onPress={() => onKey("ctrl-c")}>
+        ^C
       </Key>
       <Key disabled={disabled} dataKey="Tab" onPress={() => onKey("Tab")}>
         Tab
@@ -112,9 +120,6 @@ export function KeyBar({ onKey, ctrlArmed, onToggleCtrl, directTyping, onToggleD
           <Chevron direction={arrow.direction} />
         </Key>
       ))}
-      <Key disabled={disabled} dataKey="ctrl-c" label={t("Control C")} onPress={() => onKey("ctrl-c")}>
-        ^C
-      </Key>
     </div>
   );
 }

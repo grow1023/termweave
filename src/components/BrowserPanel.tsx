@@ -7,7 +7,7 @@ interface Props { machineId: string }
 /** Separate view only: never creates, moves, hides or closes a terminal pane. */
 function previewText(id: string, t: ReturnType<typeof useT>): string {
   switch (id) {
-    case "preview-frame-notice": return t("Open in a new tab if blank or refused. Frame policies are not bypassed; load does not prove display.");
+    case "preview-frame-notice": return t("If the page stays blank, open it in a new tab.");
     case "preview-url-format": return t("Enter a full HTTP or HTTPS URL without spaces or control characters.");
     case "preview-url-invalid": return t("Enter a valid web address.");
     case "preview-credentials": return t("URLs containing credentials are not allowed.");
@@ -36,7 +36,6 @@ export function BrowserPanel({ machineId }: Props) {
   const close = () => { setOpen(false); setFrameUrl(null); toggle.current?.focus(); };
   useEffect(() => { setAddress(""); setPort(""); setTarget(null); setFrameUrl(null); setOpen(false); }, [machineId]);
   useEffect(() => { if (open) input.current?.focus(); }, [open]);
-  const validate = () => { setFrameUrl(null); setTarget(validatePreviewUrl(address, context)); };
   const preview = () => {
     const checked = validatePreviewUrl(address, context);
     setTarget(checked);
@@ -55,14 +54,15 @@ export function BrowserPanel({ machineId }: Props) {
         event.preventDefault(); event.stopPropagation(); input.current?.focus(); input.current?.select();
       }
     }}>
-    <button ref={toggle} type="button" aria-expanded={open} aria-controls={id} onClick={() => open ? close() : setOpen(true)}>{t("Web preview")} {open ? t("Collapse") : t("Open")}</button>
+    <button ref={toggle} type="button" aria-expanded={open} aria-controls={id} onClick={() => open ? close() : setOpen(true)}>{open ? t("Close web preview") : t("Open web preview")}</button>
     {open && <div id={id} className="browser-preview-body">
       <p><code>{machineId}</code>: {t("Addresses open directly in this browser. localhost is this device, not the selected remote PC.")}</p>
-      <form className="browser-preview-address" onSubmit={event => { event.preventDefault(); validate(); }}>
+      {/* one step: a valid address that may be framed shows at once; the frame's limits stay as they are */}
+      <form className="browser-preview-address" onSubmit={event => { event.preventDefault(); preview(); }}>
         <label htmlFor={`${id}-url`}>{t("Web address")}</label>
         <input ref={input} id={`${id}-url`} type="text" inputMode="url" autoComplete="off" spellCheck={false} value={address}
           placeholder="https://example.com/" onChange={event => { setAddress(event.target.value); reset(); }} />
-        <button type="submit">{t("Check address")}</button>
+        <button type="submit">{t("Show page")}</button>
       </form>
       <div className="browser-preview-port">
         <label htmlFor={`${id}-port`}>{t("Local development port")}</label>
@@ -72,13 +72,13 @@ export function BrowserPanel({ machineId }: Props) {
       {target && (!target.ok ? <p role="alert">{previewText(target.error, t)}</p> : <>
         <p>{previewText(target.reason, t) || t("Restricted embedding may limit authentication, forms and application features.")}</p>
         <div className="browser-preview-actions">
-          <a href={target.url} target="_blank" rel="noopener noreferrer">{t("Open in new tab")}</a>
-          <button type="button" disabled={!target.canFrame || !credentiallessSupported} onClick={preview}>{t("Try restricted embedded view")}</button>
+          <a className="btn btn-primary" href={target.url} target="_blank" rel="noopener noreferrer">{t("Open in new tab")}</a>
+          {!frameUrl && <button type="button" disabled={!target.canFrame || !credentiallessSupported} onClick={preview}>{t("Try restricted embedded view")}</button>}
           {frameUrl && <button type="button" onClick={() => setFrameUrl(null)}>{t("Stop embedded view")}</button>}
         </div>
       </>)}
       <p className="browser-preview-notice">{previewText(FRAME_NOTICE, t)} {t("Embedded pages handle their own shortcuts. Use Tab to return to address tools.")}</p>
-      {!credentiallessSupported && <p>{t("Credentialless embedding is unsupported. Open a new tab.")}</p>}
+      {!credentiallessSupported && <p>{t("This browser cannot show the page here. Open it in a new tab.")}</p>}
       {frameUrl && <iframe {...{ credentialless: "" }} title={t("Restricted web preview")} src={frameUrl} sandbox={PREVIEW_SANDBOX} referrerPolicy="no-referrer"
         allow="camera 'none'; microphone 'none'; geolocation 'none'; clipboard-read 'none'; clipboard-write 'none'; payment 'none'" />}
     </div>}

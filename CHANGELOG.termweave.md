@@ -3,6 +3,12 @@
 TermWeave(herdr web ui 포크)의 변경 기록입니다. 원본 프로젝트의 기록은 `CHANGELOG.md`에 있습니다.
 이 파일에는 실제 동작이나 게이트로 확인된 완료 항목만 적습니다. 일부만 끝난 항목은 "남은 일"에 따로 적습니다.
 
+## [0.3.61] - 2026-11-27
+
+- feat: Orca's chat for bots, a terminal-less bot runtime, and a cognitive UX pass over the app
+- fix(release): keep the export's preparation record when its tree is cleared
+- fix(release): clear the export through its link, so a deleted file leaves the public copy
+
 ## [0.3.60] - 2026-11-27
 
 - feat(bots): Orca's bot screens, from its source: home panel, new bot, settings, sidebar

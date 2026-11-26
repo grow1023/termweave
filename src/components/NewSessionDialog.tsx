@@ -9,6 +9,8 @@ import { AgentPicker } from "./AgentPicker.tsx";
 import { DirectoryBrowser } from "./DirectoryBrowser.tsx";
 import { useMachineApi, useMachineId } from "../lib/machineContext.tsx";
 import { useT } from "../lib/i18n.ts";
+import { useModalFocus } from "../lib/modalFocus.ts";
+import { createFolderName } from "./navModel.ts";
 
 export interface NewSessionDialogProps {
   open: boolean;
@@ -38,6 +40,7 @@ export function NewSessionDialog({ open, defaultCwd, onClose, onCreated, machine
   const [folderBusy, setFolderBusy] = useState(false);
   const firstFieldRef = useRef<HTMLButtonElement>(null);
   const cwdRef = useRef<HTMLInputElement>(null);
+  const surfaceRef = useRef<HTMLFormElement>(null);
   const defaultCwdRef = useRef(defaultCwd);
   defaultCwdRef.current = defaultCwd;
 
@@ -69,22 +72,17 @@ export function NewSessionDialog({ open, defaultCwd, onClose, onCreated, machine
     };
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      if (!pending && !folderBusy) onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose, pending, folderBusy]);
+  // Tab stays in the dialog and focus returns to its opener; Escape closes it, except while a
+  // folder is being created or the session starts (the request would go on unseen)
+  useModalFocus(surfaceRef, { open, onClose: () => { if (!pending && !folderBusy) onClose(); } });
 
   if (!open) return null;
 
   const selectedAgent = agents.find((agent) => agent.kind === agentKind);
   const pendingLabel = selectedAgent ? t("Starting {agent}… up to 60s", { agent: selectedAgent.label }) : t("Creating folder session…");
   const fieldsDisabled = pending || folderBusy || createdPaneId !== null;
+  const folderName = createFolderName(cwd);
+  const createLabel = folderName === null ? t("Create folder session") : t("Create in {folder}", { folder: folderName });
 
   const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -118,7 +116,7 @@ export function NewSessionDialog({ open, defaultCwd, onClose, onCreated, machine
 
   return (
     <div className="modal-scrim new-session-scrim" onMouseDown={closeFromScrim}>
-      <form className="modal new-session-modal" role="dialog" aria-modal="true" aria-labelledby="new-session-title" onSubmit={(event) => void submit(event)}>
+      <form ref={surfaceRef} className="modal new-session-modal" role="dialog" aria-modal="true" aria-labelledby="new-session-title" onSubmit={(event) => void submit(event)}>
         <header className="modal-header">
           <h2 className="modal-title" id="new-session-title">{t("New folder session")} · {machineName ?? machineId}</h2>
           <button type="button" className="icon-button" aria-label={t("Close new session dialog")} disabled={pending || folderBusy} onClick={onClose}>
@@ -135,7 +133,7 @@ export function NewSessionDialog({ open, defaultCwd, onClose, onCreated, machine
                 {t("Browse")}
               </button>
             </div>
-            {browsing && <DirectoryBrowser start={cwd} onBusyChange={setFolderBusy} onPick={(picked) => { setCwd(picked); setBrowsing(false); }} />}
+            {browsing && <DirectoryBrowser start={cwd} onBusyChange={setFolderBusy} onNavigate={setCwd} onPick={(picked) => { setCwd(picked); setBrowsing(false); }} />}
             <span className="field-hint">{t("absolute path or ~/…")}</span>
           </div>
           <label className="field">
@@ -159,7 +157,8 @@ export function NewSessionDialog({ open, defaultCwd, onClose, onCreated, machine
         </div>
         <footer className="modal-footer">
           <button type="button" className="btn btn-ghost" disabled={pending || folderBusy} onClick={onClose}>{t("Cancel")}</button>
-          <button type="submit" className="btn btn-primary" disabled={pending || folderBusy}>{t(pending ? "Starting…" : createdPaneId !== null ? "Open session" : "Create folder session")}</button>
+          {/* the button names the folder it starts in: the one in the field, which the browser keeps current */}
+          <button type="submit" className="btn btn-primary new-session-create" title={createdPaneId === null && !pending ? cwd || undefined : undefined} disabled={pending || folderBusy}><span className="new-session-create-text">{pending ? t("Starting…") : createdPaneId !== null ? t("Open session") : createLabel}</span></button>
         </footer>
       </form>
     </div>

@@ -73,7 +73,8 @@ export async function checkPushSettings(browser: Browser, origin: string): Promi
 
     status = 502;
     await send.click();
-    await page.getByText("Could not send the test notification. Try again.", { exact: true }).waitFor();
+    // the failure names the cause the server gave (status and detail) and points at the repair below
+    await page.getByText("Could not send the test notification (502 Test failure). Set up alerts again below, then send another test.", { exact: true }).waitFor();
     assert.equal(await send.isEnabled(), true);
     await page.setViewportSize({ width: 390, height: 844 });
     await send.scrollIntoViewIfNeeded();
@@ -90,10 +91,19 @@ export async function checkPushSettings(browser: Browser, origin: string): Promi
     await page.getByRole("button", { name: "Close settings", exact: true }).click();
     // at 390px the header tools fold behind the more button (f8918c3): open it to reach the bell
     if (!(await page.locator(".bell-button").isVisible())) await page.getByRole("button", { name: "More tools", exact: true }).click();
+    // with alerts on, the bell opens a popover; its own button turns alerts off (a stray press must not)
     await page.locator(".bell-button").click();
+    // the off switch must be reachable: inside the screen, where a thumb can press it
+    const off = page.locator(".bell-popover").getByRole("button", { name: "Turn off alerts on this device", exact: true });
+    const offBox = (await off.boundingBox())!;
+    const screen = page.viewportSize()!;
+    assert.ok(offBox.x >= 0 && offBox.x + offBox.width <= screen.width && offBox.y + offBox.height <= screen.height, `the off switch is on screen: ${JSON.stringify(offBox)}`);
+    await off.click();
+    await page.waitForFunction(() => document.querySelector(".bell-button")?.getAttribute("aria-label") === "Alerts off");
     await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+Comma" : "Control+Shift+Comma");
     assert.equal(await send.isDisabled(), true, "testing must not turn alerts on implicitly");
-    await page.getByRole("button", { name: "Turn alerts on again", exact: true }).waitFor();
+    // alerts off and no test run yet in this Settings: the repair button reads as a plain "turn on"
+    await page.getByRole("button", { name: "Turn alerts on", exact: true }).waitFor();
     assert.deepEqual(errors, []);
     console.log("PASS Settings push test: sent, stale/local missing subscription, recovery, failure, off, mobile layout");
   } finally {

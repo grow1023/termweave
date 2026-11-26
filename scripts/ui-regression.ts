@@ -4,7 +4,7 @@ import "./test-herdr.ts"; // a herdr session of its own: nothing shows in the us
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { chromium } from "playwright-core";
 import { createServer } from "../server/index.ts";
 import { herdrRpc, workspaceCreate, workspaceClose, sessionSnapshot } from "../server/herdr/client.ts";
@@ -262,23 +262,43 @@ try {
   assert.equal(await page.getByRole("dialog", { name: "Settings" }).count(), 0, "Add PC closes Settings");
   await page.getByRole("button", { name: "Close PC setup", exact: true }).click();
   await page.getByRole("dialog", { name: "Add PC", exact: true }).waitFor({ state: "hidden" });
-  // its trigger went with Settings: focus lands on the header's workspace-list toggle instead of nowhere
-  await until(async () => await page.evaluate(() => document.activeElement?.matches(".sidebar-toggle, .drawer-toggle") ?? false), "focus returns to the workspace-list toggle after Add PC closes");
+  // Add PC was opened from Settings and closed without a connection: Settings comes back on Remote PCs,
+  // so the person is where they were instead of on the main screen with the dialog gone
+  await page.getByRole("dialog", { name: "Settings" }).waitFor();
+  await page.getByRole("button", { name: "Close settings", exact: true }).click();
+  await page.getByRole("dialog", { name: "Settings" }).waitFor({ state: "hidden" });
   console.log("PASS Add PC opens from Settings, and the sidebar has no top bar");
 
-  // the bell turns this device's alerts on, and off again (it stayed disabled once on)
+  // the bell turns this device's alerts on in one press. Once on, it is not a toggle: turning alerts
+  // off silences phone notifications and the bell sits beside the most-pressed header icons, so a
+  // press only opens a popover, and its "Turn off alerts on this device" button turns them off.
+  // The state is in the bell's name ("Alerts on" / "Alerts on in this tab" / "Alerts off"); it has no aria-pressed.
   await context.grantPermissions(["notifications"], { origin });
   const bell = page.locator(".bell-button");
-  if (await bell.getAttribute('aria-pressed') !== 'true') await bell.click();
-  await until(async () => await bell.getAttribute("aria-pressed") === "true", "bell on");
+  const bellOn = async () => (await bell.getAttribute("aria-label"))?.startsWith("Alerts on") === true;
+  if (!(await bellOn())) await bell.click();
+  await until(bellOn, "bell on");
+  assert.equal(await bell.getAttribute("aria-pressed"), null, "the bell is not a toggle button");
   await bell.click();
-  await until(async () => await bell.getAttribute("aria-pressed") === "false", "bell off");
-  assert.equal(await bell.getAttribute("aria-label"), "Alerts off");
+  const bellPopover = page.locator(".bell-popover[role='dialog']");
+  await bellPopover.waitFor();
+  assert.equal(await bell.getAttribute("aria-expanded"), "true");
+  await Bun.sleep(300);
+  assert.ok(await bellOn(), "the first press on the bell only opens the popover; alerts stay on");
+  assert.notEqual(await page.evaluate(() => JSON.parse(localStorage.getItem("termweave:settings") ?? "{}").alertsOn), false, "the first press does not store alerts off");
+  await bellPopover.getByRole("button", { name: "Turn off alerts on this device", exact: true }).click();
+  await until(async () => await bell.getAttribute("aria-label") === "Alerts off", "bell off");
+  await bellPopover.waitFor({ state: "detached" });
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("termweave:settings") ?? "{}").alertsOn), false);
   assert.equal(await page.evaluate(async () => (await (await navigator.serviceWorker.getRegistration())?.pushManager.getSubscription()) ?? null), null, "turning alerts off drops the push subscription");
+  // off, one press still turns them on (no popover)
   await bell.click();
-  await until(async () => await bell.getAttribute("aria-pressed") === "true", "bell on again");
-  console.log("PASS the bell turns alerts off and on again");
+  await until(bellOn, "bell on again");
+  assert.equal(await bellPopover.count(), 0, "turning alerts on opens no popover");
+  console.log("PASS the bell turns alerts on in one press, and off only through its popover");
+  // the header's reload control says what it reloads: this web page, not the terminals
+  assert.equal(await page.getByRole("button", { name: "Reload page", exact: true }).count(), 1, "header reload is named \"Reload page\"");
+  assert.equal(await page.getByRole("button", { name: "Refresh page", exact: true }).count(), 0);
 
   await checkPageZoom(browser, origin, paneB);
   await checkBotsPanel(browser, origin, paneA);
@@ -301,12 +321,14 @@ try {
   await report("working");
   await page.locator('.composer-status[data-status="working"]').waitFor();
   await page.locator(".chat-terminal-fallback").waitFor();
-  assert.equal(await page.locator(".chat-terminal-fallback").getAttribute("open"), null, "Claude without a native transcript gets an explicit fallback, not pseudo-chat");
+  // the fallback starts open: with no readable conversation, the terminal output is the only thing to read
+  assert.equal(await page.locator(".chat-terminal-fallback").getAttribute("open"), "", "Claude without a native transcript gets an explicit fallback, open, not pseudo-chat");
   await composer.fill("printf 'browser-queue-ok\\n'");
-  await page.getByRole("button", { name: "Queue message", exact: true }).click();
+  // "Hold message" (was "Queue message"): the button says what happens to the text while the agent works
+  await page.getByRole("button", { name: "Hold message", exact: true }).click();
   for (const text of ["# second queued message", "# third queued message"]) {
     await composer.fill(text);
-    await page.getByRole("button", { name: "Queue message", exact: true }).click();
+    await page.getByRole("button", { name: "Hold message", exact: true }).click();
   }
   assert.equal(await page.locator(".composer-queue-text").count(), 3);
   if (process.env.UI_EVIDENCE_DIR) await page.screenshot({ path: join(process.env.UI_EVIDENCE_DIR, "multiple-queue.png") });
@@ -440,7 +462,11 @@ try {
   const workspaceRows = await page.locator('.pane-select[data-workspace-id]').count();
   assert.equal(workspaceRows, (await sessionSnapshot()).workspaces.length);
   await page.getByTitle("Live terminal (⌘⇧J)", { exact: true }).click();
-  await page.getByLabel('Existing terminals', { exact: true }).selectOption(paneB);
+  // the "Existing terminals" chooser shows only while a terminal of the workspace is closed; an
+  // open one is picked by its tab. Either way no new shell is created.
+  const paneBTab = page.locator(`[data-tab-id="${paneB}"]`);
+  if (await paneBTab.count() > 0) await paneBTab.first().click();
+  else await page.getByLabel('Existing terminals', { exact: true }).selectOption(paneB);
   await page.waitForFunction(id => document.querySelector('.dock-group')?.getAttribute('data-pane-id') === id, paneB);
   await page.reload(); await page.locator('.conn.conn-live').waitFor({ state: "attached" });
   await page.waitForFunction(id => Array.from(document.querySelectorAll('.dock-group')).some(node => node.getAttribute('data-pane-id') === id), paneB);
@@ -490,7 +516,8 @@ try {
   const dialog = page.getByRole("dialog", { name: /^New folder session/ });
   await dialog.getByLabel(/^Directory/).fill(root);
   await dialog.getByLabel(/^Name/).fill("herdr-web-ui-test-browser-created");
-  await dialog.getByRole("button", { name: "Create folder session", exact: true }).click();
+  // the only primary button names the folder the session starts in, read from the Directory field
+  await dialog.getByRole("button", { name: `Create in ${basename(root)}`, exact: true }).click();
   await until(() => createRequests === 1, "creation started");
   await page.keyboard.press("Escape");
   assert.equal(await dialog.isVisible(), true, "in-flight creation cannot be dismissed");
@@ -609,7 +636,7 @@ try {
   await herdrRpc("pane.report_agent", { pane_id: paneA, source: "manual", agent: "claude", state: "working" });
   await page.locator('.composer-status[data-status="working"]').waitFor();
   await composer.fill("# queued before the suggestion");
-  await page.getByRole("button", { name: "Queue message", exact: true }).click();
+  await page.getByRole("button", { name: "Hold message", exact: true }).click();
   // idle after working reads as done: either way the queue waits for its Send now
   await herdrRpc("pane.report_agent", { pane_id: paneA, source: "manual", agent: "claude", state: "idle" });
   await page.locator('.composer-status:not([data-status="working"])').waitFor();
@@ -641,7 +668,7 @@ try {
   await mobilePage.getByTitle("Chat transcript (⌘⇧J)", { exact: true }).click();
   await mobilePage.getByRole("textbox", { name: "Message", exact: true }).fill("mobile draft");
   await mobilePage.locator(".chat-terminal-fallback").waitFor();
-  assert.equal(await mobilePage.locator(".chat-terminal-fallback").getAttribute("open"), null, "missing native history is labeled, not presented as broken chat");
+  assert.equal(await mobilePage.locator(".chat-terminal-fallback").getAttribute("open"), "", "missing native history is labeled and shown open, not presented as broken chat");
   assert.equal(await mobilePage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   // a phone's status line holds the agent and its state: no report action, and no keyboard button while typing
   await mobilePage.evaluate(() => document.documentElement.setAttribute("data-keyboard", ""));
@@ -756,6 +783,17 @@ try {
   const enters = touchSent.length;
   await touchPage.getByRole("button", { name: "Press Enter in the terminal", exact: true }).click();
   await until(() => touchSent.length > enters && touchSent.at(-1)?.type === "input" && touchSent.at(-1)?.text === "\r", "enter from the empty line");
+  // the key bar: the mode toggle first (on a narrow cover screen the row scrolls, and the toggle
+  // must not be the key cut off), then Esc, ^C, Tab, backspace, Ctrl, and the arrows last.
+  // The toggle shows the word "Direct" (an icon alone did not say what it does); names stay.
+  const keyBar = touchPage.getByRole("group", { name: "Terminal keys", exact: true });
+  assert.deepEqual(await keyBar.locator("button.key").evaluateAll((keys) => keys.map((key) => key.getAttribute("data-key"))),
+    ["direct", "Escape", "ctrl-c", "Tab", "Backspace", "Control", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"], "key bar order");
+  assert.deepEqual(await keyBar.locator("button.key").evaluateAll((keys) => keys.map((key) => key.getAttribute("aria-label") ?? key.textContent?.trim())),
+    ["Type straight into the terminal", "Esc", "Control C", "Tab", "Backspace", "Ctrl", "Up", "Down", "Left", "Right"], "key bar names");
+  const directKey = keyBar.getByRole("button", { name: "Type straight into the terminal", exact: true });
+  assert.equal(await directKey.locator(".key-word").textContent(), "Direct");
+  assert.equal(await directKey.locator(".key-word").isVisible(), true, "the direct-typing toggle shows its word");
   await line.fill("unsent 한글 😀");
   // typing straight into the grid is one tap away, and gives the keyboard back to it
   await touchPage.getByRole("button", { name: "Type straight into the terminal", exact: true }).click();
@@ -799,7 +837,8 @@ try {
   await until(async () => await page.evaluate(() => document.activeElement?.textContent === "Cancel"), "the confirm starts on Cancel");
   // a no gives the focus back to the row's ⋯; Tab stays inside the confirm
   await page.keyboard.press("Tab");
-  assert.equal(await page.evaluate(() => document.activeElement?.textContent), "Close", "Tab moves to the confirm's action");
+  // the action names the deed, not a bare "Close" that reads like closing the confirm itself
+  assert.equal(await page.evaluate(() => document.activeElement?.textContent), "Close workspace", "Tab moves to the confirm's action");
   await page.keyboard.press("Escape");
   await confirmClose.waitFor({ state: "detached" });
   assert.equal(await page.evaluate(() => document.activeElement?.classList.contains("row-menu-toggle") ?? false), true, "cancelling the confirm returns focus to the row's ⋯");
@@ -807,7 +846,7 @@ try {
   await rowMenu.getByRole("menuitem", { name: "Close workspace", exact: true }).focus();
   await page.keyboard.press("Enter");
   await confirmClose.waitFor();
-  await confirmClose.getByRole("button", { name: "Close", exact: true }).click();
+  await confirmClose.getByRole("button", { name: "Close workspace", exact: true }).click();
   workspaces.splice(workspaces.indexOf(created.workspace_id), 1);
   await until(async () => {
     const selected = JSON.parse(await page.evaluate(() => sessionStorage.getItem("termweave:selection") ?? "null"));
@@ -849,7 +888,14 @@ try {
   await securedPage.getByRole("button", { name: "Sign out", exact: true }).focus();
   await securedPage.keyboard.press("Escape");
   await securedPage.getByRole("dialog", { name: "Command palette", exact: true }).waitFor({ state: "hidden" });
+  // signing out cannot be undone from this device (it needs a new pairing code), so the header
+  // button asks first; while the confirm is up two buttons are named "Sign out": scope to it
+  const signOutConfirm = securedPage.getByRole("alertdialog", { name: "Sign out of this device?", exact: true });
   await securedPage.getByRole("button", { name: "Sign out", exact: true }).click();
+  await signOutConfirm.waitFor();
+  await Bun.sleep(300);
+  assert.equal((await securedContext.request.get(`${securedOrigin}/api/session`)).status(), 200, "the header button alone does not sign out");
+  await signOutConfirm.getByRole("button", { name: "Sign out", exact: true }).click();
   await securedPage.getByTestId("token-gate").waitFor();
   assert.equal((await securedContext.request.get(`${securedOrigin}/api/session`)).status(), 401);
   const pairing = await securedContext.request.post(`${securedOrigin}/api/devices/pair/start`, { headers: { authorization: "Bearer browser-test-token", "x-herdr-machine": "1" } });
@@ -857,6 +903,7 @@ try {
   await securedContext.request.post(`${securedOrigin}/api/devices/pair`, { data: { code, label: "Browser test device" } });
   await securedPage.reload();
   await securedPage.getByRole("button", { name: "Sign out", exact: true }).click();
+  await signOutConfirm.getByRole("button", { name: "Sign out", exact: true }).click();
   await securedPage.getByTestId("token-gate").waitFor();
   assert.equal((await securedContext.request.get(`${securedOrigin}/api/session`)).status(), 401);
   await securedContext.close();

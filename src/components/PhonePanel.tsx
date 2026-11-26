@@ -16,15 +16,17 @@ export interface PhonePanelProps {
   /** the server is still being asked */
   loading: boolean;
   onRefresh: () => void;
+  /** goes to Paired devices, where a code pairs a device that is not this PC's Tailscale login */
+  onPairDevice?: () => void;
 }
 
-/** Settings → Phone: the address a phone can open, or the one step still missing on this PC. */
-export function PhonePanel({ plan, loading, onRefresh }: PhonePanelProps) {
+/** Settings → Open on your phone: the address a phone can open, or the one step still missing on this PC. */
+export function PhonePanel({ plan, loading, onRefresh, onPairDevice }: PhonePanelProps) {
   const t = useT();
-  return <div className="phone-panel">{loading && plan.kind !== "here" ? <p className="settings-hint" role="status">{t("Asking this PC about Tailscale…")}</p> : <Plan plan={plan} loading={loading} onRefresh={onRefresh} />}</div>;
+  return <div className="phone-panel">{loading && plan.kind !== "here" ? <p className="settings-hint" role="status">{t("Asking this PC about Tailscale…")}</p> : <Plan plan={plan} loading={loading} onRefresh={onRefresh} onPairDevice={onPairDevice} />}</div>;
 }
 
-function Plan({ plan, loading, onRefresh }: PhonePanelProps) {
+function Plan({ plan, loading, onRefresh, onPairDevice }: PhonePanelProps) {
   const t = useT();
   const checkAgain = <button type="button" className="btn" onClick={onRefresh} disabled={loading}><RefreshCw aria-hidden="true" />{t("Check again")}</button>;
   switch (plan.kind) {
@@ -34,7 +36,7 @@ function Plan({ plan, loading, onRefresh }: PhonePanelProps) {
         <>
           <Address url={plan.url} title={t(plan.kind === "here" ? "Open this address on your phone" : "Tailscale already serves this PC")} />
           <p className="settings-description">{t("Once it is open, install the app and tap the bell for alerts.")}</p>
-          {plan.kind === "served" && <Sharing />}
+          <Sharing onPairDevice={onPairDevice} />
         </>
       );
     case "command":
@@ -44,7 +46,7 @@ function Plan({ plan, loading, onRefresh }: PhonePanelProps) {
           <Command command={plan.command} />
           {plan.url !== null && <p className="settings-description">{t("It will be at {url}.", { url: plan.url })}</p>}
           <div className="phone-actions">{checkAgain}</div>
-          <Sharing />
+          <Sharing onPairDevice={onPairDevice} />
         </>
       );
     case "stopped":
@@ -101,7 +103,13 @@ function Command({ command }: { command: string }) {
   );
 }
 
-function Sharing() {
+/** Who gets in without pairing, and the way to pair everyone else. */
+function Sharing({ onPairDevice }: { onPairDevice?: (() => void) | undefined }) {
   const t = useT();
-  return <p className="settings-hint">{t("Your own Tailscale devices get in as you; with an access token set, each asks for it once. Anyone else's device, or a LAN or public address, needs pairing: Devices, below.")} <a href={README_SAFETY} target="_blank" rel="noreferrer">{t("Access and safety")}</a></p>;
+  return (
+    <>
+      <p className="settings-hint">{t("Your own Tailscale devices get in as you; with an access token set, each asks for it once. Anyone else's device, or a LAN or public address, needs pairing first.")} <a href={README_SAFETY} target="_blank" rel="noreferrer">{t("Access and safety")}</a></p>
+      {onPairDevice && <div className="phone-actions"><button type="button" className="btn" onClick={onPairDevice}>{t("Pair a device")}</button></div>}
+    </>
+  );
 }

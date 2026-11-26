@@ -1,0 +1,147 @@
+{
+  "1 new question waiting on you": {
+    "ko": "새 질문 1개가 확인을 기다립니다",
+    "ja": "新しい質問 1 件があなたの対応を待っています",
+    "zh": "有 1 个新问题等你处理"
+  },
+  "1 worker": {
+    "ko": "워커 1개",
+    "ja": "ワーカー 1 件",
+    "zh": "1 个工作者"
+  },
+  "1 worker, latest: {title}": {
+    "ko": "워커 1개, 최근: {title}",
+    "ja": "ワーカー 1 件、最新: {title}",
+    "zh": "1 个工作者，最新：{title}"
+  },
+  "Approve": {
+    "ko": "승인",
+    "ja": "承認",
+    "zh": "批准"
+  },
+  "Close {where}?": {
+    "ko": "{where}을(를) 닫을까요?",
+    "ja": "{where}を閉じますか?",
+    "zh": "要关闭{where}吗?"
+  },
+  "Commented on {items}": {
+    "ko": "{items}에 댓글을 남겼습니다",
+    "ja": "{items} にコメントしました",
+    "zh": "评论了 {items}"
+  },
+  "Deny": {
+    "ko": "거절",
+    "ja": "拒否",
+    "zh": "拒绝"
+  },
+  "Done": {
+    "ko": "완료",
+    "ja": "完了",
+    "zh": "完成"
+  },
+  "Failed": {
+    "ko": "실패",
+    "ja": "失敗",
+    "zh": "失败"
+  },
+  "Press {keys} in {where}?": {
+    "ko": "{where}에서 {keys} 키를 누를까요?",
+    "ja": "{where}で{keys}を押しますか?",
+    "zh": "要在{where}中按下{keys}吗?"
+  },
+  "Queued questions": {
+    "ko": "대기 중인 질문",
+    "ja": "待機中の質問",
+    "zh": "排队中的问题"
+  },
+  "Running": {
+    "ko": "실행 중",
+    "ja": "実行中",
+    "zh": "运行中"
+  },
+  "Show": {
+    "ko": "보기",
+    "ja": "表示",
+    "zh": "显示"
+  },
+  "Show less": {
+    "ko": "접기",
+    "ja": "折りたたむ",
+    "zh": "收起"
+  },
+  "Show more": {
+    "ko": "더 보기",
+    "ja": "もっと見る",
+    "zh": "展开"
+  },
+  "Show {name} question": {
+    "ko": "{name} 질문 보기",
+    "ja": "{name} の質問を表示",
+    "zh": "显示 {name} 的问题"
+  },
+  "Starting": {
+    "ko": "시작 중",
+    "ja": "起動中",
+    "zh": "启动中"
+  },
+  "Type this into {where} and press Enter?": {
+    "ko": "{where}에 아래 내용을 입력하고 Enter를 누를까요?",
+    "ja": "{where} に次の内容を入力して Enter を押しますか？",
+    "zh": "要在 {where} 输入以下内容并按 Enter 吗？"
+  },
+  "Waiting on you": {
+    "ko": "확인 대기",
+    "ja": "対応待ち",
+    "zh": "等你处理"
+  },
+  "Workers": {
+    "ko": "워커",
+    "ja": "ワーカー",
+    "zh": "工作者"
+  },
+  "Yesterday {time}": {
+    "ko": "어제 {time}",
+    "ja": "昨日 {time}",
+    "zh": "昨天 {time}"
+  },
+  "{count} failed": {
+    "ko": "{count}개 실패",
+    "ja": "{count}件失敗",
+    "zh": "{count} 个失败"
+  },
+  "{count} more waiting on you": {
+    "ko": "확인을 기다리는 항목 {count}개 더",
+    "ja": "あなたの対応待ちがあと {count} 件",
+    "zh": "还有 {count} 项等你处理"
+  },
+  "{count} needs you": {
+    "ko": "확인 필요 {count}개",
+    "ja": "対応が必要 {count} 件",
+    "zh": "{count} 项需要你处理"
+  },
+  "{count} new questions waiting on you": {
+    "ko": "새 질문 {count}개가 확인을 기다립니다",
+    "ja": "新しい質問 {count} 件があなたの対応を待っています",
+    "zh": "有 {count} 个新问题等你处理"
+  },
+  "{count} running": {
+    "ko": "{count}개 실행 중",
+    "ja": "{count} 件実行中",
+    "zh": "{count} 个运行中"
+  },
+  "{count} workers": {
+    "ko": "워커 {count}개",
+    "ja": "ワーカー {count} 件",
+    "zh": "{count} 个工作者"
+  },
+  "{count} workers, latest: {title}": {
+    "ko": "워커 {count}개, 최근: {title}",
+    "ja": "ワーカー {count} 件、最新: {title}",
+    "zh": "{count} 个工作者，最新：{title}"
+  },
+  "{name} · Waiting on you": {
+    "ko": "{name} · 확인 대기",
+    "ja": "{name} · 対応待ち",
+    "zh": "{name} · 等你处理"
+  }
+}

@@ -69,6 +69,20 @@
   background: linear-gradient(to right, var(--status-blocked) var(--fill), var(--border-strong) var(--fill));
 }
 
+/* counting what is left: the hairline takes the remaining amount's tone (as the top panel does) */
+.usage-chip.is-left-ok .usage-chip-bar { background: linear-gradient(to right, var(--meter-ok) var(--fill), var(--border-strong) var(--fill)); }
+.usage-chip.is-left-mid .usage-chip-bar { background: linear-gradient(to right, var(--meter-mid) var(--fill), var(--border-strong) var(--fill)); }
+.usage-chip.is-left-low .usage-chip-bar { background: linear-gradient(to right, var(--meter-low) var(--fill), var(--border-strong) var(--fill)); }
+
+/* the strip's one unit word after the chips: "used" or "left" */
+.usage-strip-unit {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  font-size: var(--fs-2xs);
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .usage-chip.has-problem {
   opacity: 0.55;
 }
