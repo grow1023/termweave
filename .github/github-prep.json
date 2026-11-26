@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "repoType": "app",
   "mode": "update",
-  "baselineCommit": "cf9fc330f3411476ef1c858ab2d8a4d40443f976",
-  "reviewedHead": "671c23f95992a56cc572f1492f48035e7c1628c3",
+  "baselineCommit": "671c23f95992a56cc572f1492f48035e7c1628c3",
+  "reviewedHead": "1b5d8bdd18c48b9e15cc645188b077bb52756e86",
   "references": [
     {
       "repo": "tsl0922/ttyd",
@@ -75,9 +75,18 @@
     "gaps": []
   },
   "diffReview": {
-    "since": "cf9fc330f3411476ef1c858ab2d8a4d40443f976",
-    "files": [],
-    "summary": "Automated review for v0.3.57 by tools/public-release/auto_release.sh. 0 file(s) changed since cf9fc330f341. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- feat(bots): a bot manages every terminal, typing into yours only after you approve"
+    "since": "671c23f95992a56cc572f1492f48035e7c1628c3",
+    "files": [
+      "CHANGELOG.termweave.md",
+      "CITATION.cff",
+      "herdr-plugin.toml",
+      "package.json",
+      "server/claude-store.test.ts",
+      "server/claude-store.ts",
+      "server/conversation.ts",
+      "shared/product.ts"
+    ],
+    "summary": "Automated review for v0.3.58 by tools/public-release/auto_release.sh. 8 file(s) changed since 671c23f95992. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- fix(chat): a Claude pane shows its conversation without herdr's Claude hook"
   },
   "readiness": {
     "verified": [
