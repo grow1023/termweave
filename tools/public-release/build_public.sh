@@ -18,6 +18,8 @@ out=${out:A}
 # replace the tree, keep the export history
 # the github harness keeps its publish state here; it lives only in the export
 state=$(mktemp); [[ -f $out/.github/github-harness.json ]] && cp "$out/.github/github-harness.json" "$state"
+# so does its preparation record (repo type, references, the last reviewed diff): auto_release.sh updates it per release
+prep=$(mktemp); [[ -f $out/.github/github-prep.json ]] && cp "$out/.github/github-prep.json" "$prep"
 find "$out" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
 git -C "$repo" archive HEAD | tar -x -C "$out"
 while IFS= read -r pattern; do
@@ -29,6 +31,7 @@ find "$out" -name __pycache__ -type d -prune -exec rm -rf {} +
 # the denylist names the owner's identifiers: it stays outside the repo and out of the export
 mkdir -p "$out/.github"
 [[ -s $state ]] && cp "$state" "$out/.github/github-harness.json"; rm -f "$state"
+[[ -s $prep ]] && cp "$prep" "$out/.github/github-prep.json"; rm -f "$prep"
 cp "$denylist" "$out/.github/publish-denylist.txt"
 grep -qx '.github/publish-denylist.txt' "$out/.gitignore" 2>/dev/null || printf '\n.github/publish-denylist.txt\n' >> "$out/.gitignore"
 
