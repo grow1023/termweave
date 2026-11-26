@@ -46,8 +46,11 @@ import { FrontendControls } from "./components/FrontendControls.tsx";
 import { ZoomControls } from "./components/ZoomControls.tsx";
 import { NewBotDialog } from "./orca/bots/settings/NewBotDialog.tsx";
 import { showBotSettings } from "./orca/bots/BotSide.tsx";
+import { BotPage } from "./orca/bots/BotPage.tsx";
 import { botsApi } from "./orca/bots/data.ts";
-import { useBotsView } from "./lib/bots.ts";
+import { currentBotsView, useBotsView } from "./lib/bots.ts";
+import { botMascot } from "../shared/bots/avatar.ts";
+import { mascotSrc } from "./components/BotVisuals.tsx";
 import { UpdateButton } from "./components/UpdateControls.tsx";
 import { FilesDialog } from "./components/FilesDialog.tsx";
 import { FileViewer } from "./components/FileViewer.tsx";
@@ -59,7 +62,7 @@ import { watchDrawerSwipe } from "./lib/edgeSwipe.ts";
 import { Droplet } from "./components/Droplet.tsx";
 import { AlertsBell, type BellState } from "./components/AlertsBell.tsx";
 import { ConfirmDialog } from "./components/ConfirmDialog.tsx";
-import { needsYou, shortCwd } from "./components/navModel.ts";
+import { botPageState, initialBotId, needsYou, searchWithBot, shortCwd, type StoredSelection } from "./components/navModel.ts";
 import { dropletAllows, endedTurn, showDroplet, trackTurn, type DropletKind } from "./lib/droplet.ts";
 
 const APP_TITLE = "TermWeave";
@@ -81,7 +84,6 @@ function paneFromUrl(): string | null {
 }
 
 const SELECTION_KEY = "termweave:selection";
-type StoredSelection = { machine_id?: string; pane_id?: string | null; owner_id?: string | null; workspace_id?: string | null };
 
 /**
  * The pane to open: this window's own (sessionStorage is per window and survives
@@ -99,9 +101,11 @@ function storedSelection(): StoredSelection | null {
   return null;
 }
 
-function storeSelection(machineId: string, paneId: string | null, ownerId: string | null = paneId): void {
+/** `botId`: a session bot's page is open over the pane selection, which stays for when it closes. */
+function storeSelection(machineId: string, paneId: string | null, ownerId: string | null = paneId, botId: string | null = null): void {
+  const value: StoredSelection = { machine_id: machineId, pane_id: paneId, workspace_id: ownerId, bot_id: botId };
   for (const storage of ["sessionStorage", "localStorage"] as const) {
-    try { window[storage].setItem(SELECTION_KEY, JSON.stringify({ machine_id: machineId, pane_id: paneId, workspace_id: ownerId })); } catch {}
+    try { window[storage].setItem(SELECTION_KEY, JSON.stringify(value)); } catch {}
   }
 }
 
@@ -201,6 +205,9 @@ export function App() {
     return storedSelection()?.pane_id ?? null;
   });
   const [sidebarOwnerId, setSidebarOwnerId] = useState<string | null>(() => paneFromUrl() ? null : storedSelection()?.workspace_id ?? null);
+  // a session bot's page, shown in the main area in place of the terminals; the pane selection stays under it
+  const [selectedBotId, setSelectedBotId] = useState<string | null>(() => initialBotId(window.location.search, storedSelection()));
+  const selectedBotRef = useRef(selectedBotId); selectedBotRef.current = selectedBotId;
   // App picked the selected pane itself because the one selected closed: it must not raise a
   // phone's keyboard (over the drawer the close was tapped in) until the user picks a pane or lens
   const [autoSelected, setAutoSelected] = useState(false);
@@ -216,8 +223,9 @@ export function App() {
     return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", escape); };
   }, [moreOpen]);
   const drawerOpenRef = useRef(drawerOpen); drawerOpenRef.current = drawerOpen;
-  const selectionRef = useRef({ machineId: selectedMachineId, paneId: selectedPaneId });
-  selectionRef.current = { machineId: selectedMachineId, paneId: selectedPaneId };
+  // the pane in front of the user: none while a bot page covers the terminals
+  const selectionRef = useRef({ machineId: selectedMachineId, paneId: selectedBotId === null ? selectedPaneId : null });
+  selectionRef.current = { machineId: selectedMachineId, paneId: selectedBotId === null ? selectedPaneId : null };
   // on a phone the drawer follows a swipe in from the left edge, and a swipe back (lib/edgeSwipe.ts)
   useEffect(() => watchDrawerSwipe(() => drawerOpenRef.current, setDrawerOpen), []);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -230,6 +238,10 @@ export function App() {
   const viewFile = useCallback((path: string) => {
     openFile({ path, paneId: selectedPaneId, machineId: selectedMachineId });
   }, [openFile, selectedPaneId, selectedMachineId]);
+  // a session bot has no pane: its chat's paths open on this app's own PC, as written
+  const viewBotFile = useCallback((path: string) => {
+    openFile({ path, paneId: null, machineId: "local" });
+  }, [openFile]);
   const [settingsOpen, setSettingsOpen] = useState(() => new URLSearchParams(window.location.search).get("panel") === "android");
   settingsOpenRef.current = settingsOpen;
   const [openRigOpen, setOpenRigOpen] = useState(() => new URLSearchParams(window.location.search).get("panel") === "openrig");
@@ -251,6 +263,8 @@ export function App() {
   const closeSettings = useCallback(() => { setSettingsOpen(false); setSettingsSection(undefined); }, []);
   const [newSessionOpen, setNewSessionOpen] = useState(false);
   const [connected, setConnected] = useState(false);
+  // the server's event stream is open: a bot page has no terminal socket, and its chat lives on this stream
+  const [eventsLive, setEventsLive] = useState(false);
   const [outputStopped, setOutputStopped] = useState(false);
   // the connection's role: the server's role-ack confirms it (no UI control today)
   const [role, setRole] = useState<ClientRole>("interact");
@@ -361,6 +375,8 @@ export function App() {
       }
     };
     const events = new EventSource("/api/machines/events");
+    events.onopen = () => setEventsLive(true);
+    events.onerror = () => setEventsLive(false);
     events.onmessage = (event) => {
       let payload: MachineEvent;
       try { payload = JSON.parse(event.data); } catch { return; }
@@ -408,8 +424,10 @@ export function App() {
       // a color change leaves the snapshot equal: the sidebar re-reads colors on this
       if (message.type === "session-changed") window.dispatchEvent(new Event("termweave:session-changed"));
       if (message.type === "bots-changed") window.dispatchEvent(new Event("termweave:bots-changed"));
+      // a session bot's new chat rows (src/orca/chat/session reads them); the bots are this app's own PC's
+      if (message.type === "bot-chat" && machine.kind === "local") window.dispatchEvent(new CustomEvent("termweave:bot-chat", { detail: message }));
     };
-    return () => events.close();
+    return () => { events.close(); setEventsLive(false); };
   }, [locked, scheduleRefetch, dropIn]);
 
   const handleServerMessage = useCallback((message: ServerMessage) => {
@@ -507,10 +525,12 @@ export function App() {
     // Only another PC mounts a new terminal (and socket), which reports its own state. A pane
     // on the same PC keeps the connected socket, which never reports again: resetting here
     // left the header on "reconnecting" after every pane switch.
-    if (machineId !== selectedMachineRef.current) setConnected(false);
+    // leaving a bot page mounts the terminals again, with a socket that has not reported yet
+    if (machineId !== selectedMachineRef.current || selectedBotRef.current !== null) setConnected(false);
     const pane = machinesRef.current.find(machine => machine.id === machineId)?.snapshot?.panes.find(pane => pane.pane_id === paneId);
     const active = paneId;
     setSidebarOwnerId(pane?.workspace_id ?? null);
+    setSelectedBotId(null);
     setSelectedMachineId(machineId); setSelectedPaneId(active); setAutoSelected(false); setDrawerOpen(false);
     setOutputStopped(false);
     storeSelection(machineId, active, pane?.workspace_id ?? null);
@@ -520,7 +540,8 @@ export function App() {
     const saved = initialWorkspaceLayout(machineId, workspaceId, roster.map(p => p.pane_id), roster[0]?.pane_id ?? null);
     const active = roster.some(p => p.pane_id === saved.primary) ? saved.primary : roster[0]?.pane_id ?? null;
     navigationRef.current++;
-    if (machineId !== selectedMachineRef.current) setConnected(false);
+    if (machineId !== selectedMachineRef.current || selectedBotRef.current !== null) setConnected(false);
+    setSelectedBotId(null);
     setSelectedMachineId(machineId); setSidebarOwnerId(workspaceId); setSelectedPaneId(active);
     setAutoSelected(false); setDrawerOpen(false); setOutputStopped(false);
     storeSelection(machineId, active, workspaceId);
@@ -548,6 +569,11 @@ export function App() {
     }
   }, [selectTarget, t]);
   const selectTargetRef = useRef(selectTarget); selectTargetRef.current = selectTarget;
+  /** Opens a session bot's page in the main area; picking a pane or workspace leaves it. */
+  const selectBot = useCallback((botId: string) => {
+    navigationRef.current++;
+    setSelectedBotId(botId); setAutoSelected(false); setDrawerOpen(false); setOutputStopped(false);
+  }, []);
   useEffect(() => {
     // An offline PC's cached roster cannot invalidate a selection. Once connected,
     // a closed pane (including one remembered across reloads) must release its selection.
@@ -576,8 +602,13 @@ export function App() {
     return () => { cancelled = true; };
   }, [snapshot, selectedPaneId, sidebarOwnerId, selectedMachineId, selectedMachine?.state]);
   useEffect(() => {
-    storeSelection(selectedMachineId, selectedPaneId, sidebarOwnerId);
-  }, [selectedMachineId, selectedPaneId, sidebarOwnerId]);
+    storeSelection(selectedMachineId, selectedPaneId, sidebarOwnerId, selectedBotId);
+  }, [selectedMachineId, selectedPaneId, sidebarOwnerId, selectedBotId]);
+  // the open bot page is in the address too (`?bot=`), so a reload or a copied link opens it again
+  useEffect(() => {
+    const search = searchWithBot(window.location.search, selectedBotId);
+    if (search !== window.location.search) window.history.replaceState(window.history.state, "", `${window.location.pathname}${search}${window.location.hash}`);
+  }, [selectedBotId]);
   useEffect(() => {
     const pane = snapshot?.panes.find(p => p.pane_id === selectedPaneId);
     if (pane && pane.workspace_id !== sidebarOwnerId) setSidebarOwnerId(pane.workspace_id);
@@ -623,8 +654,13 @@ export function App() {
     window.addEventListener("termweave:open-pane", open);
     return () => window.removeEventListener("termweave:open-pane", open);
   }, []);
-  /** A bot's chat: the pane it runs in, started first when it is not running. A refusal is the sidebar's to show next time. */
-  const openBot = async (bot: { id: string; paneId: string | null }): Promise<void> => {
+  /**
+   * A bot's chat: a session bot's page, or the pane a terminal bot runs in, started first when it is
+   * not running. A refusal is the sidebar's to show next time.
+   */
+  const openBot = async (bot: { id: string; paneId: string | null; runtime?: string }): Promise<void> => {
+    const runtime = currentBotsView()?.bots.find((entry) => entry.id === bot.id)?.runtime ?? bot.runtime;
+    if (runtime === "session") { selectBot(bot.id); return; }
     try {
       const running = bot.paneId !== null && machines.find((machine) => machine.id === "local")?.snapshot?.panes.some((pane) => pane.pane_id === bot.paneId);
       const paneId = running ? bot.paneId! : (await botsApi.open(bot.id)).pane_id;
@@ -632,6 +668,29 @@ export function App() {
       selectTargetRef.current("local", paneId);
     } catch (error) { console.error(error); }
   };
+
+  const openBotRef = useRef(openBot); openBotRef.current = openBot;
+  // bot settings, after switching how a bot runs: the page or the pane follows the bot
+  useEffect(() => {
+    const open = (event: Event): void => {
+      const botId = (event as CustomEvent<{ botId: string }>).detail?.botId;
+      const bot = botId ? currentBotsView()?.bots.find((entry) => entry.id === botId) : undefined;
+      if (bot) void openBotRef.current(bot);
+    };
+    window.addEventListener("termweave:open-bot", open);
+    return () => window.removeEventListener("termweave:open-bot", open);
+  }, []);
+  // a bot page whose bot was deleted, or now runs in a terminal (switched on any device), gives way: to the
+  // bot's chat pane when it runs, else to the pane selection underneath
+  const pageState = botPageState(botsView, selectedBotId);
+  const selectedBot = pageState === "show" ? botsView?.bots.find((entry) => entry.id === selectedBotId) ?? null : null;
+  const botPage = selectedBotId !== null && (pageState === "show" || pageState === "wait");
+  useEffect(() => {
+    if (pageState !== "gone" && pageState !== "pane") return;
+    const paneId = botsView?.bots.find((entry) => entry.id === selectedBotId)?.paneId ?? null;
+    const running = paneId !== null && machinesRef.current.find((machine) => machine.id === "local")?.snapshot?.panes.some((pane) => pane.pane_id === paneId);
+    if (pageState === "pane" && running) selectTargetRef.current("local", paneId); else setSelectedBotId(null);
+  }, [pageState, selectedBotId, botsView]);
 
   // the lens follows the selected pane: each pane remembers its own
   useEffect(() => {
@@ -685,12 +744,16 @@ export function App() {
   const bellState: BellState = { label: bell.label, title: bell.title, on: bell.on, blocked: bellBlocked };
   // what waits on the user, counted once (pane prompts and bot questions): the closed drawer and
   // the collapsed sidebar carry it on their toggles
+  const readOnly = auth?.authenticated !== true || auth.role === "watch" || role === "observe";
+  // the header's connection state: the terminal's socket, or for a bot page the server's event stream
+  const live = botPage ? eventsLive : connected;
   const waitingCount = useMemo(() => needsYou(machines, botsView).total, [machines, botsView]);
   const waitingBadge = waitingCount > 0 ? <span className="nav-count" aria-hidden="true">{waitingCount > 99 ? "99+" : waitingCount}</span> : null;
 
+  const shownTitle = botPage ? selectedBot?.name ?? null : selectedTitle;
   useEffect(() => {
-    document.title = selectedTitle ? `${selectedTitle} · TermWeave` : APP_TITLE;
-  }, [selectedTitle]);
+    document.title = shownTitle ? `${shownTitle} · TermWeave` : APP_TITLE;
+  }, [shownTitle]);
 
   const actions = useMemo<AppActions>(
     () => ({
@@ -700,7 +763,8 @@ export function App() {
         if (next) selectPane(next);
       },
       setView,
-      toggleView: () => setView(view === "chat" ? "terminal" : "chat"),
+      // a bot page has no terminal to switch to
+      toggleView: () => { if (!botPage) setView(view === "chat" ? "terminal" : "chat"); },
       openNewSession: () => {
         setDrawerOpen(false);
         setNewSessionMachineId(selectedMachineId);
@@ -750,9 +814,9 @@ export function App() {
           await onMoved(result, machineId, request.workspace_id);
         } finally { movePendingRef.current = 0; setNativeMovePending(false); }
       },
-      openFiles: selectedPaneId !== null ? () => { setDrawerOpen(false); setFilesOpen(true); } : null,
+      openFiles: selectedPaneId !== null && !botPage ? () => { setDrawerOpen(false); setFilesOpen(true); } : null,
     }),
-    [selectPane, selectedPaneId, selectedMachineId, setView, view, updateSettings, resolvedTheme, settings.bionicReading, canSignOut, bellVisible, bell.on, enableNotifications, load, onMoved, t],
+    [selectPane, selectedPaneId, selectedMachineId, setView, view, botPage, updateSettings, resolvedTheme, settings.bionicReading, canSignOut, bellVisible, bell.on, enableNotifications, load, onMoved, t],
   );
 
   useShortcuts(actions, locked === false);
@@ -811,7 +875,19 @@ export function App() {
           <PanelLeft />
           {sidebarCollapsed && waitingBadge}
         </button>
-        {selectedPane ? (
+        {botPage ? (
+          // a session bot's page: its picture and name; it has no workspace, folder or terminal
+          <div className="context context-bot" title={selectedBot?.name}>
+            <div className="context-title">
+              {selectedBot && <img className="context-bot-picture" src={mascotSrc(botMascot(selectedBot))} alt="" width={18} height={18} />}
+              <span className="context-title-text">{selectedBot?.name ?? ""}</span>
+            </div>
+            <div className="context-sub">
+              <span className="machine-context-name">{machines.find((machine) => machine.id === "local")?.name ?? "local"}</span><span aria-hidden="true"> › </span>
+              <span className="context-workspace">{t("Chat session")}</span>
+            </div>
+          </div>
+        ) : selectedPane ? (
           <div className="context" title={`${selectedWorkspace?.label ?? selectedPane.workspace_id} › ${selectedTitle}${selectedPane.cwd ? ` › ${selectedPane.cwd}` : ""}`}>
             <div className="context-title">
               {selectedAgent && <AgentMark agent={selectedAgent} size={18} />}
@@ -835,7 +911,7 @@ export function App() {
           <><Brand /><span className="machine-context-name">{selectedMachine?.name ?? selectedMachineId}</span></>
         )}
         <UpdateButton updates={updates} />
-        {selectedPane && (
+        {selectedPane && !botPage && (
           <div className="segmented view-switch" role="group" aria-label={t("Pane view")}>
             <button type="button" aria-pressed={view === "chat"} onClick={() => setView("chat")} title={t("Chat transcript (⌘⇧J)")}>
               <MessageSquare />
@@ -851,27 +927,27 @@ export function App() {
         <div className="header-more-wrap" ref={moreRef}>
         {/* phones: search stays one tap away, outside the tools menu, at a thumb's size */}
         <button type="button" className="icon-button header-search-phone" aria-label={t("Command palette")} onClick={() => setPaletteOpen(true)}><Search aria-hidden="true" /></button>
-        <button type="button" className="icon-button header-more" aria-label={connected ? t("More tools") : t("More tools, reconnecting")} aria-expanded={moreOpen} aria-controls="header-meta" onClick={() => setMoreOpen(open => !open)}>
+        <button type="button" className="icon-button header-more" aria-label={live ? t("More tools") : t("More tools, reconnecting")} aria-expanded={moreOpen} aria-controls="header-meta" onClick={() => setMoreOpen(open => !open)}>
           {/* a dot means "look inside": only a lost connection is worth that, not the normal live state */}
-          <MoreHorizontal aria-hidden="true" />{!connected && <span className="header-more-dot conn-reconnecting" aria-hidden="true"><span className="conn-dot" /></span>}
+          <MoreHorizontal aria-hidden="true" />{!live && <span className="header-more-dot conn-reconnecting" aria-hidden="true"><span className="conn-dot" /></span>}
         </button>
         <div className="header-meta" id="header-meta" data-open={moreOpen || undefined}>
           <FrontendControls />
           <ZoomControls />
           <span
-            className={`conn ${connected ? "conn-live" : "conn-reconnecting"}`}
+            className={`conn ${live ? "conn-live" : "conn-reconnecting"}`}
             role="status"
             title={targetHerdr ? t("herdr {version} · protocol {protocol}", { version: targetHerdr.version, protocol: targetHerdr.protocol }) : undefined}
           >
             <span className="conn-dot" aria-hidden="true" />
-            <span className="conn-text">{t(connected ? "live" : outputStopped ? "disconnected" : "reconnecting")}</span>
+            <span className="conn-text">{t(live ? "live" : outputStopped && !botPage ? "disconnected" : "reconnecting")}</span>
           </span>
           {!targetHerdr && <span className="pill pill-offline">{t("herdr offline")}</span>}
           {/* navigation: the places the header opens; their names show on wide screens and in the phone menu */}
           <button type="button" className="icon-button header-tool header-group-start" aria-label={t("Agent fleet")} title={t("Agent fleet")} onClick={() => setFleetOpen(true)}><Orbit aria-hidden="true" /><span className="header-tool-label header-label-wide">{t("Fleet")}</span></button>
           <button type="button" className="icon-button header-tool" aria-label={t("OpenRig teams")} title={t("OpenRig teams")} onClick={() => setOpenRigOpen(true)}><Users aria-hidden="true" /><span className="header-tool-label header-label-wide">{t("Teams")}</span></button>
           <TerminalNotificationCenter readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onSelect={target => selectTargetRef.current("local", target.paneId)} />
-          {selectedPane && (
+          {selectedPane && !botPage && (
             <button type="button" className="icon-button header-tool files-button" aria-label={t("Browse files")} title={t("Browse files")} onClick={() => setFilesOpen(true)}>
               <FolderOpen aria-hidden="true" /><span className="header-tool-label">{t("Browse files")}</span>
             </button>
@@ -895,15 +971,15 @@ export function App() {
       <div className="app-body">
         <aside id="workspace-drawer" className={`sidebar${drawerOpen ? " is-open" : ""}`}>
           {error && <div className="error-state" role="alert"><p>{error}</p><button className="btn" onClick={() => void load()}>{t("Retry")}</button></div>}
-          <MachineSidebar onOpenBot={(bot) => void openBot(bot)} readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onNewBot={() => { setDrawerOpen(false); setNewBotOpen(true); }} onBotSettings={(botId) => { const bot = botsView?.bots.find((entry) => entry.id === botId); if (bot) { showBotSettings(botId); void openBot(bot); } }} version={health?.herdr?.version ?? null} machines={machines} selectedMachineId={selectedMachineId} selectedPaneId={selectedPaneId} selectedWorkspaceId={sidebarOwnerId} onSelectWorkspace={selectWorkspace} actions={actions} onSelect={selectTarget} onSetup={(machine, update = false) => { setUpdateRemote(update); setMachineDialog(machine); }} onNew={(id) => { setNewSessionMachineId(id); setNewSessionOpen(true); setDrawerOpen(false); }} />
+          <MachineSidebar onOpenBot={(bot) => void openBot(bot)} onOpenBotPage={selectBot} selectedBotId={botPage ? selectedBotId : null} readOnly={readOnly} onNewBot={() => { setDrawerOpen(false); setNewBotOpen(true); }} onBotSettings={(botId) => { const bot = botsView?.bots.find((entry) => entry.id === botId); if (bot) { showBotSettings(botId); void openBot(bot); } }} version={health?.herdr?.version ?? null} machines={machines} selectedMachineId={selectedMachineId} selectedPaneId={botPage ? null : selectedPaneId} selectedWorkspaceId={botPage ? null : sidebarOwnerId} onSelectWorkspace={selectWorkspace} actions={actions} onSelect={selectTarget} onSetup={(machine, update = false) => { setUpdateRemote(update); setMachineDialog(machine); }} onNew={(id) => { setNewSessionMachineId(id); setNewSessionOpen(true); setDrawerOpen(false); }} />
         </aside>
 
         {drawerOpen && <div className="scrim" aria-hidden="true" onClick={() => setDrawerOpen(false)} />}
 
         {/* a file path in the chat opens in the viewer, relative to the selected pane's folder */}
-        <OpenFileContext.Provider value={selectedPaneId !== null ? viewFile : null}>
+        <OpenFileContext.Provider value={botPage ? viewBotFile : selectedPaneId !== null ? viewFile : null}>
         <main className="terminal-host">
-          <SplitTerminals
+          {botPage && selectedBotId !== null ? <BotPage botId={selectedBotId} readOnly={readOnly} connected={eventsLive} /> : <SplitTerminals
             key={selectedMachineId}
             machineId={selectedMachineId}
             panes={snapshot?.panes ?? []}
@@ -945,7 +1021,7 @@ export function App() {
             onConnectionChange: (next) => { setConnected(next); if (next) setOutputStopped(false); },
             onServerMessage: handleServerMessage,
             }}
-          />
+          />}
         </main>
         </OpenFileContext.Provider>
       </div>
@@ -980,7 +1056,7 @@ export function App() {
       {viewing !== null && <MachineContext.Provider value={viewing.machineId}>
         <FileViewer key={viewing.path} path={viewing.path} paneId={viewing.paneId} onClose={closeFile} onOpen={(path) => openFile({ ...viewing, path })} />
       </MachineContext.Provider>}
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} machines={machines} selectedMachineId={selectedMachineId} selectedPaneId={selectedPaneId} view={view} actions={actions} onSelectTarget={(machineId, paneId) => selectTargetRef.current(machineId, paneId)} />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} machines={machines} selectedMachineId={selectedMachineId} selectedPaneId={botPage ? null : selectedPaneId} view={view} actions={actions} onSelectTarget={(machineId, paneId) => selectTargetRef.current(machineId, paneId)} />
       {signOutAsk && <ConfirmDialog title={t("Sign out of this device?")} body={t("To get back in, this device needs a new pairing code from the PC.")} confirmLabel={t("Sign out")}
         onConfirm={async () => { await lock(); setSignOutAsk(false); }} onClose={() => setSignOutAsk(false)} />}
     </div></MachineContext.Provider>

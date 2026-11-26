@@ -26,9 +26,11 @@ const BARE_HEADING_CLASS = "w-full min-w-0 resize-none truncate rounded-sm borde
 
 function AgentChoice({ agent, onPick, disabled }: { agent: BotAgent; onPick: (agent: BotAgent) => void; disabled: boolean }) {
   const t = useT();
+  const hintId = useId();
   const label = (id: BotAgent): string => (id === "claude" ? "Claude Code" : "Codex");
   return (
-    <div role="radiogroup" aria-label={t("Runs on")} className="grid grid-cols-2 gap-2">
+    <>
+    <div role="radiogroup" aria-label={t("Runs on")} aria-describedby={hintId} className="grid grid-cols-2 gap-2">
       {(["claude", "codex"] as const).map((id) => (
         <Button
           key={id}
@@ -46,21 +48,27 @@ function AgentChoice({ agent, onPick, disabled }: { agent: BotAgent; onPick: (ag
         </Button>
       ))}
     </div>
+    {/* what the choice means: a Claude bot runs as a chat session (server/bots/session), a Codex bot in a terminal */}
+    <p id={hintId} className="text-xs leading-4 text-muted-foreground">{agent === "claude" ? t("Chat only, no terminal") : t("Runs in a terminal")}</p>
+    </>
   );
 }
 
 function PurposeField({ value, tooLong, onChange, disabled }: { value: string; tooLong: boolean; onChange: (value: string) => void; disabled: boolean }) {
   const t = useT();
   const counterId = useId();
+  const fieldId = useId();
   return (
     <div className="space-y-1">
+      {/* a visible name that stays once the placeholder is typed over (BOT-32); the text becomes SOUL.md,
+          which settings calls Soul: one name for one thing */}
+      <Label variant="settings" htmlFor={fieldId}>{t("Soul")}</Label>
       <div className="rounded-md border border-input px-3 py-2 shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 has-aria-invalid:border-destructive has-aria-invalid:ring-destructive/20 dark:bg-input/30 dark:has-aria-invalid:ring-destructive/40">
         <textarea
           className="scrollbar-sleek block h-[5lh] w-full resize-none border-0 bg-transparent p-0 text-sm leading-5 outline-none placeholder:text-muted-foreground"
           rows={5}
+          id={fieldId}
           autoComplete="off"
-          // the text becomes SOUL.md, which settings calls Soul: one name for one thing
-          aria-label={t("Soul")}
           aria-invalid={tooLong || undefined}
           aria-describedby={tooLong ? counterId : undefined}
           value={value}
@@ -97,6 +105,7 @@ function CreateButton({ busy }: { busy: boolean }) {
 function NewBotForm({ onClose, onCreated }: { onClose: () => void; onCreated: (bot: Bot) => void }) {
   const t = useT();
   const nameErrorId = useId();
+  const nameId = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState("");
@@ -124,7 +133,8 @@ function NewBotForm({ onClose, onCreated }: { onClose: () => void; onCreated: (b
     setCreating(true);
     setError(null);
     try {
-      const made = await botsApi.create({ name: trimmedName, agent, purpose: purpose.trim(), repo: repo.trim() || null });
+      // a Claude bot runs as a chat session with no terminal; the session runtime is Claude only, so Codex stays in a pane
+      const made = await botsApi.create({ name: trimmedName, agent, purpose: purpose.trim(), repo: repo.trim() || null, ...(agent === "claude" ? { runtime: "session" as const } : {}) });
       const differs = made.avatar !== picture.avatar;
       // The bot exists now; a picture that did not save can be set again in its settings.
       const bot = differs ? await botsApi.update(made.id, { avatar: picture.avatar }).catch(() => made) : made;
@@ -160,11 +170,13 @@ function NewBotForm({ onClose, onCreated }: { onClose: () => void; onCreated: (b
             <div className="flex flex-wrap items-center gap-x-3">
               <PictureButton value={picture} onPick={setPicture} variant="new" disabled={creating} label={t("Change picture")} />
               <div className="min-w-0 flex-1">
+                {/* visible over the field, as Soul and Runs on are, so the meaning stays after typing (BOT-32) */}
+                <Label variant="settings" htmlFor={nameId} className="mb-1">{t("Name")}</Label>
                 <input
                   ref={nameRef}
+                  id={nameId}
                   autoFocus
                   className={cn(BARE_HEADING_CLASS, "aria-invalid:px-2 aria-invalid:ring-1 aria-invalid:ring-destructive aria-invalid:outline-destructive")}
-                  aria-label={t("Name")}
                   aria-invalid={nameInvalid || undefined}
                   aria-describedby={nameInvalid ? nameErrorId : undefined}
                   autoComplete="off"

@@ -29,7 +29,9 @@ export function createWriteContext(sessionId: string, journal: BotJournal, emit:
   return {
     sessionId, journal, turnId,
     write(itemId, body, at, turn) {
-      const row = journal.upsert(sessionId, itemId, body, at, turn === undefined ? undefined : turn);
+      // a row written with no turn named (streamed text) belongs to the turn that runs now; with none
+      // running, a row keeps the turn it has
+      const row = journal.upsert(sessionId, itemId, body, at, turn !== undefined ? turn : turnId() ?? undefined);
       // a row revised twice in one batch is sent once, as its newest revision
       batch = [...batch.filter((other) => other.itemId !== itemId), row];
       return row;

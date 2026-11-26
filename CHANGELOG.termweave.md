@@ -3,6 +3,12 @@
 TermWeave(herdr web ui 포크)의 변경 기록입니다. 원본 프로젝트의 기록은 `CHANGELOG.md`에 있습니다.
 이 파일에는 실제 동작이나 게이트로 확인된 완료 항목만 적습니다. 일부만 끝난 항목은 "남은 일"에 따로 적습니다.
 
+## [0.3.62] - 2026-11-27
+
+- feat(bots): a new Claude bot runs as a chat session with its own page, and nine approved card and row changes
+- refactor(bots): the Home panel's folder is homepanel, clear of the release gate's home-path check
+- fix(test): fixture paths that the release leak scan reads as a home folder
+
 ## [0.3.61] - 2026-11-27
 
 - feat: Orca's chat for bots, a terminal-less bot runtime, and a cognitive UX pass over the app

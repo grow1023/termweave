@@ -17,6 +17,7 @@ import { BotNameInlineEdit } from "./BotNameInlineEdit.tsx";
 import { BotNoteEditor } from "./BotNoteEditor.tsx";
 import { PictureButton } from "./BotPicturePicker.tsx";
 import type { PictureChoice } from "./BotPicturePicker.tsx";
+import { PermissionsRow, RuntimeRow } from "./BotRuntimeRows.tsx";
 import { SettingsInsetGroup, SettingsInsetRow } from "./BotSettingsRows.tsx";
 import { DeleteBotDialog } from "./DeleteBotDialog.tsx";
 
@@ -213,6 +214,8 @@ function RootPage({ bot, readOnly, open, onDeleted }: { bot: Bot; readOnly: bool
       </SettingsInsetGroup>
       <SettingsInsetGroup title={t("Agent")}>
         <SettingsInsetRow icon={<BotIcon />} title={t("Agent")} value={agent} />
+        <RuntimeRow bot={bot} readOnly={readOnly} />
+        {bot.runtime === "session" ? <PermissionsRow bot={bot} readOnly={readOnly} /> : null}
         <RepoRow bot={bot} readOnly={readOnly} />
         <ActiveRow bot={bot} readOnly={readOnly} />
       </SettingsInsetGroup>

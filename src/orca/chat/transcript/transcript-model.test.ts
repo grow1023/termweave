@@ -1,8 +1,29 @@
 import { describe, expect, test } from "bun:test";
 
-import { jumpToLatestShown } from "./transcript-model.ts";
+import { followsEnd, jumpToLatestShown, READER_GESTURE_MS } from "./transcript-model.ts";
 
 const view = (scrollTop: number, scrollHeight: number, clientHeight: number) => ({ scrollTop, scrollHeight, clientHeight });
+
+describe("following the end", () => {
+  test("at the end it follows, whoever scrolled", () => {
+    expect(followsEnd(true, false, 0)).toBe(true);
+    expect(followsEnd(true, true, Number.POSITIVE_INFINITY)).toBe(true);
+  });
+
+  test("a scroll off the end right after the reader's gesture stops following", () => {
+    expect(followsEnd(false, true, 30)).toBe(false);
+    expect(followsEnd(false, true, READER_GESTURE_MS)).toBe(false);
+  });
+
+  test("a scroll off the end with no gesture (a layout change) keeps following", () => {
+    expect(followsEnd(false, true, READER_GESTURE_MS + 1)).toBe(true);
+    expect(followsEnd(false, true, Number.POSITIVE_INFINITY)).toBe(true);
+  });
+
+  test("a reader who already left stays away until they reach the end", () => {
+    expect(followsEnd(false, false, Number.POSITIVE_INFINITY)).toBe(false);
+  });
+});
 
 describe("Jump to latest", () => {
   test("hidden while the reader follows the end", () => {

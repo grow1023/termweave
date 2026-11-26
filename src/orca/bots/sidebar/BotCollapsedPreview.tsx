@@ -38,10 +38,11 @@ function Pip({ signal }: { signal: Signal }): JSX.Element | null {
   );
 }
 
-export function BotCollapsedPreview({ facts, automations, selectedPaneId, onOpenBot }: {
+export function BotCollapsedPreview({ facts, automations, isOpen, onOpenBot }: {
   facts: readonly BotFacts[];
   automations: readonly BotAutomation[];
-  selectedPaneId: string | null;
+  /** the bot's page or chat pane is the one open */
+  isOpen: (facts: BotFacts) => boolean;
   onOpenBot: (bot: Bot) => void;
 }): JSX.Element {
   const t = useT();
@@ -57,7 +58,7 @@ export function BotCollapsedPreview({ facts, automations, selectedPaneId, onOpen
         <span className="flex shrink-0 -space-x-1">
           {ordered.map((entry) => {
             const { bot } = entry.fact;
-            const current = bot.paneId !== null && bot.paneId === selectedPaneId;
+            const current = isOpen(entry.fact);
             return (
               <HoverCard key={bot.id} openDelay={400} closeDelay={120}>
                 <HoverCardTrigger asChild>

@@ -104,6 +104,11 @@ describe("run header", () => {
     const header = nativeChatToolRunHeader(runs.failedBash ?? [], false);
     expect([header.failedCallCount, header.succeeded, header.live]).toEqual([1, false, false]);
   });
+  test("a settled run whose last call has no result is not marked a success", () => {
+    // liveRead's last call has no result: once the turn no longer works on it (it waits on a permission, or was stopped)
+    const header = nativeChatToolRunHeader(runs.liveRead ?? [], false);
+    expect([header.live, header.succeeded]).toEqual([false, false]);
+  });
   test("live only while the turn works and the last call has no result", () => {
     const blocks = runs.liveRead ?? [];
     const live = nativeChatToolRunHeader(blocks, true);

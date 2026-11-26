@@ -41,7 +41,7 @@ function BotHomeContent({ bot, view, readOnly, onOpenSettings, onClose }: Props 
       // The wider left padding is the sidebar's resize grab area, 4 px clear of every row.
       className="@container scrollbar-sleek flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pl-3.5 pr-2 py-3 outline-none"
     >
-      <BotPanelHeader bot={bot} items={items} automations={automations} readOnly={readOnly} now={now} onOpenSettings={onOpenSettings} onClose={onClose} />
+      <BotPanelHeader bot={bot} items={items} automations={automations} chat={view.chatStatus?.[bot.id]} readOnly={readOnly} now={now} onOpenSettings={onOpenSettings} onClose={onClose} />
       <BotItemsSection
         bot={bot}
         items={items}

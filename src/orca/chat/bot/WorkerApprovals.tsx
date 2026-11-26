@@ -10,17 +10,28 @@ import { CircleHelp } from "lucide-react";
 
 import { useT } from "../../../lib/i18n.ts";
 import { Button } from "../../ui/button.tsx";
-import { useBotSideDocked } from "../../bots/BotSide.tsx";
+import { useBotPageDocked, useBotSideDocked } from "../../bots/BotSide.tsx";
 import { botsApi, type BotItem, type BotPaneAction } from "../../bots/data.ts";
+import { AnsweredLine } from "../../bots/homepanel/AnsweredLine.tsx";
 import { BotItemQuestionStep } from "../../bots/homepanel/BotItemQuestionStep.tsx";
+import { answeredText, guardKey, layoutRows } from "../../bots/homepanel/answered-line.ts";
+import { useAnsweredLines } from "../../bots/homepanel/use-answered-lines.ts";
 import { useBotAction } from "../../bots/homepanel/use-bot-action.tsx";
-import { useSettledCards } from "../../bots/homepanel/use-settled-cards.ts";
-import type { ChatApproval, ChatBotContext } from "../shared/index.ts";
+import { splitWhere } from "../../bots/homepanel/pane-where.ts";
+import { useSettledCards, useSettledLook } from "../../bots/homepanel/use-settled-cards.ts";
+import type { ChatBotContext } from "../shared/index.ts";
 import { useWorkerDockStructuralValue } from "./WorkerDockFrame.tsx";
-import { APPROVAL_ANSWERS, approvalQuestion, hasAction, toChatApproval } from "./use-chat-bot.ts";
+import { APPROVAL_ANSWERS, approvalQuestion, hasAction, toChatApproval, type BotChatApproval } from "./use-chat-bot.ts";
+
+/** What a waiting card needs from its list: the 500 ms guard, the look while unsettled, and where an answer that went is told. */
+interface CardGuard {
+  canAnswer: () => boolean;
+  settled: boolean;
+  onAnswered: (answer: string, text: string) => void;
+}
 
 export type RenderApproval = (args: {
-  approval: ChatApproval;
+  approval: BotChatApproval;
   submitting: boolean;
   submittingIndex: number | null;
   error: string | null;
@@ -34,31 +45,37 @@ export interface WorkerApprovalsProps {
   renderApproval?: RenderApproval;
 }
 
-/** An approval through the shared card: its own busy state and the server's refusal text. */
-function ApprovalSlot({ botId, item, readOnly, render, canAnswer }: { botId: string; item: BotItem & { action: BotPaneAction }; readOnly: boolean; render: RenderApproval; canAnswer: () => boolean }) {
+/** An approval through the shared card: its own busy state and the server's refusal text. The wrapper's
+ *  `data-settled` gives the card its quiet look while it has just appeared or moved (ApprovalCard, BOT-22). */
+function ApprovalSlot({ botId, item, readOnly, render, guard }: { botId: string; item: BotItem & { action: BotPaneAction }; readOnly: boolean; render: RenderApproval; guard: CardGuard }) {
   const t = useT();
   const act = useBotAction();
   const [choosing, setChoosing] = useState<number | null>(null);
   const onChoose = (index: number): void => {
     const answer = APPROVAL_ANSWERS[index];
-    if (readOnly || act.busy || answer === undefined || !canAnswer()) return;
+    if (readOnly || act.busy || answer === undefined || !guard.canAnswer()) return;
     setChoosing(index);
-    void act.run(() => botsApi.answerItem(botId, item.n, answer)).then(() => setChoosing(null));
+    void act.run(() => botsApi.answerItem(botId, item.n, answer)).then((ok) => {
+      setChoosing(null);
+      if (ok) guard.onAnswered(answer, answeredText(answer, item.action, t));
+    });
   };
   return (
-    <div aria-busy={act.busy}>
+    <div aria-busy={act.busy} data-settled={guard.settled} className="group/settle">
       {render({ approval: toChatApproval(item, readOnly, t), submitting: act.busy, submittingIndex: act.busy ? choosing : null, error: act.error, onChoose, placement: "stacked" })}
     </div>
   );
 }
 
-function WaitingCard({ botId, item, readOnly, render, canAnswer }: { botId: string; item: BotItem; readOnly: boolean; render?: RenderApproval; canAnswer: () => boolean }) {
-  if (render && hasAction(item)) return <ApprovalSlot botId={botId} item={item} readOnly={readOnly} render={render} canAnswer={canAnswer} />;
-  return <BotItemQuestionStep botId={botId} item={item} readOnly={readOnly} canAnswer={canAnswer} />;
+function WaitingCard({ botId, item, readOnly, render, guard }: { botId: string; item: BotItem; readOnly: boolean; render?: RenderApproval; guard: CardGuard }) {
+  if (render && hasAction(item)) return <ApprovalSlot botId={botId} item={item} readOnly={readOnly} render={render} guard={guard} />;
+  return <BotItemQuestionStep botId={botId} item={item} readOnly={readOnly} canAnswer={guard.canAnswer} settled={guard.settled} onAnswered={guard.onAnswered} />;
 }
 
+/** An approval's title names its terminal with the pane id after it; the row shows the name only, as the card does (BOT-28). */
 function itemName(item: BotItem): string {
-  return `#${item.n} ${item.title}`;
+  const where = item.action?.where;
+  return `#${item.n} ${where ? item.title.replace(where, splitWhere(where).name) : item.title}`;
 }
 
 const stamp = (item: BotItem): number => Date.parse(item.updatedAt) || Date.parse(item.createdAt) || 0;
@@ -68,6 +85,8 @@ const stamp = (item: BotItem): number => Date.parse(item.updatedAt) || Date.pars
 function placeKey(item: BotItem, open: boolean): string {
   return `item:${item.botId}:${item.n}:${open ? "open" : "row"}`;
 }
+
+const itemKey = (item: BotItem): string => `item:${item.botId}:${item.n}`;
 
 /** Tells a screen reader when new items start waiting. */
 function useArrivals(items: readonly BotItem[]): { id: string; text: string } | null {
@@ -103,11 +122,11 @@ function FoldedRow({ item, text, onShow }: { item: BotItem; text: string; onShow
 }
 
 /** The open card under its "Waiting on you" line; `onHide` (folded mode only) folds it back. */
-function OpenCard({ item, context, render, canAnswer, onHide }: {
+function OpenCard({ item, context, render, guard, onHide }: {
   item: BotItem;
   context: WorkerApprovalsProps["context"];
   render?: RenderApproval;
-  canAnswer: () => boolean;
+  guard: CardGuard;
   onHide?: () => void;
 }) {
   const t = useT();
@@ -122,31 +141,52 @@ function OpenCard({ item, context, render, canAnswer, onHide }: {
           </Button>
         ) : null}
       </div>
-      <WaitingCard key={`${item.botId}:${item.n}`} botId={context.bot.id} item={item} readOnly={context.readOnly} render={render} canAnswer={canAnswer} />
+      <WaitingCard key={`${item.botId}:${item.n}`} botId={context.bot.id} item={item} readOnly={context.readOnly} render={render} guard={guard} />
     </div>
   );
 }
 
 export function WorkerApprovals({ context, renderApproval }: WorkerApprovalsProps) {
   const t = useT();
-  const live = useMemo(
+  const waiting = useMemo(
     () => [...context.approvals, ...(context.questions ?? [])].sort((a, b) => stamp(b) - stamp(a) || b.n - a.n),
     [context.approvals, context.questions],
   );
+  // an answered card stays a moment as one line in its place (BOT-23), and does not show again as a card
+  const answered = useAnsweredLines(waiting.map((item) => ({ key: itemKey(item), stamp: item.updatedAt })));
+  const live = useMemo(() => waiting.filter((item) => !answered.hides(itemKey(item), item.updatedAt)), [waiting, answered.hides]);
   const announcement = useArrivals(live);
   const items = useWorkerDockStructuralValue(live);
   const [selected, setSelected] = useState<number | null>(null);
   // the Home panel beside the chat already shows every card: here they stay folded until asked
-  const folded = useBotSideDocked(context.bot.paneId);
+  const sideDocked = useBotSideDocked(context.bot.paneId);
+  const pageDocked = useBotPageDocked(context.bot.id);
+  const folded = sideDocked || pageDocked;
   const open = folded ? (items.find((item) => item.n === selected) ?? null) : (items.find((item) => item.n === selected) ?? items[0] ?? null);
+  // folded: each line stands where its card stood; unfolded: the open card is always first, so its line is too
+  const rows = layoutRows(items, folded ? answered.lines : answered.lines.map((line) => ({ ...line, index: 0 })));
+  // the guard key counts the lines above a card: a line that appears or leaves moves the cards under it
+  const keyOf = (item: BotItem, linesAbove: number): string => guardKey(placeKey(item, item === open), linesAbove);
+  const keys = rows.flatMap((row) => (row.kind === "card" ? [keyOf(row.card, row.linesAbove)] : []));
   // the Home panel's guard (card-placement.ts): a card that just appeared or moved ignores answers for 500 ms;
   // before the early return, so a first card that appears later counts as new
-  const isSettled = useSettledCards(items.map((item) => placeKey(item, item === open)));
+  const isSettled = useSettledCards(keys);
+  const looksSettled = useSettledLook(keys);
   const status = <span key={announcement?.id} className="sr-only" role="status" aria-live="polite">{announcement?.text}</span>;
-  if (items.length === 0) return status;
-  const card = (item: BotItem, onHide?: () => void) => (
-    <OpenCard key={`${item.botId}:${item.n}`} item={item} context={context} render={renderApproval} canAnswer={() => isSettled(placeKey(item, true))} onHide={onHide} />
-  );
+  if (rows.length === 0) return status;
+  const card = (item: BotItem, linesAbove: number, onHide?: () => void) => {
+    const key = keyOf(item, linesAbove);
+    const guard: CardGuard = {
+      canAnswer: () => isSettled(key),
+      settled: looksSettled(key),
+      onAnswered: (_answer, text) => {
+        answered.add({ key: itemKey(item), stamp: item.updatedAt, text, index: items.indexOf(item) });
+        setSelected(null);
+      },
+    };
+    return <OpenCard key={`${item.botId}:${item.n}`} item={item} context={context} render={renderApproval} guard={guard} onHide={onHide} />;
+  };
+  const line = (key: string, text: string) => <AnsweredLine key={`line:${key}`} text={text} className="mx-4 mt-1" />;
   // the scroll box: its top edge fades while scrolled, and an open card's action row stays in sight (chat.css)
   const box = "native-chat-worker-approvals scrollbar-sleek min-h-0 shrink overflow-y-auto overscroll-contain pb-2";
   if (folded) {
@@ -154,9 +194,13 @@ export function WorkerApprovals({ context, renderApproval }: WorkerApprovalsProp
       <div className={box} data-native-chat-worker-approvals="" data-native-chat-worker-approvals-folded="">
         {status}
         <div role="region" aria-label={t("Waiting on you")} className="min-h-0">
-          {items.map((item) => item === open
-            ? card(item, () => setSelected(null))
-            : <FoldedRow key={`${item.botId}:${item.n}`} item={item} text={t("{name} · Waiting on you", { name: itemName(item) })} onShow={() => setSelected(item.n)} />)}
+          {rows.map((row) => {
+            if (row.kind === "line") return line(row.line.key, row.line.text);
+            const item = row.card;
+            return item === open
+              ? card(item, row.linesAbove, () => setSelected(null))
+              : <FoldedRow key={`${item.botId}:${item.n}`} item={item} text={t("{name} · Waiting on you", { name: itemName(item) })} onShow={() => setSelected(item.n)} />;
+          })}
         </div>
       </div>
     );
@@ -165,7 +209,8 @@ export function WorkerApprovals({ context, renderApproval }: WorkerApprovalsProp
   return (
     <div className={box} data-native-chat-worker-approvals="">
       {status}
-      {open ? card(open) : null}
+      {answered.lines.map((each) => line(each.key, each.text))}
+      {open ? card(open, answered.lines.length) : null}
       {queued.length ? (
         <>
           <p className="flex h-6 items-center px-4 text-2xs text-muted-foreground">{t("{count} more waiting on you", { count: queued.length })}</p>

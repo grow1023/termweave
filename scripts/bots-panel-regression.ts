@@ -3,12 +3,13 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Browser, Locator, Page } from "playwright-core";
 
+import type { BotChatStatus, JournalBody, JournalRow } from "../shared/bots/chat.ts";
 import type { BotsView } from "../shared/bots/types.ts";
 
 /**
  * The bot screens (src/orca/bots) against a stand-in /api/bots: no bot, worker or
- * agent session is started. Creating, answering a needs-you item, adding a schedule, and the
- * phone layout.
+ * agent session is started. Creating, answering a needs-you item, adding a schedule, a session bot's
+ * chat page (no terminal), and the phone layout.
  */
 export async function checkBotsPanel(browser: Browser, origin: string, botPane: string): Promise<void> {
   for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
@@ -18,7 +19,7 @@ export async function checkBotsPanel(browser: Browser, origin: string, botPane: 
       const page = await context.newPage();
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
-      const { calls, ask, work } = await standIn(page, botPane);
+      const { calls, ask, work, session } = await standIn(page, botPane);
       const conversation = await conversationStandIn(page, botPane);
       const shot = async (name: string): Promise<void> => {
         if (!process.env.UI_EVIDENCE_DIR) return;
@@ -50,7 +51,8 @@ export async function checkBotsPanel(browser: Browser, origin: string, botPane: 
       assert.equal(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth), true, "no sideways scroll in New bot");
       await dialog.getByRole("button", { name: "Create" }).click();
       await until(() => calls.some((call) => call.method === "POST" && call.path === "/api/bots"));
-      assert.deepEqual(calls.find((call) => call.path === "/api/bots")?.body, { name: "Fixer", agent: "claude", purpose: "Keep the tests green.", repo: null });
+      assert.deepEqual(calls.find((call) => call.path === "/api/bots")?.body, { name: "Fixer", agent: "claude", purpose: "Keep the tests green.", repo: null, runtime: "session" }, "a new Claude bot is asked for as a chat session");
+      // the stand-in answers with a terminal bot, so the terminal bot's screens are checked first; the session bot comes last
       await dialog.waitFor({ state: "detached" });
 
       // the new bot's chat opens in the chat lens as Orca's chat (src/orca/chat), with its Home beside it
@@ -146,16 +148,20 @@ export async function checkBotsPanel(browser: Browser, origin: string, botPane: 
       // It shows in the Home panel and in the chat's dock; answered in one place, it leaves both.
       ask();
       await page.evaluate(() => window.dispatchEvent(new Event("termweave:bots-changed")));
-      const approvalName = 'Type this into "api" (w1:p2) and press Enter?';
+      const approvalName = 'Type this into "api" and press Enter?';
       const approval = side.getByRole("group", { name: approvalName });
       const docked = chat.getByRole("group", { name: approvalName });
       await approval.getByText("npm test", { exact: true }).waitFor();
+      // the line item 1's answer left in Home ("Answered: yes") stays about 2 s; when it leaves, the cards under
+      // it move up and ignore answers for 500 ms more. Wait until it is gone, so the waits below start from
+      // cards at rest (measured: without this, 3 of 11 runs lost the Approve click to that guard)
+      await side.locator("[data-bot-answered-line]").first().waitFor({ state: "detached" });
       if (!phone) {
         // Home docked beside the chat: both waiting items are folded rows in the dock; Show opens one in place
         await chat.locator('[data-native-chat-worker-question-summary="3"]').waitFor();
         await chat.locator('[data-native-chat-worker-question-summary="2"]').waitFor();
         assert.equal(await docked.count(), 0, "the approval is folded in the dock while Home shows it");
-        await chat.getByRole("button", { name: 'Show #3 Type into "api" (w1:p2) question' }).click();
+        await chat.getByRole("button", { name: 'Show #3 Type into "api" question' }).click();
       }
       await docked.getByText("npm test", { exact: true }).waitFor();
       // one order everywhere: Deny first, Approve last at the right end, at least 12px apart
@@ -225,12 +231,56 @@ export async function checkBotsPanel(browser: Browser, origin: string, botPane: 
       assert.ok(await group.locator("img").count() >= 1, "a bot's row shows its picture");
       await group.getByRole("button", { name: "Manage Fixer" }).waitFor({ state: "attached" });
       if (process.env.UI_EVIDENCE_DIR) await group.screenshot({ path: join(process.env.UI_EVIDENCE_DIR, `bots-sidebar-${phone ? "mobile" : "desktop"}.png`) });
+      await checkSessionBot({ page, group, calls, session, shot });
       assert.deepEqual(errors, []);
     } finally {
       await context.close();
     }
   }
-  console.log("PASS bots: new bot, Orca chat with composer and fallback, transcript rows, home panel beside the chat, answer, automation and its refusal, approval in Home and in the chat dock answered once, settings and picture, sidebar row, phone layout");
+  console.log("PASS bots: new bot, Orca chat with composer and fallback, transcript rows, home panel beside the chat, answer, automation and its refusal, approval in Home and in the chat dock answered once, settings and picture, sidebar row, a session bot's chat page with its permission card and a sent message, phone layout");
+}
+
+/**
+ * A session bot has no terminal: its sidebar row opens the bot page, the journal's rows draw as the
+ * chat, a waiting permission shows as a card over the composer, and a message goes to the chat route.
+ */
+async function checkSessionBot({ page, group, calls, session, shot }: {
+  page: Page;
+  group: Locator;
+  calls: Array<{ method: string; path: string; body: unknown }>;
+  session: () => void;
+  shot: (name: string) => Promise<void>;
+}): Promise<void> {
+  session();
+  await page.evaluate(() => window.dispatchEvent(new Event("termweave:bots-changed")));
+  await group.getByRole("button", { name: /^Scribe\b/ }).first().click();
+  const chat = page.locator('[data-session-chat="b2"]');
+  await chat.waitFor();
+  // the chat waits on a permission: it is answered in the chat, so Home does not cover it on a phone,
+  // and the bot shows under "Needs you" with no item question
+  assert.equal(await page.locator(".bot-side.is-sheet").count(), 0, "a waiting chat opens with the chat in view, not behind Home");
+  assert.equal(await page.locator(".bot-page").count(), 1, "a session bot opens the bot page");
+  assert.equal(await page.locator(".bot-page .xterm").count(), 0, "the bot page has no terminal");
+  await chat.getByText("List the demo folder and tell me what is in it.", { exact: true }).waitFor();
+  await chat.getByText("Listed the folder: one file.", { exact: true }).waitFor();
+  const prompt = chat.locator('[data-session-prompt="prompt-p1"]');
+  await prompt.getByText("Allow Bash?", { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no sideways scroll on the bot page");
+  await page.waitForTimeout(300);
+  await shot("bot-session-prompt");
+  await prompt.getByRole("button", { name: "Allow", exact: true }).click();
+  await until(() => calls.at(-1)?.path === "/api/bots/b2/prompts/prompt-p1");
+  assert.deepEqual(calls.at(-1)?.body, { optionId: "allow" });
+  await prompt.waitFor({ state: "detached" });
+  const box = chat.getByRole("textbox", { name: "Message" });
+  await box.fill("thank you");
+  await chat.getByRole("button", { name: "Send message" }).click();
+  await until(() => calls.at(-1)?.path === "/api/bots/b2/message");
+  assert.equal((calls.at(-1)?.body as { text: string }).text, "thank you");
+  await chat.locator("[data-native-chat-scroll]").getByText("thank you", { exact: true }).waitFor();
+  assert.equal(await box.inputValue(), "", "a sent message leaves the box");
+  await page.waitForTimeout(300);
+  await shot("bot-session-chat");
 }
 
 /** True when the element is wholly inside the box's visible rectangle (not cut by its scroll edge). */
@@ -249,15 +299,39 @@ async function until(check: () => boolean, ms = 5000): Promise<void> {
   }
 }
 
-async function standIn(page: Page, botPane: string): Promise<{ calls: Array<{ method: string; path: string; body: unknown }>; ask: () => void; work: () => void }> {
+async function standIn(page: Page, botPane: string): Promise<{ calls: Array<{ method: string; path: string; body: unknown }>; ask: () => void; work: () => void; session: () => void }> {
   const calls: Array<{ method: string; path: string; body: unknown }> = [];
   const at = "2026-11-24T00:00:00.000Z";
   let view: BotsView = { bots: [], items: [], automations: [], workers: [] };
+  // the session bot "b2": its journal (an invented conversation, no user data) and its chat status
+  let rows: JournalRow[] = [];
+  let chatStatus: BotChatStatus = "blocked";
+  const head = (): number => Math.max(0, ...rows.map((row) => row.sequence));
   await page.route("**/api/bots**", async (route) => {
     const request = route.request();
-    const path = new URL(request.url()).pathname;
+    const url = new URL(request.url());
+    const path = url.pathname;
     const body = request.postData() ? JSON.parse(request.postData()!) : undefined;
     if (request.method() !== "GET") calls.push({ method: request.method(), path, body });
+    if (request.method() === "GET" && path === "/api/bots/b2/chat") {
+      const direction = url.searchParams.get("direction") ?? "tail";
+      const cursor = Number(url.searchParams.get("cursor") ?? 0);
+      const items = direction === "tail" ? rows : direction === "after" ? rows.filter((row) => row.sequence > cursor) : [];
+      return route.fulfill({ json: { epoch: "e1", direction, items, submissions: [], hasOlder: false, hasNewer: false, nextCursor: null, head: head(), status: chatStatus, queued: [] } });
+    }
+    if (request.method() === "POST" && path === "/api/bots/b2/prompts/prompt-p1") {
+      const next = head() + 1;
+      rows = rows.map((row) => row.itemId === "prompt-p1" && row.body.kind === "approval"
+        ? { ...row, revision: 2, sequence: next, body: { ...row.body, resolution: { state: "resolved" as const, answer: { kind: "option" as const, optionId: body.optionId }, resolvedBy: "owner", resolvedAt: Date.parse(at) } } }
+        : row.itemId === "turn:t2" && row.body.kind === "turn" ? { ...row, revision: 2, sequence: next + 1, body: { ...row.body, state: "completed" as const } } : row);
+      chatStatus = "done";
+      return route.fulfill({ json: { ok: true } });
+    }
+    if (request.method() === "POST" && path === "/api/bots/b2/message") {
+      const next = head() + 1;
+      rows = [...rows, { itemId: `user:${body.clientMessageId}`, revision: 1, sequence: next, ordinal: next, observedAt: Date.parse(at) + next * 1000, turnId: "t3", body: { kind: "message", role: "user", text: body.text, from: { kind: "owner" } } }];
+      return route.fulfill({ json: { clientMessageId: body.clientMessageId, state: "accepted" } });
+    }
     if (request.method() === "POST" && path === "/api/bots") {
       const bot = { id: "b1", name: body.name, agent: body.agent, home: "/tmp/b1", repo: null, paused: false, paneId: botPane, createdAt: at };
       view = {
@@ -282,8 +356,26 @@ async function standIn(page: Page, botPane: string): Promise<{ calls: Array<{ me
       view = { ...view, automations: [automation] };
       return route.fulfill({ json: automation });
     }
-    return route.fulfill({ json: view });
+    return route.fulfill({ json: view.bots.some((bot) => bot.id === "b2") ? { ...view, chatStatus: { b2: chatStatus } } : view });
   });
+  const session = (): void => {
+    const row = (itemId: string, ordinal: number, turnId: string, rowBody: JournalBody): JournalRow => ({ itemId, revision: 1, sequence: ordinal, ordinal, observedAt: Date.parse(at) + ordinal * 1000, turnId, body: rowBody });
+    const bounded = (text: string) => ({ text, bytes: text.length, cut: 0 });
+    rows = [
+      row("user:u1", 1, "t1", { kind: "message", role: "user", text: "List the demo folder and tell me what is in it.", from: { kind: "owner" } }),
+      row("c1", 2, "t1", { kind: "tool-call", name: "Bash", callId: "call-1", summary: "ls /srv/demo-project", input: bounded('{"command":"ls /srv/demo-project"}'), state: "completed", output: bounded("notes.txt") }),
+      row("a1", 3, "t1", { kind: "message", role: "assistant", text: "Listed the folder: one file.", state: "completed" }),
+      row("turn:t1", 4, "t1", { kind: "turn", turnId: "t1", state: "completed", startedAt: Date.parse(at), completedAt: Date.parse(at) + 2000, durationMs: 2000 }),
+      row("user:u2", 5, "t2", { kind: "message", role: "user", text: "Now delete the old notes.", from: { kind: "owner" } }),
+      row("prompt-p1", 6, "t2", {
+        kind: "approval", promptKey: "p1", title: "Allow Bash?", toolName: "Bash", detail: "rm /srv/demo-project/notes.txt",
+        options: [{ id: "allow", label: "Allow" }, { id: "allowForSession", label: "Allow for this session" }, { id: "deny", label: "Deny" }],
+        resolution: { state: "pending", answer: null, resolvedBy: null, resolvedAt: null },
+      }),
+      row("turn:t2", 7, "t2", { kind: "turn", turnId: "t2", state: "running", startedAt: Date.parse(at) + 5000 }),
+    ];
+    view = { ...view, bots: [...view.bots, { id: "b2", name: "Scribe", agent: "claude", home: "/tmp/b2", repo: null, paused: false, paneId: null, runtime: "session", createdAt: at }] };
+  };
   const ask = (): void => {
     view = { ...view, items: [...view.items, { botId: "b1", n: 2, title: "Merge the fix", doneMeans: null, status: "needs_you", ask: "Merge now?", options: ["merge", "wait"], waitingOn: null, comments: [], createdAt: at, updatedAt: at },
       // an approval: the bar words it from the action, not from the bot's ask
@@ -292,7 +384,7 @@ async function standIn(page: Page, botPane: string): Promise<{ calls: Array<{ me
   const work = (): void => {
     view = { ...view, workers: [{ id: "w1", botId: "b1", itemN: 1, agent: "claude", repo: "/tmp/b1/repo", worktree: "/tmp/b1/worktrees/w1", branch: "bot/fix-login", paneId: null, spec: "Run the login tests and fix the failure", status: "working", result: null, startedAt: at, endedAt: null }] };
   };
-  return { calls, ask, work };
+  return { calls, ask, work, session };
 }
 
 /**

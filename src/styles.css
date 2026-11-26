@@ -507,6 +507,15 @@ button {
   letter-spacing: var(--tracking-tight);
 }
 
+/* a session bot's page names the bot by its picture, as the sidebar row does */
+.context-bot-picture {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm, 4px);
+  object-fit: cover;
+}
+
 .context-title-text {
   min-width: 0;
   overflow: hidden;

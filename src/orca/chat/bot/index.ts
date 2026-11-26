@@ -1,5 +1,5 @@
 // WP5: bot cards and worker dock (SPEC 5.6). Ported from stablyai/orca (MIT, Copyright (c) 2026 Lovecast Inc.).
-export { useChatBot, type ChatBotView } from "./use-chat-bot.ts";
+export { useChatBot, type BotChatApproval, type ChatBotTarget, type ChatBotView } from "./use-chat-bot.ts";
 export { WorkerApprovals, type RenderApproval, type WorkerApprovalsProps } from "./WorkerApprovals.tsx";
 export { WorkerDock } from "./WorkerDock.tsx";
 export { itemTimedRows } from "./item-timed-rows.ts";

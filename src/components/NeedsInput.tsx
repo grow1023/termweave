@@ -6,14 +6,17 @@ import { useT } from "../lib/i18n.ts";
 import { AgentMark } from "./AgentMark.tsx";
 import { displayPaneTitle, StatusBadge } from "./Sidebar.tsx";
 import { needsYou, type BotQuestion } from "./navModel.ts";
+import { openBotHome } from "../orca/bots/BotSide.tsx";
 import "./NeedsInput.css";
 
-export function NeedsInput({ machines, bots, selectedMachineId, selectedPaneId, onSelect, onOpenBot }: {
+export function NeedsInput({ machines, bots, selectedMachineId, selectedPaneId, selectedBotId, onSelect, onOpenBot }: {
   machines: Machine[];
   /** the bots of this app's PC: their open questions wait here too, not only on the bots page */
   bots: BotsView | null;
   selectedMachineId: string;
   selectedPaneId: string | null;
+  /** the session bot whose page is open, if one is */
+  selectedBotId: string | null;
   onSelect(machineId: string, paneId: string): void;
   onOpenBot(bot: { id: string; paneId: string | null }): void;
 }) {
@@ -26,7 +29,7 @@ export function NeedsInput({ machines, bots, selectedMachineId, selectedPaneId, 
     {waiting.total > 0 && <section className="needs-input" aria-label={t("Needs you")}>
     <h2 className="needs-input-heading">{t("Needs you")} <span className="pill needs-input-count">{waiting.total}</span></h2>
     <ul className="pane-list">
-      {waiting.bots.map((bot) => <BotRow key={`bot:${bot.botId}`} bot={bot} selected={selectedMachineId === "local" && bot.paneId !== null && bot.paneId === selectedPaneId} onOpen={onOpenBot} />)}
+      {waiting.bots.map((bot) => <BotRow key={`bot:${bot.botId}`} bot={bot} selected={bot.botId === selectedBotId || (selectedMachineId === "local" && bot.paneId !== null && bot.paneId === selectedPaneId)} onOpen={onOpenBot} />)}
       {waiting.panes.map(({ machine, pane, workspace }) => {
         const selected = machine.id === selectedMachineId && pane.pane_id === selectedPaneId;
         return <li className={`needs-input-item${selected ? " is-selected" : ""}`} key={paneStorageId(machine.id, pane.pane_id)}>
@@ -47,11 +50,12 @@ export function NeedsInput({ machines, bots, selectedMachineId, selectedPaneId, 
 function BotRow({ bot, selected, onOpen }: { bot: BotQuestion; selected: boolean; onOpen(bot: { id: string; paneId: string | null }): void }) {
   const t = useT();
   return <li className={`needs-input-item${selected ? " is-selected" : ""}`}>
-    <button type="button" className="pane-select needs-input-select" aria-current={selected ? "true" : undefined} onClick={() => onOpen({ id: bot.botId, paneId: bot.paneId })}>
+    {/* a question waits: where the bot's Home is a sheet, it opens at once with the chat (BOT-25) */}
+    <button type="button" className="pane-select needs-input-select" aria-current={selected ? "true" : undefined} onClick={() => { if (bot.count > 0) openBotHome(bot.botId); onOpen({ id: bot.botId, paneId: bot.paneId }); }}>
       <span className="agent-mark-holder"><AgentMark agent={bot.agent} size={22} /></span>
       <span className="pane-copy">
         <span className="pane-title">{bot.name}</span>
-        <span className="pane-meta"><StatusBadge status="blocked" /><span className="pane-subtitle">{bot.count === 1 ? t("Bot · 1 question") : t("Bot · {n} questions", { n: bot.count })}</span></span>
+        <span className="pane-meta"><StatusBadge status="blocked" /><span className="pane-subtitle">{bot.count === 0 ? t("Bot · waiting in the chat") : bot.count === 1 ? t("Bot · 1 question") : t("Bot · {n} questions", { n: bot.count })}</span></span>
       </span>
     </button>
   </li>;

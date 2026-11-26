@@ -23,6 +23,21 @@ export function jumpToLatestShown(stuckToBottom: boolean, geometry: { scrollTop:
   return below > Math.max(BOTTOM_THRESHOLD_PX, geometry.clientHeight);
 }
 
+/** How long after a wheel, touch, key or pointer press a scroll counts as the reader's own. */
+export const READER_GESTURE_MS = 1_000;
+
+/**
+ * Whether the transcript still follows its end after a scroll event. At the end it follows. Away from
+ * the end it stops only when the reader moved it: a layout change (the composer resizing, a card
+ * appearing over it) also moves the scroll position, and that must not read as the reader leaving.
+ * Measured 2026-11-27: after a send the composer's resize left the view 96px short of the end, and the
+ * rest of a long reply ran below the fold.
+ */
+export function followsEnd(atEnd: boolean, followed: boolean, sinceGestureMs: number): boolean {
+  if (atEnd) return true;
+  return followed && sinceGestureMs > READER_GESTURE_MS;
+}
+
 const MAX_UNFOLDED_LINES = 8;
 const MAX_UNFOLDED_LENGTH = 600;
 

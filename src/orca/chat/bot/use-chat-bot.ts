@@ -6,7 +6,17 @@ import { useMemo } from "react";
 import { APPROVE, DENY } from "../../../../shared/bots/types.ts";
 import type { Translate } from "../../../lib/i18n.ts";
 import { ACTIVE_WORKER, useBotsView, type BotItem, type BotPaneAction, type BotWorker } from "../../bots/data.ts";
+import { approvalQuestion } from "../../bots/homepanel/BotItemQuestionStep.tsx";
+import { splitWhere, type PaneWhere } from "../../bots/homepanel/pane-where.ts";
 import type { ChatApproval, ChatBotContext } from "../shared/index.ts";
+
+export { approvalQuestion };
+
+/** Which bot's chat: the bot in a terminal pane (a pane bot), or the bot itself (a session bot has no pane). */
+export type ChatBotTarget = { paneId: string } | { botId: string };
+
+/** An approval with the terminal it acts on, so the card can show the pane id as a tooltip (BOT-28). */
+export type BotChatApproval = ChatApproval & { where?: PaneWhere };
 
 /** The context of SPEC 5.1 plus what the shared type has no field for (see the report). */
 export interface ChatBotView extends ChatBotContext {
@@ -25,11 +35,14 @@ function shownWorker(worker: BotWorker, now: number): boolean {
   return Number.isFinite(ended) && now - ended < FINISHED_SHOWN_MS;
 }
 
-/** The bot whose chat runs in this pane, with its waiting items and workers; null for any other pane. */
-export function useChatBot(paneId: string, readOnly: boolean): ChatBotView | null {
+/** The bot whose chat this is, with its waiting items and workers; null for a pane that is no bot's.
+ *  A plain string is a pane id, as the first callers pass it. */
+export function useChatBot(target: string | ChatBotTarget, readOnly: boolean): ChatBotView | null {
   const view = useBotsView();
+  const by = typeof target === "string" ? "pane" : "botId" in target ? "bot" : "pane";
+  const id = typeof target === "string" ? target : "botId" in target ? target.botId : target.paneId;
   return useMemo(() => {
-    const bot = view?.bots.find((each) => each.paneId === paneId);
+    const bot = view?.bots.find((each) => (by === "bot" ? each.id === id : each.paneId === id));
     if (!view || !bot) return null;
     const now = Date.now();
     const items = view.items.filter((item) => item.botId === bot.id);
@@ -42,27 +55,19 @@ export function useChatBot(paneId: string, readOnly: boolean): ChatBotView | nul
       workers: view.workers.filter((worker) => worker.botId === bot.id && shownWorker(worker, now)),
       readOnly,
     };
-  }, [view, paneId, readOnly]);
-}
-
-/** The question of an approval, from what the bot wants to do; never from the bot's own words.
- *  The same strings as the Home panel (src/orca/bots/homepanel/BotItemQuestionStep.tsx). */
-export function approvalQuestion(action: BotPaneAction, t: Translate): string {
-  switch (action.kind) {
-    case "send": return t("Type this into {where} and press Enter?", { where: action.where });
-    case "keys": return t("Press {keys} in {where}?", { keys: action.keys.join(" "), where: action.where });
-    case "close": return t("Close {where}?", { where: action.where });
-  }
+  }, [view, by, id, readOnly]);
 }
 
 /** The server's answer for each option index of `toChatApproval`: exactly "Approve" and "Deny". */
 export const APPROVAL_ANSWERS: readonly string[] = [APPROVE, DENY];
 
 /** An approval item as the shared card shape; `readOnly` gives it no options, so no buttons draw. */
-export function toChatApproval(item: BotItem & { action: BotPaneAction }, readOnly: boolean, t: Translate): ChatApproval {
+export function toChatApproval(item: BotItem & { action: BotPaneAction }, readOnly: boolean, t: Translate): BotChatApproval {
   return {
     title: approvalQuestion(item.action, t),
-    description: `#${item.n} ${item.title}`,
+    // the question already says what it does (BOT-28): the item line is only its number
+    description: `#${item.n}`,
+    where: splitWhere(item.action.where),
     ...(item.action.kind === "send" ? { detail: item.action.text } : {}),
     options: readOnly
       ? []

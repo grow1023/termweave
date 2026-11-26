@@ -27,7 +27,7 @@ export const STATE_WORD: Readonly<Record<MachineState, string>> = {
   error: "Connection error",
 };
 
-interface Props { onOpenBot(bot: { id: string; paneId: string | null }): void; onNewBot(): void; onBotSettings(botId: string): void; readOnly: boolean; machines: Machine[]; selectedMachineId: string; selectedPaneId: string | null; selectedWorkspaceId?: string | null; onSelectWorkspace?: (machine: string, workspace: string) => void; actions: AppActions; version: string | null; onSelect(machineId: string, paneId: string | null): void; onNew(machineId: string): void; onSetup(machine: Machine, update?: boolean): void }
+interface Props { onOpenBot(bot: { id: string; paneId: string | null }): void; onOpenBotPage(botId: string): void; selectedBotId: string | null; onNewBot(): void; onBotSettings(botId: string): void; readOnly: boolean; machines: Machine[]; selectedMachineId: string; selectedPaneId: string | null; selectedWorkspaceId?: string | null; onSelectWorkspace?: (machine: string, workspace: string) => void; actions: AppActions; version: string | null; onSelect(machineId: string, paneId: string | null): void; onNew(machineId: string): void; onSetup(machine: Machine, update?: boolean): void }
 export function MachineSidebar(props: Props) {
   const t = useT();
   const { canInstall, installed, install, help } = useInstallPrompt();
@@ -44,12 +44,12 @@ export function MachineSidebar(props: Props) {
   // no top bar: a session starts from its PC's header, and Add PC lives in Settings → Remote PCs
   return <div className="sidebar-shell">
     <div className="machine-list" aria-label={t("PCs and workspaces")}>
-      <NeedsInput machines={props.machines} bots={bots} selectedMachineId={props.selectedMachineId} selectedPaneId={props.selectedPaneId} onSelect={props.onSelect} onOpenBot={props.onOpenBot} />
+      <NeedsInput machines={props.machines} bots={bots} selectedMachineId={props.selectedMachineId} selectedPaneId={props.selectedPaneId} selectedBotId={props.selectedBotId} onSelect={props.onSelect} onOpenBot={props.onOpenBot} />
       {/* "Top of the list" means under what waits on the user: the meters must not push it off a phone's first screen */}
       <UsagePanel />
       {/* the bots group comes right after what waits on the user now */}
-      {bots && host && <SidebarBotsSection view={bots} snapshot={host.snapshot} selectedPaneId={props.selectedMachineId === host.id ? props.selectedPaneId : null} readOnly={props.readOnly}
-        onOpenPane={(paneId) => props.onSelect(host.id, paneId)} onNewBot={props.onNewBot} onSettings={props.onBotSettings} />}
+      {bots && host && <SidebarBotsSection view={bots} snapshot={host.snapshot} selectedPaneId={props.selectedMachineId === host.id ? props.selectedPaneId : null} selectedBotId={props.selectedBotId} readOnly={props.readOnly}
+        onOpenPane={(paneId) => props.onSelect(host.id, paneId)} onOpenBotPage={props.onOpenBotPage} onNewBot={props.onNewBot} onSettings={props.onBotSettings} />}
       {props.machines.map((machine) => <MachineGroup key={machine.id} {...props} machine={machine} hidden={machine.kind === "local" ? botWorkspaces : undefined} />)}
       {!props.machines.length && <p className="tree-state" role="status">{t("Loading PCs…")}</p>}
     </div>

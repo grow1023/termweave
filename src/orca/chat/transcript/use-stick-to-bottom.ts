@@ -1,12 +1,13 @@
 // From stablyai/orca (MIT, Copyright (c) 2026 Lovecast Inc.), src/renderer/src/components/native-chat/viewport/scroll/native-chat-autoscroll.ts
 // (the 48px bottom rule) and TermWeave's ChatView.tsx scroll handling (lines 714-751 before the 2026-11-27 hook move, 501-538 after it);
-// adapted for TermWeave. Orca's reader-gesture tracking is left out: a scroll event check is enough (SPEC 1.3).
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+// adapted for TermWeave. As in Orca, only a scroll the reader made (a wheel, touch, key or pointer press just
+// before it) takes the transcript off its end; a scroll that a layout change caused does not (followsEnd).
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { dismissKeyboardOn } from "../../../lib/keyboard.ts";
 import type { ChatScrollBinding } from "../adapter/use-conversation-feed.ts";
 import type { ChatFeed } from "../shared/index.ts";
-import { BOTTOM_THRESHOLD_PX, LOAD_OLDER_PX, jumpToLatestShown } from "./transcript-model.ts";
+import { BOTTOM_THRESHOLD_PX, LOAD_OLDER_PX, followsEnd, jumpToLatestShown } from "./transcript-model.ts";
 
 export interface StickToBottom {
   onScroll: () => void;
@@ -27,6 +28,8 @@ export function useStickToBottom(scroll: ChatScrollBinding, feed: Pick<ChatFeed,
   const { scroller, stickToBottom } = scroll;
   const [away, setAway] = useState(false);
   const { older, loadOlder } = feed;
+  // when the reader last touched the transcript; far in the past until they do
+  const gestureAt = useRef(Number.NEGATIVE_INFINITY);
 
   const maybeLoadOlder = useCallback((node: HTMLElement) => {
     if (node.scrollTop < LOAD_OLDER_PX && older === "idle") loadOlder();
@@ -62,6 +65,15 @@ export function useStickToBottom(scroll: ChatScrollBinding, feed: Pick<ChatFeed,
     return () => observer.disconnect();
   }, [scroller, stickToBottom]);
 
+  useEffect(() => {
+    const node = scroller.current;
+    if (node === null) return undefined;
+    const mark = (): void => { gestureAt.current = performance.now(); };
+    const events = ["wheel", "touchstart", "touchmove", "pointerdown", "keydown"] as const;
+    for (const name of events) node.addEventListener(name, mark, { passive: true });
+    return () => { for (const name of events) node.removeEventListener(name, mark); };
+  }, [scroller]);
+
   // a tap or a drag down the transcript puts a phone's keyboard away to read (lib/keyboard.ts)
   useEffect(() => {
     const node = scroller.current;
@@ -71,7 +83,10 @@ export function useStickToBottom(scroll: ChatScrollBinding, feed: Pick<ChatFeed,
   const onScroll = useCallback(() => {
     const node = scroller.current;
     if (node === null) return;
-    stickToBottom.current = atBottom(node);
+    const followed = stickToBottom.current;
+    stickToBottom.current = followsEnd(atBottom(node), followed, performance.now() - gestureAt.current);
+    // moved off the end by a layout change, not by the reader: back to the end
+    if (stickToBottom.current && !atBottom(node)) node.scrollTop = node.scrollHeight;
     setAway(jumpToLatestShown(stickToBottom.current, node));
     maybeLoadOlder(node);
   }, [scroller, stickToBottom, maybeLoadOlder]);

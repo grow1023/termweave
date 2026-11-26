@@ -9,7 +9,9 @@ import { Input } from "../../ui/input.tsx";
 import { Label } from "../../ui/label.tsx";
 import { Switch } from "../../ui/switch.tsx";
 import { Textarea } from "../../ui/textarea.tsx";
+import { cn } from "../../cn.ts";
 import { botsApi } from "../data.ts";
+import { AUTOMATION_PRESETS, type AutomationPreset, presetOf } from "./automation-presets.ts";
 import { nextTwoRuns, runText } from "./schedule-preview.ts";
 import { ActionError, useBotAction } from "./use-bot-action.tsx";
 
@@ -28,6 +30,42 @@ function WhenHelp({ id, when }: { id: string; when: string }) {
       {/* a schedule the server would refuse shows no runs; Add automation still says why */}
       {runs ? <span className="text-foreground/80 tabular-nums">{t("Next: {first}, then {second}", { first: runText(runs[0], locale), second: runText(runs[1], locale) })}</span> : null}
     </span>
+  );
+}
+
+/** Common schedules, so the owner picks one instead of recalling cron (BOT-29); the field below takes any other. */
+function WhenPresets({ when, disabled, onPick }: { when: string; disabled: boolean; onPick: (cron: string) => void }) {
+  const t = useT();
+  const picked = presetOf(when);
+  // literal keys, so the dictionary check sees each one
+  const labels: Record<AutomationPreset["label"], string> = {
+    "Every morning 9:00": t("Every morning 9:00"),
+    "Weekdays 9:00": t("Weekdays 9:00"),
+    "Every hour": t("Every hour"),
+    "Mondays 9:00": t("Mondays 9:00"),
+  };
+  return (
+    <div role="group" aria-label={t("Common schedules")} className="flex flex-wrap gap-1">
+      {AUTOMATION_PRESETS.map((preset) => {
+        const on = picked === preset;
+        return (
+          <button
+            key={preset.cron}
+            type="button"
+            aria-pressed={on}
+            disabled={disabled}
+            title={preset.cron}
+            onClick={() => onPick(preset.cron)}
+            className={cn(
+              "inline-flex h-6 items-center rounded-full border px-2.5 text-xs whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 pointer-coarse:h-11",
+              on ? "border-primary bg-primary text-primary-foreground" : "border-border text-foreground hover:bg-accent",
+            )}
+          >
+            {labels[preset.label]}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -63,6 +101,7 @@ export function BotAutomationForm({ botId, onClose }: { botId: string; onClose: 
       </div>
       <div className="flex flex-col gap-1">
         <Label htmlFor={`${id}-when`} variant="settings">{t("When")}</Label>
+        <WhenPresets when={when} disabled={act.busy} onPick={setWhen} />
         <Input id={`${id}-when`} className={`${FIELD} font-mono`} value={when} disabled={act.busy} aria-describedby={`${id}-when-help`} spellCheck={false} onChange={(event) => setWhen(event.target.value)} />
         <WhenHelp id={`${id}-when-help`} when={when} />
       </div>

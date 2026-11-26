@@ -11,14 +11,20 @@ import type { DropletKind } from "../lib/droplet.ts";
 import { panesNeedingInput } from "../lib/needsInput.ts";
 import { rankPanes, type SearchPane } from "../lib/paletteSearch.ts";
 
-/** A bot with questions or approvals waiting on its owner; the bots run on this app's own PC. */
+/**
+ * A bot waiting on its owner: `count` questions or approvals on its items, or (count 0) a session bot
+ * whose chat waits on a permission or a question. The bots run on this app's own PC.
+ */
 export interface BotQuestion { botId: string; name: string; agent: string; paneId: string | null; count: number }
 
 export function botQuestions(view: BotsView | null): BotQuestion[] {
   if (!view) return [];
   return view.bots.flatMap((bot) => {
     const count = view.items.filter((item) => item.botId === bot.id && item.status === "needs_you").length;
-    return count > 0 ? [{ botId: bot.id, name: bot.name, agent: bot.agent, paneId: bot.paneId, count }] : [];
+    // a session bot has no pane to show as blocked: its waiting chat is its row here
+    const chat = view.chatStatus?.[bot.id];
+    const chatWaits = bot.runtime === "session" && !bot.paused && (chat === "blocked" || chat === "waiting");
+    return count > 0 || chatWaits ? [{ botId: bot.id, name: bot.name, agent: bot.agent, paneId: bot.paneId, count }] : [];
   });
 }
 
@@ -31,6 +37,42 @@ export function needsYou(machines: readonly Machine[], view: BotsView | null): {
   const botPanes = new Set(bots.flatMap((bot) => bot.paneId ? [bot.paneId] : []));
   const panes = panesNeedingInput(machines).filter(({ machine, pane }) => !(machine.kind === "local" && botPanes.has(pane.pane_id)));
   return { panes, bots, total: panes.length + bots.length };
+}
+
+/** The shell's selection as each window keeps it across reloads (App.tsx, sessionStorage then localStorage). */
+export interface StoredSelection { machine_id?: string; pane_id?: string | null; owner_id?: string | null; workspace_id?: string | null; bot_id?: string | null }
+
+/**
+ * The session bot whose page opens on load: the address's `?bot=` first; a `?pane=` (a tapped
+ * notification) opens that pane instead; else the bot page this window or the last one showed.
+ */
+export function initialBotId(search: string, stored: StoredSelection | null): string | null {
+  const query = new URLSearchParams(search);
+  const fromUrl = query.get("bot");
+  if (fromUrl) return fromUrl;
+  if (query.has("pane")) return null;
+  return typeof stored?.bot_id === "string" && stored.bot_id !== "" ? stored.bot_id : null;
+}
+
+/** The address's query with `?bot=` naming the open bot page, or without it; other parameters stay. */
+export function searchWithBot(search: string, botId: string | null): string {
+  const query = new URLSearchParams(search);
+  if (botId === null) query.delete("bot"); else query.set("bot", botId);
+  const text = query.toString();
+  return text === "" ? "" : `?${text}`;
+}
+
+/**
+ * What the shell does with a selected bot page: nothing selected, wait for the bots, show the page,
+ * or let it go because the bot now runs in a terminal (`pane`) or no longer exists (`gone`).
+ */
+export type BotPageState = "none" | "wait" | "show" | "pane" | "gone";
+export function botPageState(view: BotsView | null, botId: string | null): BotPageState {
+  if (botId === null) return "none";
+  if (view === null) return "wait";
+  const bot = view.bots.find((entry) => entry.id === botId);
+  if (!bot) return "gone";
+  return bot.runtime === "session" ? "show" : "pane";
 }
 
 /** One pane in the command palette, from any connected PC. */

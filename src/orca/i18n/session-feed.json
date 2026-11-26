@@ -1,0 +1,207 @@
+{
+  "1 message waiting": {
+    "ko": "메시지 1개 대기 중",
+    "ja": "1 件のメッセージが待機中",
+    "zh": "1 条消息等待中"
+  },
+  "Allow": {
+    "ko": "허용",
+    "ja": "許可",
+    "zh": "允许"
+  },
+  "Allow for this session": {
+    "ko": "이 세션 동안 허용",
+    "ja": "このセッション中は許可",
+    "zh": "本次会话内允许"
+  },
+  "Allow {tool}?": {
+    "ko": "{tool} 사용을 허용할까요?",
+    "ja": "{tool} の使用を許可しますか?",
+    "zh": "允许使用 {tool} 吗?"
+  },
+  "Allowed for this session: {tool}": {
+    "ko": "이 세션 동안 허용함: {tool}",
+    "ja": "このセッション中は許可: {tool}",
+    "zh": "本次会话内已允许:{tool}"
+  },
+  "Allowed: {tool}": {
+    "ko": "허용함: {tool}",
+    "ja": "許可しました: {tool}",
+    "zh": "已允许:{tool}"
+  },
+  "Answered: {tool}": {
+    "ko": "응답함: {tool}",
+    "ja": "応答しました: {tool}",
+    "zh": "已回应:{tool}"
+  },
+  "Approve plan": {
+    "ko": "계획 승인",
+    "ja": "計画を承認",
+    "zh": "批准计划"
+  },
+  "Denied: {tool}": {
+    "ko": "거절함: {tool}",
+    "ja": "拒否しました: {tool}",
+    "zh": "已拒绝:{tool}"
+  },
+  "Dismissed: {tool}": {
+    "ko": "닫음: {tool}",
+    "ja": "閉じました: {tool}",
+    "zh": "已关闭:{tool}"
+  },
+  "Error: {text}": {
+    "ko": "오류: {text}",
+    "ja": "エラー: {text}",
+    "zh": "错误:{text}"
+  },
+  "Images cannot be sent to this bot yet.": {
+    "ko": "이 봇에는 아직 이미지를 보낼 수 없습니다.",
+    "ja": "このボットにはまだ画像を送れません。",
+    "zh": "暂时无法向此机器人发送图片。"
+  },
+  "Keep planning": {
+    "ko": "계획 계속 다듬기",
+    "ja": "計画を続ける",
+    "zh": "继续规划"
+  },
+  "Kept planning": {
+    "ko": "계획을 계속 다듬도록 함",
+    "ja": "計画を続けるよう伝えました",
+    "zh": "已要求继续规划"
+  },
+  "Messages not in the chat yet": {
+    "ko": "아직 대화에 들어가지 않은 메시지",
+    "ja": "まだ会話に入っていないメッセージ",
+    "zh": "尚未进入对话的消息"
+  },
+  "Not confirmed: the bot's process ended. Send it again if it does not answer.": {
+    "ko": "확인되지 않음: 봇 프로세스가 끝났습니다. 답이 없으면 다시 보내세요.",
+    "ja": "未確認: ボットのプロセスが終了しました。応答がなければもう一度送ってください。",
+    "zh": "未确认:机器人进程已结束。若没有回复,请重新发送。"
+  },
+  "Plan approved": {
+    "ko": "계획 승인함",
+    "ja": "計画を承認しました",
+    "zh": "已批准计划"
+  },
+  "Plan dismissed": {
+    "ko": "계획 검토 닫음",
+    "ja": "計画のレビューを閉じました",
+    "zh": "已关闭计划审阅"
+  },
+  "Plan review withdrawn": {
+    "ko": "계획 검토 요청 취소됨",
+    "ja": "計画のレビュー依頼は取り下げられました",
+    "zh": "计划审阅请求已撤回"
+  },
+  "Question dismissed: {question}": {
+    "ko": "질문 닫음: {question}",
+    "ja": "質問を閉じました: {question}",
+    "zh": "已关闭问题:{question}"
+  },
+  "Question withdrawn: {question}": {
+    "ko": "질문 취소됨: {question}",
+    "ja": "質問は取り下げられました: {question}",
+    "zh": "问题已撤回:{question}"
+  },
+  "Question {n}": {
+    "ko": "질문 {n}",
+    "ja": "質問 {n}",
+    "zh": "问题 {n}"
+  },
+  "Request withdrawn: {tool}": {
+    "ko": "요청 취소됨: {tool}",
+    "ja": "依頼は取り下げられました: {tool}",
+    "zh": "请求已撤回:{tool}"
+  },
+  "Review proposed plan": {
+    "ko": "제안된 계획 검토",
+    "ja": "提案された計画を確認",
+    "zh": "审阅提议的计划"
+  },
+  "Say what you want {name} to do.": {
+    "ko": "{name}에게 맡길 일을 말해 주세요.",
+    "ja": "{name} にしてほしいことを伝えてください。",
+    "zh": "告诉 {name} 你想让它做什么。"
+  },
+  "Sent, waiting for the bot to take it in": {
+    "ko": "보냄, 봇이 받기를 기다리는 중",
+    "ja": "送信済み、ボットが受け取るのを待っています",
+    "zh": "已发送,等待机器人接收"
+  },
+  "Stopped": {
+    "ko": "중지됨",
+    "ja": "停止しました",
+    "zh": "已停止"
+  },
+  "Stopped after failed starts. Send a message or change a setting to try again.": {
+    "ko": "시작에 여러 번 실패해 멈췄습니다. 메시지를 보내거나 설정을 바꾸면 다시 시도합니다.",
+    "ja": "起動に何度も失敗したため停止しました。メッセージを送るか設定を変えると再試行します。",
+    "zh": "多次启动失败后已停止。发送消息或更改设置即可重试。"
+  },
+  "Stopped before it answered.": {
+    "ko": "응답하기 전에 멈췄습니다.",
+    "ja": "応答する前に停止しました。",
+    "zh": "在回应前已停止。"
+  },
+  "The bot's Claude could not start. It tries again with the next message.": {
+    "ko": "봇의 Claude를 시작하지 못했습니다. 다음 메시지에서 다시 시도합니다.",
+    "ja": "ボットの Claude を起動できませんでした。次のメッセージで再試行します。",
+    "zh": "无法启动机器人的 Claude。下一条消息时会重试。"
+  },
+  "The bot's process ended during this turn; its outcome is unknown.": {
+    "ko": "이 차례 도중 봇 프로세스가 끝나 결과를 알 수 없습니다.",
+    "ja": "このターンの途中でボットのプロセスが終了したため、結果は不明です。",
+    "zh": "本轮进行中机器人进程已结束,结果未知。"
+  },
+  "The chat that asked this has ended. Ask the bot again.": {
+    "ko": "이 질문을 한 대화가 끝났습니다. 봇에게 다시 요청하세요.",
+    "ja": "この質問をした会話は終了しました。もう一度ボットに頼んでください。",
+    "zh": "提出此问题的对话已结束。请再次让机器人处理。"
+  },
+  "The full output is not available for this bot.": {
+    "ko": "이 봇의 전체 출력은 볼 수 없습니다.",
+    "ja": "このボットの全出力は表示できません。",
+    "zh": "无法查看此机器人的完整输出。"
+  },
+  "The process ended before it answered.": {
+    "ko": "응답하기 전에 프로세스가 끝났습니다.",
+    "ja": "応答する前にプロセスが終了しました。",
+    "zh": "进程在回应前已结束。"
+  },
+  "This chat is closed. It starts again with your next message.": {
+    "ko": "이 대화는 닫혀 있습니다. 다음 메시지를 보내면 다시 시작합니다.",
+    "ja": "この会話は閉じています。次のメッセージで再開します。",
+    "zh": "此对话已关闭。发送下一条消息即可重新开始。"
+  },
+  "This turn failed.": {
+    "ko": "이 차례가 실패했습니다.",
+    "ja": "このターンは失敗しました。",
+    "zh": "本轮失败。"
+  },
+  "Waiting for a free chat slot: other bot chats are busy. Your message is kept and goes when one finishes.": {
+    "ko": "빈 대화 자리를 기다리는 중입니다. 다른 봇 대화가 모두 사용 중입니다. 메시지는 보관했다가 자리가 나면 보냅니다.",
+    "ja": "空きチャット枠を待っています。他のボットの会話がすべて使用中です。メッセージは保持され、枠が空くと送信されます。",
+    "zh": "正在等待空闲的对话名额:其他机器人对话都在忙。消息已保留,有名额时发送。"
+  },
+  "Waits for the current turn to end": {
+    "ko": "현재 차례가 끝나면 보냄",
+    "ja": "現在のターンが終わると送信",
+    "zh": "当前轮结束后发送"
+  },
+  "no answer": {
+    "ko": "답 없음",
+    "ja": "回答なし",
+    "zh": "无回答"
+  },
+  "{n} messages waiting": {
+    "ko": "메시지 {n}개 대기 중",
+    "ja": "{n} 件のメッセージが待機中",
+    "zh": "{n} 条消息等待中"
+  },
+  "{n} questions": {
+    "ko": "질문 {n}개",
+    "ja": "質問 {n} 件",
+    "zh": "{n} 个问题"
+  }
+}

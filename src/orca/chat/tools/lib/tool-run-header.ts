@@ -14,7 +14,7 @@ export type NativeChatToolRunHeader = {
   live: boolean
   callCount: number
   failedCallCount: number
-  /** Settled and no call failed: the header shows a check. */
+  /** Settled, no call failed and the last call has its result: the header shows a check. */
   succeeded: boolean
   fallbackLabel: NativeChatToolRunFallbackLabel
   /** The call that is running now, while live. */
@@ -39,7 +39,8 @@ export function nativeChatToolRunHeader(blocks: readonly NativeChatBlock[], live
     live: isLive,
     callCount,
     failedCallCount,
-    succeeded: !isLive && failedCallCount === 0,
+    // a call that has no result yet (it waits on a permission, or its turn was stopped) has not succeeded
+    succeeded: !isLive && failedCallCount === 0 && (lastCall === undefined || resultByCall.has(lastCall)),
     fallbackLabel: callCount === 0 ? 'result' : callCount === 1 ? 'countOne' : 'countN',
     runningCall: isLive ? (lastCall ?? null) : null,
     latestCallLabel: isLive && lastCall ? describeLatestToolCall(lastCall) : null,

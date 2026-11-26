@@ -1,6 +1,8 @@
 // The panel beside a bot's chat, as Orca's right sidebar holds a bot's Home: its Home panel, with
 // its settings swapped in place (Orca's BotActivityOrSettings). Docked when the pane is wide; on a
-// narrow pane or a phone it covers the chat and opens from the bot's picture.
+// narrow pane or a phone it covers the chat and opens from the bot's picture. One panel serves both
+// kinds of bot: a terminal bot's, found by the pane its chat runs in, and a session bot's page
+// (BotPage.tsx), given the bot's id.
 import { useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 
 import { useT } from "../../lib/i18n.ts";
@@ -26,18 +28,38 @@ const subscribe = (listener: () => void): (() => void) => { listeners.add(listen
 /** Shows that bot's settings in the panel beside its chat (the caller opens the chat). */
 export function showBotSettings(botId: string): void { settingsOf = botId; wanted += 1; emit(); }
 
-// panes whose Home panel sits docked and open beside the chat, so it already shows every waiting card
-const dockedPanes = new Set<string>();
-function setDocked(paneId: string, docked: boolean): void {
-  const changed = docked ? !dockedPanes.has(paneId) : dockedPanes.has(paneId);
+// a bot opened from a row that says it needs the owner: where its Home is a sheet, the sheet opens
+// at once (BOT-25). The wish lapses if no panel of that bot mounts soon after (its chat opened as a terminal).
+const HOME_WISH_MS = 5_000;
+let homeWish: { botId: string; at: number } | null = null;
+/** Opens that bot's Home sheet when its chat shows next, if Home is a sheet there (the caller opens the chat). */
+export function openBotHome(botId: string): void { homeWish = { botId, at: Date.now() }; emit(); }
+function takeHomeWish(botId: string): boolean {
+  if (homeWish === null || homeWish.botId !== botId) return false;
+  const fresh = Date.now() - homeWish.at < HOME_WISH_MS;
+  homeWish = null;
+  return fresh;
+}
+
+// panels docked and open beside their chat, so they already show every waiting card: a terminal bot's by
+// its pane id, a session bot's by `bot:<id>`
+const dockedPanels = new Set<string>();
+function setDocked(key: string, docked: boolean): void {
+  const changed = docked ? !dockedPanels.has(key) : dockedPanels.has(key);
   if (!changed) return;
-  if (docked) dockedPanes.add(paneId); else dockedPanes.delete(paneId);
+  if (docked) dockedPanels.add(key); else dockedPanels.delete(key);
   emit();
 }
+const pageKey = (botId: string): string => `bot:${botId}`;
 
 /** True while this pane's Home panel is docked and open beside its chat (never as a sheet). */
 export function useBotSideDocked(paneId: string | null): boolean {
-  return useSyncExternalStore(subscribe, () => paneId !== null && dockedPanes.has(paneId));
+  return useSyncExternalStore(subscribe, () => paneId !== null && dockedPanels.has(paneId));
+}
+
+/** True while a session bot's Home panel is docked and open beside its page's chat. */
+export function useBotPageDocked(botId: string | null): boolean {
+  return useSyncExternalStore(subscribe, () => botId !== null && dockedPanels.has(pageKey(botId)));
 }
 
 function readOpen(): boolean {
@@ -61,12 +83,19 @@ function useSheetFocus(anchor: RefObject<HTMLSpanElement>, side: RefObject<HTMLE
   }, [anchor, side, sheet]);
 }
 
-export function BotSide({ paneId, readOnly }: { paneId: string; readOnly: boolean }) {
+/** A terminal bot's panel is found by its chat's pane; a session bot's page gives the bot's id. */
+export type BotSideProps = { paneId: string; readOnly: boolean } | { botId: string; readOnly: boolean };
+
+export function BotSide(props: BotSideProps) {
   const t = useT();
+  const { readOnly } = props;
   const view = useBotsView();
-  const bot = view?.bots.find((entry) => entry.paneId === paneId);
+  const bot = "botId" in props ? view?.bots.find((entry) => entry.id === props.botId) : view?.bots.find((entry) => entry.paneId === props.paneId);
+  const dockKey = "botId" in props ? pageKey(props.botId) : props.paneId;
   const settings = useSyncExternalStore(subscribe, () => settingsOf);
   const asked = useSyncExternalStore(subscribe, () => wanted);
+  // read so a panel already on screen answers a row's wish too, not only a panel that mounts after it
+  const wish = useSyncExternalStore(subscribe, () => homeWish);
   const anchor = useRef<HTMLSpanElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const sideRef = useRef<HTMLElement>(null);
@@ -91,10 +120,16 @@ export function BotSide({ paneId, readOnly }: { paneId: string; readOnly: boolea
     const stack = anchor.current?.parentElement;
     if (!stack || botId === null) return;
     if (docks && open) stack.dataset.botSide = "docked"; else delete stack.dataset.botSide;
-    setDocked(paneId, docks && open);
-    return () => { delete stack.dataset.botSide; setDocked(paneId, false); };
-  }, [botId, docks, open, paneId]);
+    setDocked(dockKey, docks && open);
+    return () => { delete stack.dataset.botSide; setDocked(dockKey, false); };
+  }, [botId, docks, open, dockKey]);
   useEffect(() => { if (asked > 0 && settingsOf === botId && botId !== null) { setDockOpen(true); setSheetOpen(true); } }, [asked, botId]);
+  useEffect(() => {
+    if (botId === null || !takeHomeWish(botId)) return;
+    // measured here, not read from `docks`: on the first mount that state still holds its first guess
+    const stack = anchor.current?.parentElement;
+    if (stack && stack.clientWidth < DOCK_MIN) setSheetOpen(true);
+  }, [botId, wish]);
   useSheetFocus(anchor, sideRef, !docks && open);
 
   if (!view || !bot) return <span ref={anchor} hidden />;

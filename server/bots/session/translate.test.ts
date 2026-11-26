@@ -111,6 +111,9 @@ test("thinking and text blocks of one message become separate rows in order", ()
   ]);
   expect(body("msg:m1:0")).toMatchObject({ role: "reasoning", text: "hmm, yes", state: "completed" });
   expect(body("msg:m1:1")).toMatchObject({ role: "assistant", text: "answer" });
+  // the answer's rows carry their turn: the chat groups a turn's rows and ends it after the last one
+  expect(journal.row(session, "msg:m1:0")?.turnId).toBe("u1");
+  expect(journal.row(session, "msg:m1:1")?.turnId).toBe("u1");
 });
 
 test("a tool call runs, then completes with bounded output", () => {

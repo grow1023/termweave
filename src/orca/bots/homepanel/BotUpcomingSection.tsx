@@ -31,6 +31,8 @@ export function BotUpcomingSection({ bot, automations, fold, now, readOnly }: {
     <BotPanelSection
       title={t("Automations")}
       fold={fold}
+      // the only way to add an automation by hand: always in sight, not only on hover (BOT-27)
+      actionsAlways
       actions={
         readOnly ? null : (
           // Icon-only: the tooltip and accessible name carry the label.

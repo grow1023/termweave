@@ -1,0 +1,112 @@
+{
+  "Chat session": {
+    "ko": "채팅 세션",
+    "ja": "チャットセッション",
+    "zh": "聊天会话"
+  },
+  "Chat only, no terminal": {
+    "ko": "채팅만 씁니다. 터미널은 없습니다.",
+    "ja": "チャットのみで、ターミナルはありません。",
+    "zh": "只有聊天，没有终端。"
+  },
+  "Runs in a terminal": {
+    "ko": "터미널에서 실행됩니다.",
+    "ja": "ターミナルで動きます。",
+    "zh": "在终端中运行。"
+  },
+  "Runs as": {
+    "ko": "실행 방식",
+    "ja": "実行方式",
+    "zh": "运行方式"
+  },
+  "Switch to chat session": {
+    "ko": "채팅 세션으로 전환",
+    "ja": "チャットセッションに切り替え",
+    "zh": "切换为聊天会话"
+  },
+  "Run {name} as a chat session?": {
+    "ko": "{name}을(를) 채팅 세션으로 실행할까요?",
+    "ja": "{name} をチャットセッションで動かしますか？",
+    "zh": "要以聊天会话运行 {name} 吗？"
+  },
+  "Run {name} in a terminal?": {
+    "ko": "{name}을(를) 터미널에서 실행할까요?",
+    "ja": "{name} をターミナルで動かしますか？",
+    "zh": "要在终端中运行 {name} 吗？"
+  },
+  "The conversation continues. A chat session has no terminal view. Switching needs the bot's terminal to be running: open its chat first if the terminal is closed.": {
+    "ko": "대화는 그대로 이어집니다. 채팅 세션에는 터미널 화면이 없습니다. 전환하려면 봇의 터미널이 실행 중이어야 합니다. 터미널이 닫혀 있으면 먼저 봇의 채팅을 여세요.",
+    "ja": "会話はそのまま続きます。チャットセッションにはターミナル画面がありません。切り替えにはボットのターミナルが動いている必要があります。ターミナルが閉じている場合は、先にボットのチャットを開いてください。",
+    "zh": "对话会继续。聊天会话没有终端视图。切换需要机器人的终端正在运行：如果终端已关闭，请先打开它的聊天。"
+  },
+  "The conversation continues in a terminal, where you can watch the bot work.": {
+    "ko": "대화는 터미널에서 이어지며, 봇이 일하는 모습을 볼 수 있습니다.",
+    "ja": "会話はターミナルで続き、ボットの作業を見ることができます。",
+    "zh": "对话会在终端中继续，你可以看到机器人工作。"
+  },
+  "Run as chat session": {
+    "ko": "채팅 세션으로 실행",
+    "ja": "チャットセッションで実行",
+    "zh": "以聊天会话运行"
+  },
+  "Run in terminal": {
+    "ko": "터미널에서 실행",
+    "ja": "ターミナルで実行",
+    "zh": "在终端中运行"
+  },
+  "Permissions": {
+    "ko": "권한",
+    "ja": "権限",
+    "zh": "权限"
+  },
+  "Ask first": {
+    "ko": "먼저 묻기",
+    "ja": "先に確認",
+    "zh": "先询问"
+  },
+  "Asks you before it edits a file or runs a command.": {
+    "ko": "파일을 고치거나 명령을 실행하기 전에 묻습니다.",
+    "ja": "ファイルを編集する前やコマンドを実行する前に確認します。",
+    "zh": "编辑文件或运行命令前先询问你。"
+  },
+  "Accept edits": {
+    "ko": "편집 허용",
+    "ja": "編集を許可",
+    "zh": "允许编辑"
+  },
+  "Edits files without asking; asks before it runs a command.": {
+    "ko": "파일은 묻지 않고 고치며, 명령을 실행하기 전에는 묻습니다.",
+    "ja": "ファイルは確認せずに編集し、コマンドの実行前には確認します。",
+    "zh": "编辑文件时不询问；运行命令前会询问。"
+  },
+  "Auto": {
+    "ko": "자동",
+    "ja": "自動",
+    "zh": "自动"
+  },
+  "A safety check approves routine actions without asking and stops risky ones.": {
+    "ko": "안전 검사가 일상적인 작업은 묻지 않고 허용하고, 위험한 작업은 막습니다.",
+    "ja": "安全チェックが日常的な操作を確認なしで許可し、危険な操作は止めます。",
+    "zh": "安全检查会直接允许日常操作，并阻止有风险的操作。"
+  },
+  "My Claude settings": {
+    "ko": "내 Claude 설정",
+    "ja": "自分の Claude 設定",
+    "zh": "我的 Claude 设置"
+  },
+  "Follows the permission rules in your own Claude Code settings.": {
+    "ko": "내 Claude Code 설정의 권한 규칙을 따릅니다.",
+    "ja": "自分の Claude Code 設定の権限ルールに従います。",
+    "zh": "遵循你自己的 Claude Code 设置中的权限规则。"
+  },
+  "Waiting for you in the chat": {
+    "ko": "채팅에서 내 응답 기다리는 중",
+    "ja": "チャットで返答を待っています",
+    "zh": "正在聊天中等待你的回复"
+  },
+  "Bot · waiting in the chat": {
+    "ko": "봇 · 채팅에서 응답 대기",
+    "ja": "ボット · チャットで返答待ち",
+    "zh": "机器人 · 在聊天中等待回复"
+  }
+}

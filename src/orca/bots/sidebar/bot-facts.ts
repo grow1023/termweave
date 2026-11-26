@@ -3,6 +3,7 @@
 import type { SessionSnapshot } from "../../../../shared/protocol.ts";
 import type { Bot, BotItem, BotsView, BotWorker } from "../data.ts";
 import { ACTIVE_WORKER } from "../data.ts";
+import type { BotChatStatus } from "../../../../shared/bots/chat.ts";
 import type { Translate } from "../../../lib/i18n.ts";
 
 type Pane = SessionSnapshot["panes"][number];
@@ -20,13 +21,24 @@ export interface BotFacts {
   agentStatus: string | undefined;
   /** its chat is working now */
   working: boolean;
+  /** it runs as a chat session with no terminal: its state is the server's chat status, never "not running" */
+  session: boolean;
+}
+
+/** A session bot's chat status as the row reads it: working, waiting on the owner, or at rest. */
+function sessionAgentStatus(status: BotChatStatus | undefined): string {
+  if (status === "working") return "working";
+  if (status === "waiting" || status === "blocked") return "blocked";
+  return "idle";
 }
 
 export function botFacts(bot: Bot, view: BotsView, panes: readonly Pane[]): BotFacts {
   const alive = (paneId: string | null): paneId is string => paneId !== null && panes.some((pane) => pane.pane_id === paneId);
   const items = view.items.filter((item) => item.botId === bot.id);
-  const running = alive(bot.paneId);
-  const agentStatus = panes.find((pane) => pane.pane_id === bot.paneId)?.agent_status;
+  const session = bot.runtime === "session";
+  // a session bot's chat is always there to talk to: it starts on the next message by itself
+  const running = session || alive(bot.paneId);
+  const agentStatus = session ? sessionAgentStatus(view.chatStatus?.[bot.id]) : panes.find((pane) => pane.pane_id === bot.paneId)?.agent_status;
   return {
     bot,
     items,
@@ -35,6 +47,7 @@ export function botFacts(bot: Bot, view: BotsView, panes: readonly Pane[]): BotF
     running,
     agentStatus,
     working: running && agentStatus === "working",
+    session,
   };
 }
 
@@ -58,12 +71,15 @@ export function botRowLine(facts: BotFacts, t: Translate): BotRowLine {
   return { text: running ? (bot.agent === "claude" ? "Claude Code" : "Codex") : t("Starts on the next message"), attention: false };
 }
 
-/** What sits on the picture's corner: the question mark, the moon, or nothing. */
-export type BotBadge = "needs-you" | "sleeping" | null;
+/**
+ * What sits on the picture's corner: the question mark, the moon (a terminal bot's chat is not
+ * running, or a session bot is paused), or nothing.
+ */
+export type BotBadge = "needs-you" | "sleeping" | "paused" | null;
 
 export function botBadge(facts: BotFacts, line: BotRowLine): BotBadge {
   if (facts.needs.length > 0) return "needs-you";
-  if (facts.bot.paused) return null;
+  if (facts.bot.paused) return facts.session ? "paused" : null;
   if (line.attention) return "needs-you";
   return facts.running ? null : "sleeping";
 }
@@ -74,13 +90,18 @@ export function workerMark(workers: readonly BotWorker[]): "permission" | "worki
   return workers.length > 0 ? "working" : null;
 }
 
-/** 45s, 3m 12s, 1h 05m. */
+/** 45s, 3m, 1h 05m: seconds only in the first minute, so the sidebar does not tick all day (BOT-30). */
 export function formatElapsed(seconds: number): string {
   const total = Math.max(0, Math.floor(seconds));
   if (total < 60) return `${total}s`;
   const minutes = Math.floor(total / 60);
-  if (minutes < 60) return `${minutes}m ${String(total % 60).padStart(2, "0")}s`;
+  if (minutes < 60) return `${minutes}m`;
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
+}
+
+/** How often a worker's elapsed time is redrawn: every second in its first minute, then once a minute. */
+export function elapsedTick(seconds: number): number {
+  return seconds < 60 ? 1_000 : 60_000;
 }
 
 /** Needs the owner now: an open question (paused or not), or a running chat that waits on a prompt. */

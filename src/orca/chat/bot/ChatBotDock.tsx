@@ -6,7 +6,7 @@ import { useCallback, useMemo, type ReactNode } from "react";
 import type { ChatTimedRow, NativeChatMessage } from "../shared/index.ts";
 import { ItemNoteRow } from "./ItemNoteRow.tsx";
 import { itemTimedRows } from "./item-timed-rows.ts";
-import { useChatBot, type ChatBotView } from "./use-chat-bot.ts";
+import { useChatBot, type ChatBotTarget, type ChatBotView } from "./use-chat-bot.ts";
 import { WorkerApprovals, type RenderApproval } from "./WorkerApprovals.tsx";
 import { WorkerDock } from "./WorkerDock.tsx";
 import { WorkerDockFrame } from "./WorkerDockFrame.tsx";
@@ -34,14 +34,15 @@ export interface ChatBotParts {
   renderTimedRow: (row: ChatTimedRow) => ReactNode;
 }
 
-/** Everything the chat needs from the bot layer, in one call. */
-export function useChatBotParts({ paneId, readOnly, messages, renderApproval }: {
-  paneId: string;
+/** Everything the chat needs from the bot layer, in one call. The bot is found by its terminal pane
+ *  (`paneId`, a pane bot's chat) or by its id (`botId`, a session bot's chat, which has no pane). */
+export function useChatBotParts(args: ChatBotTarget & {
   readOnly: boolean;
   messages: readonly NativeChatMessage[];
   renderApproval?: RenderApproval;
 }): ChatBotParts {
-  const context = useChatBot(paneId, readOnly);
+  const { readOnly, messages, renderApproval } = args;
+  const context = useChatBot("botId" in args ? { botId: args.botId } : { paneId: args.paneId }, readOnly);
   const timedRows = useMemo(() => (context ? itemTimedRows(context, messages) : []), [context, messages]);
   const botName = context?.bot.name ?? "";
   const renderTimedRow = useCallback((row: ChatTimedRow) => <ItemNoteRow row={row} botName={botName} />, [botName]);

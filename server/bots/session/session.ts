@@ -297,6 +297,8 @@ export class BotSessionHost {
     if (after !== null) live.awaiting = false;
     else if (live.awaiting && live.sawRunning && translator.liveState === "idle") live.awaiting = false;
     this.touch(live);
+    // the translator announced its rows before the lines above settled what runs: say the status as it is now
+    this.emitted(live, []);
     const ended = before !== null && after === null;
     // read again: the frame moved it, which the narrowing above cannot see
     const state: LiveState = translator.liveState;
@@ -370,8 +372,10 @@ export class BotSessionHost {
 
   private emitted(live: Live, rows: JournalRow[]): void {
     const status = liveStatus(live);
-    if (rows.length > 0) this.deps.changed(live.botId, rows, status);
-    if (status === live.status) return;
+    const moved = status !== live.status;
+    // a status that moves with no row (a turn's last frame, a stop) still goes to the open chats
+    if (rows.length > 0 || moved) this.deps.changed(live.botId, rows, status);
+    if (!moved) return;
     live.status = status;
     this.deps.statusChanged(live.botId);
   }

@@ -6,14 +6,17 @@ import { useT } from "../../../lib/i18n.ts";
 import { cn } from "../../cn.ts";
 import StatusIndicator from "../../ui/StatusIndicator.tsx";
 import type { BotItem, BotWorker } from "../data.ts";
-import { formatElapsed } from "./bot-facts.ts";
+import { elapsedTick, formatElapsed } from "./bot-facts.ts";
 
-function useNow(intervalMs: number): number {
+/** The clock a worker's elapsed time reads: each second in its first minute, then once a minute (BOT-30). */
+function useWorkerNow(started: number): number {
   const [now, setNow] = useState(() => Date.now());
+  const interval = Number.isNaN(started) ? null : elapsedTick((now - started) / 1000);
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), intervalMs);
+    if (interval === null) return;
+    const timer = window.setInterval(() => setNow(Date.now()), interval);
     return () => window.clearInterval(timer);
-  }, [intervalMs]);
+  }, [interval]);
   return now;
 }
 
@@ -26,9 +29,9 @@ function WorkerStateIcon({ worker }: { worker: BotWorker }): JSX.Element {
 
 export function BotWorkerRow({ worker, item, selected, onOpen }: { worker: BotWorker; item: BotItem | null; selected: boolean; onOpen: () => void }): JSX.Element {
   const t = useT();
-  const now = useNow(1_000);
   const label = item ? `#${item.n} ${item.title}` : worker.branch;
   const started = Date.parse(worker.startedAt);
+  const now = useWorkerNow(started);
   const elapsed = Number.isNaN(started) ? null : formatElapsed((now - started) / 1000);
   return (
     <div className="group/worker flex w-full min-w-0 items-start gap-1 rounded-sm hover:bg-accent has-[[data-state=open]]:bg-accent">

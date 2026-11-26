@@ -54,6 +54,7 @@ let failOpens: number;
 let paneLive: boolean;
 let notified: { tag: string; body: string }[];
 let statusPushes: number;
+let pushedStatus: string | null;
 let prepared: string[];
 let host: BotSessionHost;
 
@@ -86,11 +87,12 @@ beforeEach(() => {
   paneLive = false;
   notified = [];
   statusPushes = 0;
+  pushedStatus = null;
   prepared = [];
   host = new BotSessionHost({
     journal, store,
     env: async () => ({ PATH: "/usr/bin", CLAUDECODE: "1" }),
-    changed: () => {},
+    changed: (_botId, _rows, status) => { pushedStatus = status; },
     statusChanged: () => { statusPushes += 1; },
     notify: async (_title, body, _pane, tag) => { notified = [...notified, { tag, body }]; },
     paneLive: async () => paneLive,
@@ -157,6 +159,17 @@ test("the first message opens a new session in the bot's home and sends it", asy
   await host.close("b1");
   await host.tell("b1", "again", owner);
   expect(conns[1]!.launch).toMatchObject({ resume: true, sessionId: f.SESSION });
+});
+
+test("the status pushed to open chats is the status the host reports, after every frame of a turn", async () => {
+  addBot("b1");
+  const sent = await host.tell("b1", "hello", owner);
+  const conn = conns[0]!;
+  for (const frame of f.plainTurn(sent.clientMessageId, "hello", "m1", ["ok"])) {
+    feed(conn, [frame]);
+    expect(pushedStatus).toBe(host.status("b1"));
+  }
+  expect(host.status("b1")).toBe("done");
 });
 
 test("messages during a turn wait and go after it, one per turn, in order", async () => {

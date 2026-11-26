@@ -10,6 +10,7 @@ import { cn } from "../../cn.ts";
 import { OrcaRoot } from "../../OrcaRoot.tsx";
 import { Button } from "../../ui/button.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip.tsx";
+import { openBotHome } from "../BotSide.tsx";
 import { botErrorText, botsApi, type Bot, type BotsView } from "../data.ts";
 import { BotCollapsedPreview } from "./BotCollapsedPreview.tsx";
 import { BotRow } from "./BotRow.tsx";
@@ -23,8 +24,12 @@ export interface SidebarBotsSectionProps {
   /** this computer's session: `snapshot.panes` has `pane_id` and `agent_status` */
   snapshot: SessionSnapshot | null;
   selectedPaneId: string | null;
+  /** the session bot whose page is open, if one is */
+  selectedBotId: string | null;
   readOnly: boolean;
   onOpenPane: (paneId: string) => void;
+  /** opens a session bot's page (it has no pane) */
+  onOpenBotPage: (botId: string) => void;
   /** opens the New bot dialog */
   onNewBot: () => void;
   /** opens that bot's settings */
@@ -99,7 +104,12 @@ function EmptyState({ readOnly, onNewBot }: { readOnly: boolean; onNewBot: () =>
     : <button type="button" className={cn(className, "cursor-pointer ring-1 ring-foreground/[0.08] ring-inset hover:bg-accent/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11")} onClick={onNewBot}>{text}</button>;
 }
 
-export function SidebarBotsSection({ view, snapshot, selectedPaneId, readOnly, onOpenPane, onNewBot, onSettings }: SidebarBotsSectionProps): JSX.Element {
+/** The row is open: a session bot's page, or a terminal bot's chat pane. */
+function isOpenRow(facts: BotFacts, selectedPaneId: string | null, selectedBotId: string | null): boolean {
+  return facts.session ? facts.bot.id === selectedBotId : facts.bot.paneId !== null && facts.bot.paneId === selectedPaneId;
+}
+
+export function SidebarBotsSection({ view, snapshot, selectedPaneId, selectedBotId, readOnly, onOpenPane, onOpenBotPage, onNewBot, onSettings }: SidebarBotsSectionProps): JSX.Element {
   const t = useT();
   const [failed, setFailed] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
@@ -112,6 +122,10 @@ export function SidebarBotsSection({ view, snapshot, selectedPaneId, readOnly, o
     const { bot } = entry;
     if (opening !== null) return;
     setFailed(null);
+    // a bot with a question on an item opens its Home at once where Home is a sheet (BOT-25); a chat that
+    // waits on a permission is answered in the chat, so Home stays shut
+    if (entry.needs.length > 0) openBotHome(bot.id);
+    if (entry.session) { onOpenBotPage(bot.id); return; }
     if (bot.paneId !== null && entry.running) { onOpenPane(bot.paneId); return; }
     if (readOnly) { setFailed(t("This bot's chat is not running.")); return; }
     setOpening(bot.id);
@@ -123,7 +137,7 @@ export function SidebarBotsSection({ view, snapshot, selectedPaneId, readOnly, o
     } finally { setOpening(null); }
   };
   const preview = collapsed && facts.length > 0
-    ? <BotCollapsedPreview facts={facts} automations={view.automations} selectedPaneId={selectedPaneId} onOpenBot={(bot: Bot) => { const entry = facts.find((fact) => fact.bot.id === bot.id); if (entry) void openChat(entry); }} />
+    ? <BotCollapsedPreview facts={facts} automations={view.automations} isOpen={(fact) => isOpenRow(fact, selectedPaneId, selectedBotId)} onOpenBot={(bot: Bot) => { const entry = facts.find((fact) => fact.bot.id === bot.id); if (entry) void openChat(entry); }} />
     : null;
 
   return (
@@ -140,7 +154,7 @@ export function SidebarBotsSection({ view, snapshot, selectedPaneId, readOnly, o
                   <BotRow
                     facts={entry}
                     automations={view.automations}
-                    isActive={entry.bot.paneId !== null && entry.bot.paneId === selectedPaneId}
+                    isActive={isOpenRow(entry, selectedPaneId, selectedBotId)}
                     readOnly={readOnly}
                     folded={isFolded}
                     onToggleFold={() => toggleFold(entry.bot.id)}

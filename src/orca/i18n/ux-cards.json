@@ -1,0 +1,52 @@
+{
+  "Approved · typed into {where}": {
+    "ko": "승인함 · {where}에 입력했습니다",
+    "ja": "承認済み · {where} に入力しました",
+    "zh": "已批准 · 已输入到 {where}"
+  },
+  "Approved · pressed {keys} in {where}": {
+    "ko": "승인함 · {where}에서 {keys} 키를 눌렀습니다",
+    "ja": "承認済み · {where} で {keys} を押しました",
+    "zh": "已批准 · 已在 {where} 中按下 {keys}"
+  },
+  "Approved · closed {where}": {
+    "ko": "승인함 · {where} 터미널을 닫았습니다",
+    "ja": "承認済み · {where} を閉じました",
+    "zh": "已批准 · 已关闭 {where}"
+  },
+  "Denied": {
+    "ko": "거절함",
+    "ja": "拒否済み",
+    "zh": "已拒绝"
+  },
+  "Answered: {answer}": {
+    "ko": "응답함: {answer}",
+    "ja": "回答済み: {answer}",
+    "zh": "已回答：{answer}"
+  },
+  "Common schedules": {
+    "ko": "자주 쓰는 일정",
+    "ja": "よく使うスケジュール",
+    "zh": "常用时间安排"
+  },
+  "Every morning 9:00": {
+    "ko": "매일 아침 9:00",
+    "ja": "毎朝 9:00",
+    "zh": "每天早上 9:00"
+  },
+  "Weekdays 9:00": {
+    "ko": "평일 9:00",
+    "ja": "平日 9:00",
+    "zh": "工作日 9:00"
+  },
+  "Every hour": {
+    "ko": "매시간",
+    "ja": "毎時",
+    "zh": "每小时"
+  },
+  "Mondays 9:00": {
+    "ko": "매주 월요일 9:00",
+    "ja": "毎週月曜 9:00",
+    "zh": "每周一 9:00"
+  }
+}

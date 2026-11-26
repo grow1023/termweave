@@ -17,7 +17,7 @@ function SectionFoldChevron({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-export function BotPanelSectionHeader({ title, fold, bodyId, glyph, summary, actions }: {
+export function BotPanelSectionHeader({ title, fold, bodyId, glyph, summary, actions, actionsAlways = false }: {
   title: string;
   fold?: PanelFold;
   bodyId?: string;
@@ -27,6 +27,8 @@ export function BotPanelSectionHeader({ title, fold, bodyId, glyph, summary, act
   summary?: React.ReactNode;
   /** Controls at the end, shown on hover or focus. */
   actions?: React.ReactNode;
+  /** The actions show at all times (a control the owner must find without hovering, BOT-27). */
+  actionsAlways?: boolean;
 }) {
   const titleId = useId();
   const summaryId = useId();
@@ -55,17 +57,18 @@ export function BotPanelSectionHeader({ title, fold, bodyId, glyph, summary, act
       {summary ? <span id={summaryId} className="pointer-events-none shrink-0 text-xs text-muted-foreground tabular-nums">{summary}</span> : null}
       {actions ? (
         <span className="relative ml-auto flex shrink-0 items-center gap-0.5">
-          <span className="invisible flex items-center gap-0.5 group-hover/section:visible group-focus-within/section:visible pointer-coarse:visible">{actions}</span>
+          <span className={cn("flex items-center gap-0.5", !actionsAlways && "invisible group-hover/section:visible group-focus-within/section:visible pointer-coarse:visible")}>{actions}</span>
         </span>
       ) : null}
     </div>
   );
 }
 
-export function BotPanelSection({ title, fold, actions, folded, children }: {
+export function BotPanelSection({ title, fold, actions, actionsAlways, folded, children }: {
   title: string;
   fold?: PanelFold;
   actions?: React.ReactNode;
+  actionsAlways?: boolean;
   /** What stays listed under the header while folded. */
   folded?: React.ReactNode;
   children: React.ReactNode;
@@ -74,7 +77,7 @@ export function BotPanelSection({ title, fold, actions, folded, children }: {
   const open = fold?.open ?? true;
   return (
     <section className="flex flex-col gap-0.5">
-      <BotPanelSectionHeader title={title} fold={fold} bodyId={bodyId} actions={actions} />
+      <BotPanelSectionHeader title={title} fold={fold} bodyId={bodyId} actions={actions} actionsAlways={actionsAlways} />
       {open ? <div id={bodyId} className="flex flex-col">{children}</div> : folded ? <div className="flex flex-col">{folded}</div> : null}
     </section>
   );

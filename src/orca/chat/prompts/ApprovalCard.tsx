@@ -4,19 +4,21 @@
 // pane action (Approve / Deny, text to type as code) differ only in their data. The first option is the default.
 // Left out: Orca's quiet transcript-row variant and dock placement, the URL sign-in subject, countdowns,
 // decision reasons, blocked paths and the worker line (no TermWeave data), and the × (no cancel call).
-import { ShieldQuestion } from "lucide-react";
+import { ShieldQuestion, SquareTerminal } from "lucide-react";
 import { useId, useRef, useState } from "react";
 
 import { useT } from "../../../lib/i18n.ts";
 import { cn } from "../../cn.ts";
 import { LoadingSpinner } from "../../ui/LoadingSpinner.tsx";
 import { ChatCodeBlock, ChatMarkdown } from "../markdown/index.ts";
+import { aroundName, type PaneWhere } from "../../bots/homepanel/pane-where.ts";
 import type { ChatApproval } from "../shared/index.ts";
 import { AnswerField } from "./QuestionParts.tsx";
 import { PROMPT_CARD_FOCUS_TARGET_SELECTOR, usePromptCardFocus } from "./use-prompt-card-focus.ts";
 
 export interface ApprovalCardProps {
-  approval: ChatApproval;
+  /** `where`: the terminal a bot's pane action acts on; its name in the title carries the pane id as a tooltip. */
+  approval: ChatApproval & { where?: PaneWhere };
   submitting: boolean;
   /** The `index` of the option being sent, while `submitting`: its button shows a spinner. */
   submittingIndex: number | null;
@@ -52,6 +54,14 @@ function frameClasses(stacked: boolean): { outer: string; gutter: string; card: 
   };
 }
 
+// Stacked (the bot dock), Approve acts on the owner's terminal. Inside a `group/settle` wrapper whose
+// `data-settled` is false (the card has just appeared or moved), it is outlined like Deny, then fills
+// (BOT-22). Both styles keep a 1px border, so the switch moves nothing. Without the wrapper it is filled.
+const PRIMARY = "border border-primary bg-primary text-primary-foreground hover:bg-primary/90";
+const QUIET = "border border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground";
+const PRIMARY_UNSETTLED =
+  "group-data-[settled=false]/settle:border-border group-data-[settled=false]/settle:bg-background group-data-[settled=false]/settle:text-foreground group-data-[settled=false]/settle:hover:bg-accent group-data-[settled=false]/settle:hover:text-accent-foreground";
+
 function ApprovalOption({ label, primary, describedBy, disabled, sending, onClick }: {
   label: string;
   primary: boolean;
@@ -70,7 +80,7 @@ function ApprovalOption({ label, primary, describedBy, disabled, sending, onClic
       className={cn(
         "rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 pointer-coarse:min-h-11",
         "px-4 py-1.5 text-sm font-semibold",
-        primary ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground",
+        primary ? cn(PRIMARY, PRIMARY_UNSETTLED) : QUIET,
       )}
     >
       {sending ? (
@@ -81,6 +91,13 @@ function ApprovalOption({ label, primary, describedBy, disabled, sending, onClic
       ) : label}
     </button>
   );
+}
+
+/** The title with the terminal's name carrying the pane id as its tooltip (BOT-28). */
+function ApprovalTitle({ title, where }: { title: string; where?: PaneWhere }) {
+  const parts = where?.id ? aroundName(title, where.name) : null;
+  if (!where || !parts) return title;
+  return <>{parts[0]}<span title={where.id ?? undefined} className="underline decoration-dotted decoration-foreground/40 underline-offset-2">{where.name}</span>{parts[1]}</>;
 }
 
 function ApprovalContext({ approval, contentId, detailAs }: { approval: ChatApproval; contentId: string; detailAs: "code" | "markdown" }) {
@@ -137,9 +154,12 @@ export function ApprovalCard({ approval, submitting, submittingIndex, error, sho
             }}
           >
             <div className="flex shrink-0 items-start gap-2">
-              <ShieldQuestion aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              {/* stacked is the bot dock, where every approval acts on a terminal */}
+              {stacked
+                ? <SquareTerminal aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                : <ShieldQuestion aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
               <div className="min-w-0 flex-1">
-                <p className="line-clamp-2 break-words text-sm font-semibold text-foreground">{approval.title}</p>
+                <p className="line-clamp-2 break-words text-sm font-semibold text-foreground"><ApprovalTitle title={approval.title} where={approval.where} /></p>
               </div>
             </div>
             <ApprovalContext approval={approval} contentId={contentId} detailAs={detailAs} />

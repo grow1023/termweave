@@ -2,23 +2,37 @@
 // src/renderer/src/components/native-chat/prompts/NativeChatQuestionCard.tsx; adapted for TermWeave.
 // An item that needs the owner, as Orca's question card: the question, one tile per answer, a typed answer,
 // and Submit. An approval (the bot asks to act in a terminal) has no tiles: only Approve and Deny.
-import { Check, MessageCircleQuestionMark, Pencil } from "lucide-react";
-import { useId, useState } from "react";
+import { Check, MessageCircleQuestionMark, Pencil, SquareTerminal } from "lucide-react";
+import { useId, useState, type ReactNode } from "react";
 
 import { APPROVE, DENY } from "../../../../shared/bots/types.ts";
 import { type Translate, useT } from "../../../lib/i18n.ts";
 import { cn } from "../../cn.ts";
 import type { BotItem, BotPaneAction } from "../data.ts";
 import { botsApi } from "../data.ts";
+import { AnsweredLine } from "./AnsweredLine.tsx";
+import { answeredText } from "./answered-line.ts";
+import { aroundName, splitWhere } from "./pane-where.ts";
 import { ActionError, useBotAction } from "./use-bot-action.tsx";
+import { useMountedSettled } from "./use-settled-cards.ts";
 
-/** The question of an approval, from what the bot wants to do; never from the bot's own words. */
-function approvalQuestion(action: BotPaneAction, t: Translate): string {
+/** The question of an approval, from what the bot wants to do; never from the bot's own words.
+ *  The terminal is named by its label; the pane id is left for the tooltip (BOT-28). */
+export function approvalQuestion(action: BotPaneAction, t: Translate): string {
+  const where = splitWhere(action.where).name;
   switch (action.kind) {
-    case "send": return t("Type this into {where} and press Enter?", { where: action.where });
-    case "keys": return t("Press {keys} in {where}?", { keys: action.keys.join(" "), where: action.where });
-    case "close": return t("Close {where}?", { where: action.where });
+    case "send": return t("Type this into {where} and press Enter?", { where });
+    case "keys": return t("Press {keys} in {where}?", { keys: action.keys.join(" "), where });
+    case "close": return t("Close {where}?", { where });
   }
+}
+
+/** The question with the terminal's name carrying the pane id as its tooltip. */
+export function QuestionText({ text, action }: { text: string; action: BotPaneAction | null }): ReactNode {
+  const where = action ? splitWhere(action.where) : null;
+  const parts = where?.id ? aroundName(text, where.name) : null;
+  if (!where || !parts) return text;
+  return <>{parts[0]}<span title={where.id ?? undefined} className="underline decoration-dotted decoration-foreground/40 underline-offset-2">{where.name}</span>{parts[1]}</>;
 }
 
 const BUTTON =
@@ -79,7 +93,7 @@ function AnswerField({ value, disabled, onChange, onEnter }: { value: string; di
   );
 }
 
-export function BotItemQuestionStep({ botId, item, readOnly, onOpenItem, canAnswer }: {
+export function BotItemQuestionStep({ botId, item, readOnly, onOpenItem, canAnswer, settled, onAnswered }: {
   botId: string;
   item: BotItem;
   readOnly: boolean;
@@ -87,12 +101,21 @@ export function BotItemQuestionStep({ botId, item, readOnly, onOpenItem, canAnsw
   onOpenItem?: () => void;
   /** A list whose cards move asks here first; false drops the answer (a card that just moved under the pointer). */
   canAnswer?: () => boolean;
+  /** False while the card has just appeared or moved: Approve stays outlined, as quiet as Deny (BOT-22).
+   *  Left out (an item's own view), the card counts as settled once it has been on screen 500 ms. */
+  settled?: boolean;
+  /** A list that keeps the answered card as a line takes the answer here; without it the card itself
+   *  collapses to the line until its item leaves (BOT-23). */
+  onAnswered?: (answer: string, text: string) => void;
 }) {
   const t = useT();
   const act = useBotAction();
   const sendsId = useId();
   const [typed, setTyped] = useState("");
   const [sent, setSent] = useState<string | null>(null);
+  const [doneText, setDoneText] = useState<string | null>(null);
+  const mountedSettled = useMountedSettled();
+  const looksSettled = settled ?? mountedSettled;
   const action = item.action ?? null;
   const question = action ? approvalQuestion(action, t) : (item.ask ?? item.title);
   const disabled = readOnly || act.busy;
@@ -102,12 +125,17 @@ export function BotItemQuestionStep({ botId, item, readOnly, onOpenItem, canAnsw
     setSent(text);
     void act.run(() => botsApi.answerItem(botId, item.n, text)).then((ok) => {
       setSent(null);
-      if (ok) setTyped("");
+      if (!ok) return;
+      setTyped("");
+      const done = answeredText(text, action, t);
+      if (onAnswered) onAnswered(text, done);
+      else setDoneText(done);
     });
   };
   const submitTyped = (): void => {
     if (typed.trim() && !disabled) answer(typed.trim());
   };
+  if (doneText !== null) return <AnsweredLine text={doneText} />;
   return (
     <div
       role="group"
@@ -117,16 +145,19 @@ export function BotItemQuestionStep({ botId, item, readOnly, onOpenItem, canAnsw
       className="relative flex min-h-0 w-full min-w-0 shrink flex-col overflow-hidden rounded-xl border border-primary/28 bg-chat-canvas bg-[linear-gradient(var(--color-chat-composer-surface),var(--color-chat-composer-surface))] shadow-sm"
     >
       <div className="flex min-h-9 shrink-0 items-center gap-1.5 bg-primary/9 py-1 pr-1.5 pl-3.5 text-xs font-semibold text-foreground">
-        <MessageCircleQuestionMark aria-hidden className="size-3.5 shrink-0 text-primary" />
+        {action
+          ? <SquareTerminal aria-hidden className="size-3.5 shrink-0 text-primary" />
+          : <MessageCircleQuestionMark aria-hidden className="size-3.5 shrink-0 text-primary" />}
         <span className="min-w-0 truncate">{action ? t("Approval") : t("Question")}</span>
       </div>
       {onOpenItem ? (
         <button type="button" title={item.title} onClick={onOpenItem} className="mx-3.5 mt-2 flex min-w-0 items-baseline gap-1.5 rounded-sm text-left text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring pointer-coarse:min-h-11 pointer-coarse:items-center">
           <span className="shrink-0 tabular-nums">{`#${item.n}`}</span>
-          <span className="min-w-0 truncate">{item.title}</span>
+          {/* an approval's question already says what it does (BOT-28): the line is only its number */}
+          {action ? null : <span className="min-w-0 truncate">{item.title}</span>}
         </button>
       ) : null}
-      <div className="whitespace-pre-wrap px-3.5 pt-3 text-[length:calc(var(--text-sm)*15/13)] leading-snug font-semibold text-foreground [overflow-wrap:anywhere]">{question}</div>
+      <div className="whitespace-pre-wrap px-3.5 pt-3 text-[length:calc(var(--text-sm)*15/13)] leading-snug font-semibold text-foreground [overflow-wrap:anywhere]"><QuestionText text={question} action={action} /></div>
       {action?.kind === "send" ? (
         <pre className="scrollbar-sleek mx-3.5 mt-2 max-h-56 overflow-auto whitespace-pre rounded-md bg-chat-code-surface px-2.5 py-2 font-mono text-chat-code leading-snug text-chat-foreground">{action.text}</pre>
       ) : null}
@@ -144,12 +175,12 @@ export function BotItemQuestionStep({ botId, item, readOnly, onOpenItem, canAnsw
         </>
       )}
       <ActionError message={act.error} className="px-3.5 pt-2" />
-      <div className="flex shrink-0 flex-wrap items-center gap-2 px-3.5 pt-3 pb-3.5">
+      <div className="flex shrink-0 flex-wrap items-center gap-3 px-3.5 pt-3 pb-3.5">
         <span className="flex-1" />
         {action ? (
           <>
             <button type="button" disabled={disabled} className={cn(BUTTON, OUTLINED)} onClick={() => answer(DENY)}>{t("Deny")}</button>
-            <button type="button" disabled={disabled} className={cn(BUTTON, FILLED)} onClick={() => answer(APPROVE)}>{t("Approve")}</button>
+            <button type="button" disabled={disabled} className={cn(BUTTON, looksSettled ? FILLED : OUTLINED)} onClick={() => answer(APPROVE)}>{t("Approve")}</button>
           </>
         ) : (
           <button type="button" disabled={disabled || typed.trim().length === 0} className={cn(BUTTON, typed.trim() ? FILLED : OUTLINED)} onClick={submitTyped}>

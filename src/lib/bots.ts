@@ -39,6 +39,11 @@ export function useBotsView(): BotsView | null {
   return useSyncExternalStore(subscribe, () => current, () => null);
 }
 
+/** The bots as last fetched, for code that runs outside a render (an event handler right after a change). */
+export function currentBotsView(): BotsView | null {
+  return current;
+}
+
 /** Workspaces the sidebar's bots group stands for: each bot's chat, and the workers still at work. */
 export function botWorkspaceIds(view: BotsView | null, panes: ReadonlyArray<{ pane_id: string; workspace_id: string }>): Set<string> {
   if (!view) return new Set();
@@ -51,6 +56,14 @@ export function botWorkspaceIds(view: BotsView | null, panes: ReadonlyArray<{ pa
 
 /** a finished worker's workspace goes back to the normal list, where it is read and closed as any other */
 export const ACTIVE_WORKER: ReadonlySet<string> = new Set(["starting", "working", "blocked"]);
+
+/**
+ * Asks App to open a bot where it now runs: a session bot's page, or a terminal bot's chat pane
+ * (started when it is not running). Bot settings use it after switching how the bot runs.
+ */
+export function openBotWhereItRuns(botId: string): void {
+  window.dispatchEvent(new CustomEvent("termweave:open-bot", { detail: { botId } }));
+}
 
 /** Asks App to open a pane of this PC (the bot bar's worker rows). */
 export function openLocalPane(paneId: string): void {
