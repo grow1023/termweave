@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "repoType": "app",
   "mode": "update",
-  "baselineCommit": "889e8ae313a5352ace66f6d2ea243c5bd98337b6",
-  "reviewedHead": "8bebd6cc1dcc5fdc1a513e8fa3626e274df96682",
+  "baselineCommit": "8bebd6cc1dcc5fdc1a513e8fa3626e274df96682",
+  "reviewedHead": "7426a85e592aa742973856a7ec9fba2de366aa9f",
   "references": [
     {
       "repo": "tsl0922/ttyd",
@@ -75,9 +75,37 @@
     "gaps": []
   },
   "diffReview": {
-    "since": "889e8ae313a5352ace66f6d2ea243c5bd98337b6",
-    "files": [],
-    "summary": "Automated review for v0.3.60 by tools/public-release/auto_release.sh. 0 file(s) changed since 889e8ae313a5. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- feat(bots): Orca's bot screens, from its source: home panel, new bot, settings, sidebar"
+    "since": "8bebd6cc1dcc5fdc1a513e8fa3626e274df96682",
+    "files": [
+      "src/assets/bot-mascots/A1.svg",
+      "src/assets/bot-mascots/B1.svg",
+      "src/assets/bot-mascots/D1.svg",
+      "src/assets/bot-mascots/E1.svg",
+      "src/assets/bot-mascots/F1.svg",
+      "src/assets/bot-mascots/G1.svg",
+      "src/assets/bot-mascots/H1.svg",
+      "src/assets/bot-mascots/H2.svg",
+      "src/assets/bot-mascots/I1.svg",
+      "src/assets/bot-mascots/J1.svg",
+      "src/assets/bot-mascots/K2.svg",
+      "src/assets/bot-mascots/L2.svg",
+      "src/assets/bot-mascots/M1.svg",
+      "src/assets/bot-mascots/N1.svg",
+      "src/assets/bot-mascots/O1.svg",
+      "src/assets/bot-mascots/P3.svg",
+      "src/assets/bot-mascots/Q1.svg",
+      "src/assets/bot-mascots/R3.svg",
+      "src/assets/bot-mascots/S2.svg",
+      "src/assets/bot-mascots/T1.svg",
+      "src/components/BotBar.tsx",
+      "src/components/BotVisuals.css",
+      "src/components/BotsPanel.css",
+      "src/components/BotsPanel.tsx",
+      "src/components/BotsSidebar.tsx",
+      "src/svg-raw.d.ts",
+      "tools/public-release/build_public.sh"
+    ],
+    "summary": "Automated review for v0.3.60 by tools/public-release/auto_release.sh. 27 file(s) changed since 8bebd6cc1dcc. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- fix(release): keep the export's preparation record when its tree is cleared\n- fix(release): clear the export through its link, so a deleted file leaves the public copy"
   },
   "readiness": {
     "verified": [
