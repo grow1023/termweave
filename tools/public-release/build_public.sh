@@ -11,6 +11,9 @@ harness=$HOME/projects/github-harness/bin/github
 version=${2:-}
 
 mkdir -p "$out"
+# in a worktree .local/public is a link to the one export: find does not walk through a link it is
+# given, so the tree was never cleared and a file deleted here stayed in the export
+out=${out:A}
 [[ -d $out/.git ]] || git -C "$out" init -q -b main
 # replace the tree, keep the export history
 # the github harness keeps its publish state here; it lives only in the export
