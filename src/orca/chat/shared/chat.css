@@ -137,7 +137,7 @@
    The dock shrinks before the transcript and scrolls inside. Its cut edges must read as cut, and an open
    card's answer row must never be cut in the middle: the row sticks to the dock's bottom edge (Orca's
    pinned question-card footer), with the scroll shadow above it while more lies below; the top edge
-   fades while the box is scrolled. The Home panel's question card (bots/home/BotItemQuestionStep.tsx) is
+   fades while the box is scrolled. The Home panel's question card (bots/homepanel/BotItemQuestionStep.tsx) is
    reached by its data attribute: `clip` instead of `hidden` keeps its rounded corners without making it
    a scroll box, so its last child (the Submit / Deny / Approve row) can stick. */
 .orca.orca-chat .native-chat-worker-approvals [data-bot-item-question] {

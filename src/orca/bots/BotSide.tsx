@@ -7,7 +7,7 @@ import { useT } from "../../lib/i18n.ts";
 import { OrcaRoot } from "../OrcaRoot.tsx";
 import { BotAvatar } from "./BotAvatar.tsx";
 import { useBotsView } from "./data.ts";
-import { BotHomePanel } from "./home/BotHomePanel.tsx";
+import { BotHomePanel } from "./homepanel/BotHomePanel.tsx";
 import { BotSettingsView } from "./settings/BotSettingsView.tsx";
 import "./bot-side.css";
 

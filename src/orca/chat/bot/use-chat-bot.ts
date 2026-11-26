@@ -46,7 +46,7 @@ export function useChatBot(paneId: string, readOnly: boolean): ChatBotView | nul
 }
 
 /** The question of an approval, from what the bot wants to do; never from the bot's own words.
- *  The same strings as the Home panel (src/orca/bots/home/BotItemQuestionStep.tsx). */
+ *  The same strings as the Home panel (src/orca/bots/homepanel/BotItemQuestionStep.tsx). */
 export function approvalQuestion(action: BotPaneAction, t: Translate): string {
   switch (action.kind) {
     case "send": return t("Type this into {where} and press Enter?", { where: action.where });

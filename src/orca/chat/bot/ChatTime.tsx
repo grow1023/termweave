@@ -3,7 +3,7 @@
 import { useLocale, useT } from "../../../lib/i18n.ts";
 import { cn } from "../../cn.ts";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip.tsx";
-import { useNow } from "../../bots/home/use-now.ts";
+import { useNow } from "../../bots/homepanel/use-now.ts";
 
 function dayStart(at: number): number {
   const date = new Date(at);

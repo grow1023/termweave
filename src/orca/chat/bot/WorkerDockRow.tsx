@@ -8,7 +8,7 @@ import { botAge } from "../../../components/BotVisuals.tsx";
 import { useLocale, useT, type Translate } from "../../../lib/i18n.ts";
 import { cn } from "../../cn.ts";
 import { AgentWorkingSpinner } from "../../ui/AgentWorkingSpinner.tsx";
-import { useNow } from "../../bots/home/use-now.ts";
+import { useNow } from "../../bots/homepanel/use-now.ts";
 import type { BotWorker, BotWorkerStatus } from "../../bots/data.ts";
 
 export type WorkerGlyph = "ask" | "failed" | "running" | "done";

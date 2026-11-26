@@ -9,7 +9,7 @@ import { ListTodo } from "lucide-react";
 import { useT } from "../../../lib/i18n.ts";
 import { cn } from "../../cn.ts";
 import { BotItemStatusIcon } from "../../bots/BotItemStatusIcon.tsx";
-import { statusName } from "../../bots/home/bot-item-status-name.ts";
+import { statusName } from "../../bots/homepanel/bot-item-status-name.ts";
 import type { BotItem } from "../../bots/data.ts";
 import { disclosureKey, type ChatTimedRow } from "../shared/index.ts";
 import { EventRow } from "./EventRow.tsx";

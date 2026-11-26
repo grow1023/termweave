@@ -11,7 +11,7 @@
 | U3 | 언어 | 한국어, 영어, 일본어, 중국어 | `src/lib/i18n.ko.ts`, `i18n.ja.ts`, `i18n.zh.ts` |
 | T1 | 주요 과업 | 답을 기다리는 에이전트를 알아차리고, 들어가서, 답하고, 돌아옵니다 | `src/components/NeedsInput.tsx`, `src/components/Droplet.tsx` |
 | T2 | 주요 과업 | 에이전트가 일하는 중에 추가 메시지를 보내거나 멈춥니다 | `src/components/Composer.tsx` |
-| T3 | 주요 과업 | 봇의 질문과 터미널 승인 요청에 답합니다 | `src/orca/bots/home/BotItemQuestionStep.tsx` |
+| T3 | 주요 과업 | 봇의 질문과 터미널 승인 요청에 답합니다 | `src/orca/bots/homepanel/BotItemQuestionStep.tsx` |
 | T4 | 주요 과업 | 설정 하나를 찾아 바꿉니다 | `src/components/SettingsDialog.tsx` |
 | S1 | 핵심 화면 | 상단 줄과 사이드바, 터미널과 채팅과 입력창, 봇 홈 패널과 봇 채팅, 설정 대화상자 | 위 파일들 |
 | C1 | 제약 | 봇 화면은 Orca의 구조를 따릅니다 | 소유자 진술: "안에 구조는 오르카랑 똑같아야함" |

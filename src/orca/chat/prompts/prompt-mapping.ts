@@ -89,7 +89,7 @@ export const PANE_ACTION_DENY = 1;
 
 /**
  * A TermWeave bot's pane action as an approval: worded from the action, never from the bot's words
- * (same wording as src/orca/bots/home/BotItemQuestionStep.tsx); the text to type shows as code.
+ * (same wording as src/orca/bots/homepanel/BotItemQuestionStep.tsx); the text to type shows as code.
  * Options are exactly Approve (index 0, the default) and Deny (index 1); the caller answers
  * `APPROVE`/`DENY` from shared/bots/types.ts.
  */
