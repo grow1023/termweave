@@ -36,7 +36,7 @@ import type { ConversationMetadata, ConversationPart, ConversationTurn, HerdrPan
 import { herdrRpc, sessionSnapshot } from "./herdr/client.ts";
 import { codexHistorySegments, createCodexTranscriptParser, codexOutputText, codexTranscriptPath, defaultCodexHome, parseCodexTranscript, readRange } from "./codex.ts";
 import { CODEX_IMAGE_REF, codexTranscriptImage } from "./codex-images.ts";
-import { claudeTranscriptFile, forgetClaudeSessions } from "./claude-store.ts";
+import { claudeSessionOfProcesses, claudeTranscriptFile, forgetClaudeSessions } from "./claude-store.ts";
 import { forgetGjcState, gjcTranscriptForPane, storeRelative } from "./gjc-runtime.ts";
 import { isOmoProcess, omoSessionForPane } from "./omo.ts";
 import { piTranscriptPath } from "./pi.ts";
@@ -712,9 +712,16 @@ export async function labelOmoPanes(snapshot: SessionSnapshot): Promise<SessionS
 /** Claude's transcript for a pane: herdr names the session id, claude-store.ts finds its project. */
 async function claudeTranscriptPath(paneId: string, cwds: readonly (string | null | undefined)[]): Promise<string> {
   const info = await herdrRpc<{ agent: { agent_session?: { value?: unknown } } }>("agent.get", { target: paneId });
-  const session = info.agent.agent_session?.value;
+  const home = process.env["HOME"] ?? "";
+  let session = info.agent.agent_session?.value;
+  if (typeof session !== "string" || !SESSION_ID.test(session)) {
+    // herdr's Claude hook is not installed: the pane's processes name the session instead
+    const processes = await herdrRpc<{ process_info?: { foreground_processes?: { pid?: unknown }[] } }>("pane.process_info", { pane_id: paneId }).catch(() => null);
+    const pids = (processes?.process_info?.foreground_processes ?? []).map((process) => process.pid).filter((pid): pid is number => typeof pid === "number");
+    session = await claudeSessionOfProcesses(home, pids);
+  }
   if (typeof session !== "string" || !SESSION_ID.test(session)) throw new ConversationUnavailable("no_session_id");
-  const path = await claudeTranscriptFile(process.env["HOME"] ?? "", session, cwds);
+  const path = await claudeTranscriptFile(home, session, cwds);
   if (!path) throw new ConversationUnavailable("transcript_missing");
   return path;
 }

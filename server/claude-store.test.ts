@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { chmodSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { claudeProjectDir, claudeTranscriptFile, forgetClaudeSessions } from "./claude-store.ts";
+import { claudeProjectDir, claudeSessionOfProcesses, claudeTranscriptFile, forgetClaudeSessions } from "./claude-store.ts";
 
 const SESSION = "0b8e6f0e-8d3f-4c1a-9a53-6c2b7a1d9e42";
 
@@ -92,5 +92,20 @@ describe("claudeTranscriptFile", () => {
     const { home: dir } = home();
     expect(await claudeTranscriptFile(dir, SESSION, ["/w/project"])).toBeNull();
     expect(await claudeTranscriptFile(join(dir, "missing"), SESSION, ["/w/project"])).toBeNull();
+  });
+});
+
+describe("claudeSessionOfProcesses", () => {
+  it("reads the session of the pane's own Claude from the record that process wrote", async () => {
+    const home = mkdtempSync(join(tmpdir(), "claude-sessions-"));
+    try {
+      const sessions = join(home, ".claude", "sessions");
+      mkdirSync(sessions, { recursive: true });
+      writeFileSync(join(sessions, "200.json"), JSON.stringify({ pid: 200, sessionId: "child", startedAt: 20 }));
+      writeFileSync(join(sessions, "100.json"), JSON.stringify({ pid: 100, sessionId: SESSION, startedAt: 10 }));
+      writeFileSync(join(sessions, "300.json"), JSON.stringify({ pid: 999, sessionId: "another process's stale record", startedAt: 1 }));
+      expect(await claudeSessionOfProcesses(home, [300, 200, 100, 400])).toBe(SESSION);
+      expect(await claudeSessionOfProcesses(home, [400])).toBeNull();
+    } finally { rmSync(home, { recursive: true, force: true }); }
   });
 });

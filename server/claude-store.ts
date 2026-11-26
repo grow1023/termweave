@@ -12,7 +12,7 @@
  * id is a UUID herdr reports, so at most one file answers to it.
  */
 
-import { readdir, stat } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 const MAX_PROJECT_NAME = 200;
@@ -78,4 +78,22 @@ export async function claudeTranscriptFile(home: string, session: string, cwds: 
   const failed = checks.find((check) => check.status === "rejected");
   if (failed) throw failed.reason;
   return null;
+}
+
+/**
+ * The session a running Claude wrote down for itself: `~/.claude/sessions/<pid>.json` holds its
+ * `sessionId` (read from Claude Code 2.1.332). herdr names a pane's session only while its Claude
+ * hook is installed; without the hook the pane's own processes still say which session runs there.
+ * Of several Claudes in one pane (one started by another), the first started is the pane's own.
+ */
+export async function claudeSessionOfProcesses(home: string, pids: readonly number[]): Promise<string | null> {
+  let best: { id: string; started: number } | null = null;
+  for (const pid of pids) {
+    let record: { pid?: unknown; sessionId?: unknown; startedAt?: unknown };
+    try { record = JSON.parse(await readFile(join(home, ".claude", "sessions", `${pid}.json`), "utf8")); } catch { continue; }
+    if (record?.pid !== pid || typeof record.sessionId !== "string") continue;
+    const started = typeof record.startedAt === "number" ? record.startedAt : Infinity;
+    if (best === null || started < best.started) best = { id: record.sessionId, started };
+  }
+  return best?.id ?? null;
 }
