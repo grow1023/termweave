@@ -3,6 +3,7 @@ import { developmentTarget } from './scripts/dev-target.ts';
 import { buildXtermSource } from "./scripts/build-xterm.ts";
 import { defineConfig, normalizePath, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -21,7 +22,7 @@ const thirdPartyNotices: Plugin = {
 };
 
 export default defineConfig({
-  plugins: [react(), thirdPartyNotices, frontendBuildIdentity()],
+  plugins: [react(), tailwindcss(), thirdPartyNotices, frontendBuildIdentity()],
   define: {
     __APP_REVISION__: JSON.stringify(revision),
     __APP_VERSION__: JSON.stringify((JSON.parse(readFileSync("package.json", "utf8")) as { version: string }).version),

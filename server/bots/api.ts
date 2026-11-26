@@ -1,9 +1,9 @@
 import { timingSafeEqual } from "node:crypto";
 
 import { BOT_AGENTS, BOT_ITEM_OPEN, BOT_ITEM_STATUSES, type BotAgent, type BotItemStatus } from "../../shared/bots/types.ts";
-import { isBotAvatar, isBotAvatarColor } from "../../shared/bots/avatar.ts";
+import { isBotAvatar } from "../../shared/bots/avatar.ts";
 import { badRequest, jsonResponse } from "../http.ts";
-import { BotError, type BotRuntime } from "./runtime.ts";
+import { BotError, type BotNote, type BotRuntime } from "./runtime.ts";
 import type { BotStore } from "./store.ts";
 
 const isAgent = (value: unknown): value is BotAgent => typeof value === "string" && (BOT_AGENTS as readonly string[]).includes(value);
@@ -31,6 +31,11 @@ async function answer(work: () => unknown): Promise<Response> {
 export async function handleBotsRequest(request: Request, pathname: string, runtime: BotRuntime, store: BotStore, readOnly: boolean): Promise<Response> {
   const parts = pathname.split("/").slice(3); // ["", "api", "bots", ...]
   if (request.method === "GET" && parts.length === 0) return jsonResponse(store.view());
+  // a watching device reads a bot's notes as it reads everything else
+  if (request.method === "GET" && parts.length === 3 && parts[1] === "notes" && isNote(parts[2])) {
+    const note = parts[2];
+    return answer(() => ({ text: runtime.readNote(parts[0]!, note) }));
+  }
   if (readOnly) return jsonResponse({ error: { code: "read_only", message: "this device can only watch" } }, 403);
   const [botId, section, key] = parts;
   if (request.method === "POST" && parts.length === 0) {
@@ -47,8 +52,8 @@ export async function handleBotsRequest(request: Request, pathname: string, runt
     return answer(() => runtime.updateBot(botId, {
       ...(typeof input.paused === "boolean" ? { paused: input.paused } : {}),
       ...(input.repo === null || typeof input.repo === "string" ? { repo: str(input.repo) || null } : {}),
+      ...(typeof input.name === "string" ? { name: input.name } : {}),
       ...(isBotAvatar(input.avatar) ? { avatar: input.avatar } : {}),
-      ...(input.avatarColor === null || isBotAvatarColor(input.avatarColor) ? { avatarColor: input.avatarColor } : {}),
     }));
   }
   if (request.method === "POST" && section === "message") {
@@ -59,6 +64,20 @@ export async function handleBotsRequest(request: Request, pathname: string, runt
     return answer(() => runtime.tell(botId, text));
   }
   if (request.method === "POST" && section === "open") return answer(async () => ({ pane_id: await runtime.ensurePane(botId) }));
+  if (request.method === "PUT" && section === "notes" && isNote(key)) {
+    const input = await body(request);
+    if (input instanceof Response) return input;
+    if (typeof input.text !== "string") return badRequest("missing_text", "text is required");
+    const text = input.text;
+    return answer(() => runtime.writeNote(botId, key, text));
+  }
+  if (request.method === "PATCH" && section === "items" && key !== undefined) {
+    const input = await body(request);
+    if (input instanceof Response) return input;
+    const status = input.status === "planned" || input.status === "done" || input.status === "canceled" ? input.status : undefined;
+    return answer(() => runtime.ownerItem(botId, Number(key), { ...(status ? { status } : {}), ...(str(input.comment) ? { comment: str(input.comment)! } : {}) }));
+  }
+  if (request.method === "POST" && section === "automations" && key !== undefined && parts[3] === "run") return answer(() => runtime.runAutomation(botId, key));
   if (request.method === "POST" && section === "items" && key !== undefined) {
     const input = await body(request);
     if (input instanceof Response) return input;
@@ -78,6 +97,10 @@ export async function handleBotsRequest(request: Request, pathname: string, runt
     if (request.method === "DELETE" && key !== undefined) return answer(() => runtime.removeAutomation(botId, key));
   }
   return badRequest("not_found", "no such bots route");
+}
+
+function isNote(value: unknown): value is BotNote {
+  return value === "soul" || value === "memory";
 }
 
 function matches(given: string, expected: string): boolean {

@@ -164,6 +164,31 @@ describe("bots", () => {
     expect(submitted.at(-1)?.text).toContain('"Ship today?": yes');
   });
 
+  it("lets the owner rename a bot, edit its notes, close an item and run a schedule now", async () => {
+    const { runtime, submitted, store, bot } = setup();
+    const made = await bot("Keeper");
+    expect(runtime.updateBot(made.id, { name: "Keeper 2" }).name).toBe("Keeper 2");
+    expect(() => runtime.updateBot(made.id, { name: "" })).toThrow("a name is");
+    runtime.writeNote(made.id, "soul", "Watches the build.\nSecond line.");
+    expect(runtime.readNote(made.id, "soul")).toBe("Watches the build.\nSecond line.\n");
+    expect(store.bot(made.id)?.purpose).toBe("Watches the build.");
+    expect(readFileSync(join(made.home, "CLAUDE.md"), "utf8")).toContain("# Keeper 2");
+    expect(readFileSync(join(made.home, "CLAUDE.md"), "utf8")).toContain("Watches the build.");
+
+    const item = runtime.addItem(made.id, { title: "Ship", doneMeans: null });
+    await runtime.ownerItem(made.id, item.n, { status: "done", comment: "merged by hand" });
+    expect(store.item(made.id, item.n)).toMatchObject({ status: "done" });
+    expect(store.item(made.id, item.n)?.comments.at(-1)).toMatchObject({ by: "owner", text: "merged by hand" });
+    expect(submitted.at(-1)?.text).toContain("Your owner marked it done on item #1 (Ship): merged by hand");
+    await expect(runtime.ownerItem(made.id, item.n, {})).rejects.toThrow("a status or a comment");
+
+    const automation = runtime.addAutomation(made.id, { name: "Nightly", prompt: "Look at CI.", schedule: "0 3 * * *", timezone: null, once: false });
+    runtime.onPaneStatus(store.bot(made.id)!.paneId!, "done");
+    await runtime.runAutomation(made.id, automation.id);
+    expect(store.view().automations[0]).toMatchObject({ enabled: true, nextRunAt: automation.nextRunAt });
+    expect(store.view().automations[0]?.lastRunAt).not.toBeNull();
+  });
+
   it("runs a schedule when it is due, once per due time, and a one-time run turns itself off", async () => {
     const { runtime, submitted, store, tick, bot } = setup();
     const made = await bot("Cron");

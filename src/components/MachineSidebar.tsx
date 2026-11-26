@@ -7,7 +7,7 @@ import { describeProgress } from "../lib/bridgeProgress.ts";
 import type { AppActions } from "../lib/actions.ts";
 import { useInstallPrompt } from "../lib/install.ts";
 import { Sidebar } from "./Sidebar.tsx";
-import { BotsSidebar } from "./BotsSidebar.tsx";
+import { SidebarBotsSection } from "../orca/bots/sidebar/SidebarBotsSection.tsx";
 import { botWorkspaceIds, useBotsView } from "../lib/bots.ts";
 import { NeedsInput } from "./NeedsInput.tsx";
 import { UsageMeters, UsagePanel } from "./UsageMeters.tsx";
@@ -25,7 +25,7 @@ export const STATE_WORD: Readonly<Record<MachineState, string>> = {
   error: "Connection error",
 };
 
-interface Props { onOpenBots(botId: string | null): void; machines: Machine[]; selectedMachineId: string; selectedPaneId: string | null; selectedWorkspaceId?: string | null; onSelectWorkspace?: (machine: string, workspace: string) => void; actions: AppActions; version: string | null; onSelect(machineId: string, paneId: string | null): void; onNew(machineId: string): void; onSetup(machine: Machine, update?: boolean): void }
+interface Props { onNewBot(): void; onBotSettings(botId: string): void; readOnly: boolean; machines: Machine[]; selectedMachineId: string; selectedPaneId: string | null; selectedWorkspaceId?: string | null; onSelectWorkspace?: (machine: string, workspace: string) => void; actions: AppActions; version: string | null; onSelect(machineId: string, paneId: string | null): void; onNew(machineId: string): void; onSetup(machine: Machine, update?: boolean): void }
 export function MachineSidebar(props: Props) {
   const t = useT();
   const { canInstall, installed, install, help } = useInstallPrompt();
@@ -39,8 +39,8 @@ export function MachineSidebar(props: Props) {
     <div className="machine-list" aria-label={t("PCs and workspaces")}>
       <NeedsInput machines={props.machines} selectedMachineId={props.selectedMachineId} selectedPaneId={props.selectedPaneId} onSelect={props.onSelect} />
       {/* the bots group comes right after what waits on the user now */}
-      {bots && host && <BotsSidebar view={bots} snapshot={host.snapshot} selectedPaneId={props.selectedMachineId === host.id ? props.selectedPaneId : null}
-        onOpenPane={(paneId) => props.onSelect(host.id, paneId)} onManage={props.onOpenBots} />}
+      {bots && host && <SidebarBotsSection view={bots} snapshot={host.snapshot} selectedPaneId={props.selectedMachineId === host.id ? props.selectedPaneId : null} readOnly={props.readOnly}
+        onOpenPane={(paneId) => props.onSelect(host.id, paneId)} onNewBot={props.onNewBot} onSettings={props.onBotSettings} />}
       {props.machines.map((machine) => <MachineGroup key={machine.id} {...props} machine={machine} hidden={machine.kind === "local" ? botWorkspaces : undefined} />)}
       {!props.machines.length && <p className="tree-state" role="status">{t("Loading PCs…")}</p>}
     </div>

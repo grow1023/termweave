@@ -1,0 +1,187 @@
+{
+  "{action}, {total} bots, {attention} need you, {working} working": {
+    "ko": "{action}, 봇 {total}개, {attention}개가 확인을 기다림, {working}개 작업 중",
+    "ja": "{action}、ボット{total}件、{attention}件が確認待ち、{working}件が作業中",
+    "zh": "{action}，共 {total} 个机器人，{attention} 个等待你，{working} 个正在工作"
+  },
+  "{label}, needs you": {
+    "ko": "{label}, 확인이 필요합니다",
+    "ja": "{label}、確認が必要です",
+    "zh": "{label}，需要你处理"
+  },
+  "{n} questions wait for you": {
+    "ko": "질문 {n}개가 답을 기다립니다",
+    "ja": "質問{n}件が回答を待っています",
+    "zh": "{n} 个问题等待你回答"
+  },
+  "Agent": {
+    "ko": "에이전트",
+    "ja": "エージェント",
+    "zh": "代理"
+  },
+  "Bot name": {
+    "ko": "봇 이름",
+    "ja": "ボット名",
+    "zh": "机器人名称"
+  },
+  "Bot settings…": {
+    "ko": "봇 설정…",
+    "ja": "ボット設定…",
+    "zh": "机器人设置…"
+  },
+  "Bots": {
+    "ko": "봇",
+    "ja": "ボット",
+    "zh": "机器人"
+  },
+  "Cancel": {
+    "ko": "취소",
+    "ja": "キャンセル",
+    "zh": "取消"
+  },
+  "Chat not running": {
+    "ko": "채팅이 실행 중이 아닙니다",
+    "ja": "チャットは実行されていません",
+    "zh": "聊天未运行"
+  },
+  "Collapse Bots": {
+    "ko": "봇 접기",
+    "ja": "ボットを折りたたむ",
+    "zh": "折叠机器人"
+  },
+  "Copy Path": {
+    "ko": "경로 복사",
+    "ja": "パスをコピー",
+    "zh": "复制路径"
+  },
+  "Copying is not available here.": {
+    "ko": "이 환경에서는 복사할 수 없습니다.",
+    "ja": "この環境ではコピーできません。",
+    "zh": "此处无法复制。"
+  },
+  "Delete {name}?": {
+    "ko": "{name} 봇을 삭제할까요?",
+    "ja": "{name} を削除しますか？",
+    "zh": "要删除 {name} 吗？"
+  },
+  "Delete bot": {
+    "ko": "봇 삭제",
+    "ja": "ボットを削除",
+    "zh": "删除机器人"
+  },
+  "Expand Bots": {
+    "ko": "봇 펼치기",
+    "ja": "ボットを展開",
+    "zh": "展开机器人"
+  },
+  "Fold {name}": {
+    "ko": "{name} 접기",
+    "ja": "{name} を折りたたむ",
+    "zh": "折叠 {name}"
+  },
+  "Idle": {
+    "ko": "대기 중",
+    "ja": "待機中",
+    "zh": "空闲"
+  },
+  "Manage {name}": {
+    "ko": "{name} 관리",
+    "ja": "{name} を管理",
+    "zh": "管理 {name}"
+  },
+  "More actions for {name}": {
+    "ko": "{name} 더보기",
+    "ja": "{name} のその他の操作",
+    "zh": "{name} 的更多操作"
+  },
+  "Needs you": {
+    "ko": "확인 필요",
+    "ja": "確認が必要",
+    "zh": "需要你处理"
+  },
+  "New bot": {
+    "ko": "새 봇",
+    "ja": "新しいボット",
+    "zh": "新建机器人"
+  },
+  "Next automation": {
+    "ko": "다음 자동화",
+    "ja": "次の自動化",
+    "zh": "下次自动化"
+  },
+  "No bots yet. Make one that takes jobs from its chat.": {
+    "ko": "아직 봇이 없습니다. 채팅으로 일을 맡길 봇을 만들어 보세요.",
+    "ja": "ボットはまだありません。チャットから仕事を受けるボットを作りましょう。",
+    "zh": "还没有机器人。创建一个可以在聊天中接收任务的机器人吧。"
+  },
+  "None": {
+    "ko": "없음",
+    "ja": "なし",
+    "zh": "无"
+  },
+  "Open chat with {name}": {
+    "ko": "{name}와(과) 채팅 열기",
+    "ja": "{name} とのチャットを開く",
+    "zh": "打开与 {name} 的聊天"
+  },
+  "Open items": {
+    "ko": "열린 항목",
+    "ja": "未完了の項目",
+    "zh": "未完成事项"
+  },
+  "Pause bot": {
+    "ko": "봇 일시 정지",
+    "ja": "ボットを一時停止",
+    "zh": "暂停机器人"
+  },
+  "Paused": {
+    "ko": "일시 정지됨",
+    "ja": "一時停止中",
+    "zh": "已暂停"
+  },
+  "Rename": {
+    "ko": "이름 바꾸기",
+    "ja": "名前を変更",
+    "zh": "重命名"
+  },
+  "Resume bot": {
+    "ko": "봇 다시 시작",
+    "ja": "ボットを再開",
+    "zh": "恢复机器人"
+  },
+  "Starts on the next message": {
+    "ko": "다음 메시지가 오면 시작합니다",
+    "ja": "次のメッセージで開始します",
+    "zh": "收到下一条消息时启动"
+  },
+  "The bot is removed from the list. Its home folder, memory and worktrees stay on disk.": {
+    "ko": "봇이 목록에서 사라집니다. 홈 폴더, 메모리, 워크트리는 디스크에 그대로 남습니다.",
+    "ja": "ボットは一覧から削除されます。ホームフォルダ、メモリ、ワークツリーはディスクに残ります。",
+    "zh": "机器人将从列表中移除。它的主文件夹、记忆和工作树会保留在磁盘上。"
+  },
+  "This bot's chat is not running.": {
+    "ko": "이 봇의 채팅이 실행 중이 아닙니다.",
+    "ja": "このボットのチャットは実行されていません。",
+    "zh": "此机器人的聊天未运行。"
+  },
+  "Unfold {name}": {
+    "ko": "{name} 펼치기",
+    "ja": "{name} を展開",
+    "zh": "展开 {name}"
+  },
+  "Waiting for you": {
+    "ko": "확인을 기다리는 중",
+    "ja": "あなたを待っています",
+    "zh": "等待你处理"
+  },
+  "Waiting on: {what}": {
+    "ko": "기다리는 중: {what}",
+    "ja": "待機中: {what}",
+    "zh": "等待：{what}"
+  },
+  "Working": {
+    "ko": "작업 중",
+    "ja": "作業中",
+    "zh": "工作中"
+  }
+}

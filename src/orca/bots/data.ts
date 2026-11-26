@@ -1,0 +1,42 @@
+// What Orca's bot screens read and call, on TermWeave's own server (server/bots/api.ts). The
+// screens themselves are Orca's; this file stands where Orca's store and runtime RPC stood.
+import type { Bot, BotAgent, BotAutomation, BotItem } from "../../../shared/bots/types.ts";
+import { reloadBots } from "../../lib/bots.ts";
+
+export { ACTIVE_WORKER, openLocalPane, reloadBots, useBotsView } from "../../lib/bots.ts";
+export type { Bot, BotAgent, BotAutomation, BotItem, BotItemStatus, BotPaneAction, BotsView, BotWorker, BotWorkerStatus } from "../../../shared/bots/types.ts";
+export { BOT_ITEM_OPEN } from "../../../shared/bots/types.ts";
+
+/** One call to the bots API: the server's own refusal text is the error, and every change reloads the shared view. */
+async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const response = await fetch(`/api/bots${path}`, { method, cache: "no-store", ...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }) });
+  const result = await response.json().catch(() => ({})) as T & { error?: { message?: string } };
+  if (!response.ok) throw new Error(result.error?.message ?? String(response.status));
+  if (method !== "GET") await reloadBots();
+  return result;
+}
+
+export type BotNote = "soul" | "memory";
+
+export const botsApi = {
+  create: (input: { name: string; agent: BotAgent; purpose: string; repo: string | null }) => call<Bot>("POST", "", input),
+  /** name, paused, repo, avatar (`mascot:<id>`) */
+  update: (botId: string, change: Partial<Pick<Bot, "name" | "paused" | "repo" | "avatar">>) => call<Bot>("PATCH", `/${botId}`, change),
+  /** its home folder, memory and worktrees stay on disk */
+  remove: (botId: string) => call<unknown>("DELETE", `/${botId}`),
+  /** starts the bot's chat if it is not running; answers the pane to open */
+  open: (botId: string) => call<{ pane_id: string }>("POST", `/${botId}/open`),
+  message: (botId: string, text: string) => call<unknown>("POST", `/${botId}/message`, { text }),
+  /** the owner's answer to a needs-you item; an approval takes exactly "Approve" or "Deny" */
+  answerItem: (botId: string, n: number, answer: string) => call<unknown>("POST", `/${botId}/items/${n}`, { answer }),
+  /** done, canceled or planned (reopen), and/or a comment; the bot is told */
+  ownerItem: (botId: string, n: number, change: { status?: "planned" | "done" | "canceled"; comment?: string }) => call<BotItem>("PATCH", `/${botId}/items/${n}`, change),
+  /** schedule is five-field cron: minute hour day month weekday */
+  addAutomation: (botId: string, input: { name: string; prompt: string; schedule: string; timezone: string; once: boolean }) => call<BotAutomation>("POST", `/${botId}/automations`, input),
+  setAutomation: (botId: string, id: string, enabled: boolean) => call<BotAutomation>("PATCH", `/${botId}/automations/${id}`, { enabled }),
+  removeAutomation: (botId: string, id: string) => call<unknown>("DELETE", `/${botId}/automations/${id}`),
+  runAutomation: (botId: string, id: string) => call<unknown>("POST", `/${botId}/automations/${id}/run`),
+  /** SOUL.md (who the bot is) or MEMORY.md (its notes) */
+  readNote: async (botId: string, note: BotNote) => (await call<{ text: string }>("GET", `/${botId}/notes/${note}`)).text,
+  writeNote: (botId: string, note: BotNote, text: string) => call<unknown>("PUT", `/${botId}/notes/${note}`, { text }),
+};

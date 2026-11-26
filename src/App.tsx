@@ -1,7 +1,7 @@
 import { initialPaneView, readPaneView, writePaneView } from "./lib/paneView.ts";
 import { adjacentWorkspacePane } from "./lib/workspaceNavigation.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bell, BellOff, Bot as BotIcon, FolderOpen, Lock, Menu, MessageSquare, MoreHorizontal, Orbit, PanelLeft, Search, SquareTerminal, Users, X } from "lucide-react";
+import { Bell, BellOff, FolderOpen, Lock, Menu, MessageSquare, MoreHorizontal, Orbit, PanelLeft, Search, SquareTerminal, Users, X } from "lucide-react";
 
 import type { AgentStatus, ClientRole, ServerMessage, AccessRefusal, HealthAuth, HerdrPane } from "../shared/protocol.ts";
 import { ApiError, authenticate, fetchHealth, fetchBridgeHealth, fetchMachines, fetchSession, movePane as movePaneRequest, pairDevice, swapPanes as swapPanesRequest, sendTestPush, signOut, type HealthInfo } from "./lib/api.ts";
@@ -44,7 +44,9 @@ import { onNotificationTarget } from "./lib/notificationTarget.ts";
 import { useUpdates } from "./lib/updates.ts";
 import { FrontendControls } from "./components/FrontendControls.tsx";
 import { ZoomControls } from "./components/ZoomControls.tsx";
-import { BotsPanel } from "./components/BotsPanel.tsx";
+import { NewBotDialog } from "./orca/bots/settings/NewBotDialog.tsx";
+import { showBotSettings } from "./orca/bots/BotSide.tsx";
+import { botsApi } from "./orca/bots/data.ts";
 import { useBotsView } from "./lib/bots.ts";
 import { UpdateButton } from "./components/UpdateControls.tsx";
 import { FilesDialog } from "./components/FilesDialog.tsx";
@@ -214,9 +216,8 @@ export function App() {
   }, [openFile, selectedPaneId, selectedMachineId]);
   const [settingsOpen, setSettingsOpen] = useState(() => new URLSearchParams(window.location.search).get("panel") === "android");
   const [openRigOpen, setOpenRigOpen] = useState(() => new URLSearchParams(window.location.search).get("panel") === "openrig");
-  const [botsOpen, setBotsOpen] = useState(() => new URLSearchParams(window.location.search).get("panel") === "bots");
+  const [newBotOpen, setNewBotOpen] = useState(false);
   /** which bot the bots page opens on: one from the sidebar, or null for the page's own pick */
-  const [botsStart, setBotsStart] = useState<{ bot: string | null; create: boolean }>({ bot: null, create: false });
   const closeOpenRig = useCallback(() => {
     setOpenRigOpen(false);
     const url = new URL(window.location.href);
@@ -603,15 +604,15 @@ export function App() {
     window.addEventListener("termweave:open-pane", open);
     return () => window.removeEventListener("termweave:open-pane", open);
   }, []);
-  // the gear in a bot's chat head opens the bots page on that bot
-  useEffect(() => {
-    const manage = (event: Event): void => {
-      const botId = (event as CustomEvent<{ botId?: string }>).detail?.botId;
-      if (botId) { setBotsStart({ bot: botId, create: false }); setBotsOpen(true); }
-    };
-    window.addEventListener("termweave:manage-bot", manage);
-    return () => window.removeEventListener("termweave:manage-bot", manage);
-  }, []);
+  /** A bot's chat: the pane it runs in, started first when it is not running. A refusal is the sidebar's to show next time. */
+  const openBot = async (bot: { id: string; paneId: string | null }): Promise<void> => {
+    try {
+      const running = bot.paneId !== null && machines.find((machine) => machine.id === "local")?.snapshot?.panes.some((pane) => pane.pane_id === bot.paneId);
+      const paneId = running ? bot.paneId! : (await botsApi.open(bot.id)).pane_id;
+      setDrawerOpen(false);
+      selectTargetRef.current("local", paneId);
+    } catch (error) { console.error(error); }
+  };
 
   // the lens follows the selected pane: each pane remembers its own
   useEffect(() => {
@@ -837,7 +838,6 @@ export function App() {
           {!targetHerdr && <span className="pill pill-offline">{t("herdr offline")}</span>}
           <button type="button" className="icon-button" aria-label={t("Agent fleet")} title={t("Agent fleet")} onClick={() => setFleetOpen(true)}><Orbit aria-hidden="true" /></button>
           <button type="button" className="icon-button" aria-label={t("OpenRig teams")} title={t("OpenRig teams")} onClick={() => setOpenRigOpen(true)}><Users aria-hidden="true" /></button>
-          <button type="button" className="icon-button" aria-label={t("Bots")} title={t("Bots")} onClick={() => { setBotsStart({ bot: null, create: false }); setBotsOpen(true); }}><BotIcon aria-hidden="true" /></button>
           <TerminalNotificationCenter readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onSelect={target => selectTargetRef.current("local", target.paneId)} />
           {selectedPane && (
             <button type="button" className="icon-button files-button" aria-label={t("Browse files")} title={t("Browse files")} onClick={() => setFilesOpen(true)}>
@@ -870,7 +870,7 @@ export function App() {
       <div className="app-body">
         <aside id="workspace-drawer" className={`sidebar${drawerOpen ? " is-open" : ""}`}>
           {error && <div className="error-state" role="alert"><p>{error}</p><button className="btn" onClick={() => void load()}>{t("Retry")}</button></div>}
-          <MachineSidebar onOpenBots={(bot) => { setDrawerOpen(false); setBotsStart({ bot, create: bot === null }); setBotsOpen(true); }} version={health?.herdr?.version ?? null} machines={machines} selectedMachineId={selectedMachineId} selectedPaneId={selectedPaneId} selectedWorkspaceId={sidebarOwnerId} onSelectWorkspace={selectWorkspace} actions={actions} onSelect={selectTarget} onSetup={(machine, update = false) => { setUpdateRemote(update); setMachineDialog(machine); }} onNew={(id) => { setNewSessionMachineId(id); setNewSessionOpen(true); setDrawerOpen(false); }} />
+          <MachineSidebar readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onNewBot={() => { setDrawerOpen(false); setNewBotOpen(true); }} onBotSettings={(botId) => { const bot = botsView?.bots.find((entry) => entry.id === botId); if (bot) { showBotSettings(botId); void openBot(bot); } }} version={health?.herdr?.version ?? null} machines={machines} selectedMachineId={selectedMachineId} selectedPaneId={selectedPaneId} selectedWorkspaceId={sidebarOwnerId} onSelectWorkspace={selectWorkspace} actions={actions} onSelect={selectTarget} onSetup={(machine, update = false) => { setUpdateRemote(update); setMachineDialog(machine); }} onNew={(id) => { setNewSessionMachineId(id); setNewSessionOpen(true); setDrawerOpen(false); }} />
         </aside>
 
         {drawerOpen && <div className="scrim" aria-hidden="true" onClick={() => setDrawerOpen(false)} />}
@@ -946,7 +946,7 @@ export function App() {
         selectTargetRef.current(machineId, paneId);
       }} />
       {fleetOpen && <FleetPanel machines={machines} onClose={closeFleet} onOpen={(machineId, paneId) => { setDrawerOpen(false); selectTargetRef.current(machineId, paneId); }} onSetup={(machine) => { setDrawerOpen(false); setUpdateRemote(false); setMachineDialog(machine); }} onConnections={() => { setSettingsSection("remote"); setSettingsOpen(true); }} />}
-      {botsOpen && <BotsPanel initialBot={botsStart.bot} initialCreate={botsStart.create} readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onClose={() => setBotsOpen(false)} onOpenPane={(paneId) => { setDrawerOpen(false); setMoreOpen(false); selectTargetRef.current("local", paneId); }} />}
+      <NewBotDialog open={newBotOpen} onOpenChange={setNewBotOpen} onCreated={(bot) => void openBot(bot)} />
       {openRigOpen && <OpenRigPanel canManageService={auth?.authenticated === true && auth.role !== "watch" && role !== "observe"} readOnly={auth?.authenticated !== true || auth.role === "watch" || role === "observe"} onClose={closeOpenRig} onOpened={() => { void load(); }} />}
       <SettingsDialog auth={auth} open={settingsOpen} onClose={closeSettings} actions={actions} updates={updates} onEnableNotifications={enableNotifications} section={settingsSection} />
       {filesOpen && selectedPane && (

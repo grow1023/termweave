@@ -74,8 +74,6 @@ function labelMapKeys(): string[] {
     ...grab("components/FleetPanel.tsx", "STATE_LABEL", value),
     ...grab("components/FleetPanel.tsx", "SUBAGENT_STATUS", value),
     ...grab("lib/fleetHeat.ts", "FLEET_HEAT_LABEL", value),
-    ...grab("components/BotsPanel.tsx", "ITEM_LABEL", value),
-    ...grab("components/BotsPanel.tsx", "WORKER_LABEL", value),
   ];
 }
 

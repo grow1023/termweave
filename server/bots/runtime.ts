@@ -46,6 +46,8 @@ export class BotError extends Error {
   constructor(readonly code: string, message: string) { super(message); }
 }
 
+export type BotNote = "soul" | "memory";
+const NOTE_FILE: Record<BotNote, string> = { soul: "SOUL.md", memory: "MEMORY.md" };
 const NAME = /^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,39}$/u;
 const RESULT_LINES = 40;
 const BUSY_EXPIRY_MS = 20 * 60_000;
@@ -90,7 +92,7 @@ export class BotRuntime {
     if (input.repo !== null && !existsSync(join(input.repo, ".git"))) throw new BotError("invalid_repo", "the project must be a git repository");
     const id = randomUUID().slice(0, 8);
     const home = join(this.deps.homeRoot, `${name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-")}-${id}`);
-    const bot: Bot = { id, name, agent: input.agent, home, repo: input.repo, paused: false, paneId: null, createdAt: this.now().toISOString(), avatar: randomBotAvatar(), avatarColor: null, purpose: input.purpose.trim().split("\n")[0]!.slice(0, 200) };
+    const bot: Bot = { id, name, agent: input.agent, home, repo: input.repo, paused: false, paneId: null, createdAt: this.now().toISOString(), avatar: randomBotAvatar(), purpose: input.purpose.trim().split("\n")[0]!.slice(0, 200) };
     this.deps.store.addBot(bot);
     mkdirSync(join(home, "worktrees"), { recursive: true, mode: 0o700 });
     writeFileSync(join(home, "SOUL.md"), `${input.purpose.trim()}\n`, { flag: "wx" });
@@ -106,13 +108,63 @@ export class BotRuntime {
     return this.deps.store.bot(id)!;
   }
 
-  updateBot(id: string, change: { paused?: boolean; repo?: string | null; avatar?: string; avatarColor?: string | null }): Bot {
+  updateBot(id: string, change: { paused?: boolean; repo?: string | null; avatar?: string; name?: string }): Bot {
     const bot = this.mustBot(id);
+    if (change.name !== undefined) {
+      change = { ...change, name: change.name.trim() };
+      if (!NAME.test(change.name!)) throw new BotError("invalid_name", "a name is 1-40 letters, digits, spaces, dots, dashes or underscores");
+      if (this.deps.store.view().bots.some((other) => other.id !== id && other.name.toLowerCase() === change.name!.toLowerCase())) throw new BotError("name_taken", "another bot has this name");
+    }
     if (change.repo !== undefined && change.repo !== null && !existsSync(join(change.repo, ".git"))) throw new BotError("invalid_repo", "the project must be a git repository");
     const next = this.deps.store.updateBot(bot.id, change)!;
     this.deps.changed();
     if (change.paused === false) void this.flush(bot.id);
+    // its instructions open with its name; the home folder keeps the name it was made with
+    if (change.name !== undefined) this.writeInstructions(next);
     return next;
+  }
+
+  /** SOUL.md (who the bot is) or MEMORY.md (what it noted), as the bot's settings show and edit them. */
+  readNote(id: string, note: BotNote): string {
+    const bot = this.mustBot(id);
+    try { return readFileSync(join(bot.home, NOTE_FILE[note]), "utf8"); } catch { return ""; }
+  }
+
+  writeNote(id: string, note: BotNote, text: string): void {
+    const bot = this.mustBot(id);
+    if (text.length > 40_000) throw new BotError("note_too_long", "at most 40000 characters");
+    writeFileSync(join(bot.home, NOTE_FILE[note]), text.endsWith("\n") || text === "" ? text : `${text}\n`);
+    if (note === "soul") this.deps.store.updateBot(id, { purpose: text.trim().split("\n")[0]!.slice(0, 200) });
+    // the bot reads both from its instructions file at its next start
+    this.writeInstructions(this.mustBot(id));
+    this.deps.changed();
+  }
+
+  /** What the owner does to an item from its row or its page; the bot is told, since the item is its to keep. */
+  async ownerItem(botId: string, n: number, change: { status?: "planned" | "done" | "canceled"; comment?: string }): Promise<BotItem> {
+    const item = this.deps.store.item(botId, n);
+    if (!item) throw new BotError("unknown_item", `no item #${n}`);
+    const comment = change.comment?.trim();
+    if (change.status === undefined && !comment) throw new BotError("missing_change", "a status or a comment is required");
+    // an approval waits on Approve or Deny only: closing it is a Deny, anything else is refused
+    if (item.action && item.status === "needs_you") {
+      if (change.status !== "canceled") throw new BotError("approval_item", "answer an approval with Approve or Deny");
+      await this.answerItem(botId, n, DENY);
+      return this.deps.store.item(botId, n)!;
+    }
+    const next = this.setItem(botId, n, change.status ? { status: change.status } : {}, comment ? { by: "owner", text: comment } : undefined);
+    const did = change.status === "done" ? "marked it done" : change.status === "canceled" ? "canceled it" : change.status === "planned" ? "reopened it" : "commented";
+    await this.tell(botId, `[TermWeave] Your owner ${did} on item #${n} (${item.title})${comment ? `: ${comment}` : "."}`);
+    return next;
+  }
+
+  /** Runs an automation now, whatever its schedule; the schedule itself is untouched. */
+  async runAutomation(botId: string, id: string): Promise<void> {
+    const automation = this.deps.store.view().automations.find((entry) => entry.id === id && entry.botId === botId);
+    if (!automation) throw new BotError("unknown_automation", `no automation ${id}`);
+    this.deps.store.updateAutomation(id, { lastRunAt: this.now().toISOString() });
+    this.deps.changed();
+    await this.tell(botId, `[TermWeave schedule] ${automation.name} (automation ${automation.id}):\n${automation.prompt}`);
   }
 
   removeBot(id: string): void {

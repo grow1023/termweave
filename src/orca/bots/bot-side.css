@@ -1,0 +1,8 @@
+/* the panel beside a bot's chat (BotSide.tsx); a neutral hairline parts it from the conversation */
+.terminal-stack { position: relative; }
+.terminal-stack[data-bot-side="docked"] { padding-right: 360px; }
+.bot-side { position: absolute; top: 0; right: 0; bottom: 0; z-index: 4; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.bot-side > .orca { display: flex; flex: 1; flex-direction: column; min-height: 0; background: var(--sidebar); }
+.bot-side.is-docked { width: 360px; border-left: 1px solid var(--border); }
+.bot-side.is-sheet { left: 0; }
+.bot-side-toggle { position: absolute; top: 8px; right: 12px; z-index: 4; }

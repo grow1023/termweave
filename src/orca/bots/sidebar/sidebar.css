@@ -1,0 +1,24 @@
+/* From stablyai/orca (MIT, Copyright (c) 2026 Lovecast Inc.), src/renderer/src/assets/main.css: the plain rules that the
+   row surface classes (WORKTREE_CARD_SURFACE_CLASS_NAME, worktree-sidebar-card-hover) need; scoped under .orca.
+   Dark is TermWeave's own switch: the root without data-theme="light". */
+.orca .worktree-sidebar-card-hover:hover {
+  background: color-mix(in srgb, var(--sidebar-foreground) 4%, transparent);
+}
+:root:not([data-theme="light"]) .orca .worktree-sidebar-card-hover:hover {
+  background: color-mix(in srgb, var(--sidebar-accent) 40%, transparent);
+}
+
+.orca [data-worktree-card-surface][data-worktree-card-active="primary"] {
+  border-color: var(--worktree-sidebar-active-border, color-mix(in srgb, var(--worktree-sidebar-border) 40%, transparent));
+  background: var(--worktree-sidebar-active, color-mix(in srgb, var(--worktree-sidebar-foreground) 8%, transparent));
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--worktree-sidebar-foreground) 4%, transparent);
+}
+:root:not([data-theme="light"]) .orca [data-worktree-card-surface][data-worktree-card-active="primary"] {
+  border-color: var(--worktree-sidebar-active-border, color-mix(in srgb, var(--worktree-sidebar-foreground) 18%, var(--worktree-sidebar-border)));
+  background: var(--worktree-sidebar-active, color-mix(in srgb, var(--worktree-sidebar-foreground) 10%, transparent));
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--worktree-sidebar-foreground) 3%, transparent);
+}
+
+/* The folded section's faces scroll sideways without a scrollbar. */
+.orca .bots-faces-track { scrollbar-width: none; }
+.orca .bots-faces-track::-webkit-scrollbar { display: none; }

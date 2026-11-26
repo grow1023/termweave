@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 // styles.css first: it holds the primitives (.btn, .input, .menu…) that component
 // stylesheets override, and Vite emits CSS in import order
 import "./styles.css";
+import "./orca/orca.css";
 import "katex/dist/katex.min.css";
 import { App } from "./App.tsx";
 import { TmuxConsole } from "./components/TmuxConsole.tsx";
