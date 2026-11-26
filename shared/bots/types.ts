@@ -19,6 +19,12 @@ export interface Bot {
   /** the herdr pane its chat runs in, while it runs */
   paneId: string | null;
   createdAt: string;
+  /** its picture, `mascot:<id>` (shared/bots/avatar.ts); a bot from before pictures gets one by its id */
+  avatar?: string | null;
+  /** the picture's tile color, `#rrggbb` */
+  avatarColor?: string | null;
+  /** what it is for, as given when it was made: the sidebar's line while it has nothing to say */
+  purpose?: string;
 }
 
 export type BotItemStatus = "planned" | "working" | "waiting" | "needs_you" | "done" | "canceled";

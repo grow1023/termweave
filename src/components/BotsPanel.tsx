@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { Bot as BotIcon, MessageSquare, Pause, Play, Plus, SquareTerminal, Trash2, X } from "lucide-react";
+import { MessageSquare, Pause, Play, Plus, SquareTerminal, Trash2, X } from "lucide-react";
 
 import "./BotsPanel.css";
+import { BOT_AVATAR_COLORS, BOT_MASCOT_IDS, botMascot, DEFAULT_BOT_AVATAR_COLOR } from "../../shared/bots/avatar.ts";
+import { BotAvatar, BotItemStatusIcon, botAge, mascotSrc } from "./BotVisuals.tsx";
 import { useT } from "../lib/i18n.ts";
 import { BOT_ITEM_OPEN, type Bot, type BotAgent, type BotItem, type BotItemStatus, type BotPaneAction, type BotsView, type BotWorkerStatus } from "../../shared/bots/types.ts";
 
@@ -74,7 +76,7 @@ export function BotsPanel({ readOnly, onClose, onOpenPane, initialBot = null, in
         <div className="bots-tabs" role="tablist" aria-label={t("Bots")}>
           {view.bots.map((entry) => (
             <button key={entry.id} type="button" role="tab" aria-selected={!creating && entry.id === selected} onClick={() => { setCreating(false); setSelected(entry.id); }}>
-              <BotIcon aria-hidden="true" />{entry.name}
+              <BotAvatar bot={entry} size={20} />{entry.name}
               {view.items.some((item) => item.botId === entry.id && item.status === "needs_you") && <span className="bots-dot is-needs" aria-label={t("Needs you")} />}
             </button>
           ))}
@@ -116,9 +118,9 @@ function CreateBot({ busy, onCreate }: { busy: boolean; onCreate: (input: { name
   );
 }
 
-const ITEM_LABEL: Record<BotItemStatus, string> = {
+export const ITEM_LABEL: Record<BotItemStatus, string> = {
   planned: "Planned",
-  working: "Working",
+  working: "In progress",
   waiting: "Waiting",
   needs_you: "Needs you",
   done: "Done",
@@ -160,6 +162,18 @@ function BotDetail({ bot, view, locked, readOnly, act, onOpenChat, onOpenPane, o
       </div>
       {confirmRemove && <p className="bots-muted ko-text">{t("Its home folder, memory and worktrees stay on disk.")}</p>}
       {bot.repo && <p className="bots-muted bots-path" title={bot.repo}>{bot.repo}</p>}
+
+      <section aria-labelledby={`${bot.id}-picture`}>
+        <h3 id={`${bot.id}-picture`} className="ko-text">{t("Picture")}</h3>
+        <div className="bot-picker" role="group" aria-labelledby={`${bot.id}-picture`}>
+          {BOT_MASCOT_IDS.map((id) => <button key={id} type="button" className="bot-picker-face" aria-pressed={botMascot(bot) === id} aria-label={t("Picture {n}", { n: BOT_MASCOT_IDS.indexOf(id) + 1 })} disabled={locked}
+            onClick={() => void act(base, "PATCH", { avatar: `mascot:${id}` })}><img src={mascotSrc(id, bot.avatarColor)} alt="" draggable={false} /></button>)}
+        </div>
+        <div className="bot-picker" role="group" aria-label={t("Color")}>
+          {BOT_AVATAR_COLORS.map((color) => <button key={color} type="button" className="bot-picker-color" style={{ background: color }} aria-pressed={(bot.avatarColor ?? DEFAULT_BOT_AVATAR_COLOR) === color} aria-label={`${t("Color")} ${color}`} disabled={locked}
+            onClick={() => void act(base, "PATCH", { avatarColor: color })} />)}
+        </div>
+      </section>
 
       <section aria-labelledby={`${bot.id}-items`}>
         <h3 id={`${bot.id}-items`} className="ko-text">{t("Items")}</h3>
@@ -209,29 +223,45 @@ function BotDetail({ bot, view, locked, readOnly, act, onOpenChat, onOpenPane, o
   );
 }
 
-export function ItemRow({ item, locked, onAnswer }: { item: BotItem; locked: boolean; onAnswer: (answer: string) => void }) {
+/**
+ * One item. A question for the owner is a card, as Orca's chat cards are: what it is, the question,
+ * then the answers in a bar with at most one filled button. Any other item is one row: its status
+ * glyph, number, title and age.
+ */
+export function ItemRow({ item, locked, onAnswer, live = false }: { item: BotItem; locked: boolean; onAnswer: (answer: string) => void; live?: boolean }) {
   const t = useT();
   const [answer, setAnswer] = useState("");
   const last = item.comments.at(-1);
-  return (
-    <li className={item.status === "needs_you" ? "is-needs" : undefined}>
-      <div className="bots-row">
-        <span className={`bots-label is-${item.status}`}>{t(ITEM_LABEL[item.status])}</span>
-        <span className="bots-title ko-text">#{item.n} {item.title}</span>
+  if (item.status === "needs_you") return (
+    <li className="bot-card">
+      <div className="bot-card-body">
+        <div className="bot-card-heading"><span>#{item.n}</span><span className="bot-card-status"><span className="bot-dot is-question" aria-hidden="true" />{t("Needs you")}</span></div>
+        <div className="bot-card-title bots-title ko-text">{item.title}</div>
+        {item.action ? <ActionAsk action={item.action} /> : item.ask && <p className="bots-ask ko-text">{item.ask}</p>}
       </div>
-      {item.status === "needs_you" && item.action && <ActionAsk action={item.action} />}
-      {item.status === "needs_you" && !item.action && item.ask && <p className="bots-ask ko-text">{item.ask}</p>}
-      {item.status === "needs_you" && !locked && (
-        <div className="bots-answers">
-          {item.options.map((option) => <button key={option} type="button" className="btn" onClick={() => onAnswer(option)}>{item.action ? (option === "Approve" ? t("Approve") : t("Deny")) : option}</button>)}
-          {!item.action && <form onSubmit={(event) => { event.preventDefault(); if (answer.trim()) { onAnswer(answer.trim()); setAnswer(""); } }}>
-            <input value={answer} onChange={(event) => setAnswer(event.target.value)} aria-label={t("Your answer")} placeholder={t("Or write an answer…")} />
-            <button type="submit" className="btn" disabled={answer.trim() === ""}>{t("Send")}</button>
-          </form>}
-        </div>
-      )}
-      {item.status === "waiting" && item.waitingOn && <small className="ko-text">{t("Waiting on: {what}", { what: item.waitingOn })}</small>}
-      {item.status !== "needs_you" && last && <small className="ko-text">{last.text}</small>}
+      {!locked && <div className="bot-card-actions bots-answers">
+        {!item.action && <form onSubmit={(event) => { event.preventDefault(); if (answer.trim()) { onAnswer(answer.trim()); setAnswer(""); } }}>
+          <input value={answer} onChange={(event) => setAnswer(event.target.value)} aria-label={t("Your answer")} placeholder={t("Or write an answer…")} />
+          <button type="submit" className="btn" disabled={answer.trim() === ""}>{t("Send")}</button>
+        </form>}
+        <span className="bot-card-buttons">
+          {item.action
+            ? [...item.options].reverse().map((option) => <button key={option} type="button" className={option === "Approve" ? "btn btn-primary" : "btn"} onClick={() => onAnswer(option)}>{option === "Approve" ? t("Approve") : t("Deny")}</button>)
+            : item.options.map((option) => <button key={option} type="button" className="btn" onClick={() => onAnswer(option)}>{option}</button>)}
+        </span>
+      </div>}
+    </li>
+  );
+  const note = item.status === "waiting" && item.waitingOn ? t("Waiting on: {what}", { what: item.waitingOn }) : last?.text;
+  return (
+    <li className="bot-item">
+      <div className="bot-item-row" title={t(ITEM_LABEL[item.status])}>
+        <BotItemStatusIcon status={item.status} live={live} />
+        <span className="bot-item-n">#{item.n}</span>
+        <span className="bots-title bot-item-title ko-text">{item.title}</span>
+        <span className="bot-row-age">{botAge(item.updatedAt)}</span>
+      </div>
+      {note && <small className="ko-text">{note}</small>}
     </li>
   );
 }

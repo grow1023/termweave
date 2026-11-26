@@ -641,22 +641,36 @@
 .bots-sidebar-heading { font-size: var(--fs-sm); font-weight: 600; color: var(--text-dim); }
 .bots-sidebar-empty { display: block; width: 100%; margin: var(--space-1) 0 var(--space-2); padding: var(--space-2); border: var(--hairline) dashed var(--border); border-radius: var(--radius-md); background: transparent; color: var(--text-dim); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; word-break: keep-all; overflow-wrap: anywhere; text-wrap: pretty; }
 .bots-sidebar-empty:hover, .bots-sidebar-empty:focus-visible { color: var(--text-strong); background: var(--bg-hover); }
-.bots-sidebar-list, .bots-sidebar-workers { margin: 0; padding: 0; list-style: none; }
-.bots-sidebar-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
-.bots-sidebar-open { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; height: var(--row-h); padding: 0 var(--space-2); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-.bots-sidebar-open:hover { background: var(--bg-hover); }
-.bots-sidebar-open[aria-current="true"] { background: var(--bg-hover); color: var(--text-strong); }
-.bots-sidebar-open:focus-visible, .bots-sidebar-worker:focus-visible, .bots-sidebar-needs:focus-visible { outline: 1px solid var(--text-dim); }
-.bots-sidebar-icon { flex: 0 0 auto; width: var(--icon-size); height: var(--icon-size); color: var(--text-dim); }
-.bots-sidebar-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bots-sidebar-word { flex: 0 0 auto; font-size: 11px; color: var(--text-dim); white-space: nowrap; }
-.bots-sidebar-needs { flex: 0 0 auto; border: 0; cursor: pointer; font: inherit; font-size: 11px; white-space: nowrap; }
-.bots-sidebar-workers { padding-left: 22px; margin-bottom: var(--space-1); }
-.bots-sidebar-worker { display: flex; align-items: center; gap: 7px; width: 100%; min-width: 0; padding: 6px; border: 0; border-radius: 5px; background: transparent; color: var(--text-dim); font: inherit; font-size: 11px; text-align: left; cursor: pointer; }
-.bots-sidebar-worker:hover { background: var(--bg-hover); }
-.bots-sidebar-worker[aria-current="true"] { background: var(--bg-hover); color: var(--text-strong); }
-.bots-sidebar-worker-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (pointer: coarse), (max-width: 768px) {
-  .bots-sidebar-open, .bots-sidebar-worker, .bots-sidebar-needs { min-height: 44px; }
-  .bots-sidebar-worker { font-size: 12px; }
+.bots-sidebar-list, .bot-row-children { margin: 0; padding: 0; list-style: none; }
+/* a bot's row, as Orca draws it: a 32px picture, name and age, one line of what it is at */
+.bot-row { display: flex; align-items: stretch; min-width: 0; border-radius: var(--radius-md); overflow: hidden; }
+.bot-row:hover, .bot-row:focus-within, .bot-row[data-active="true"] { background: var(--bg-hover); }
+.bot-row[data-dimmed="true"] { opacity: 0.6; }
+.bot-row-open { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; padding: 5px; border: 0; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.bot-row-open:focus-visible, .bot-row-fold:focus-visible, .bot-child:focus-visible { outline: 1px solid var(--text-dim); outline-offset: -1px; }
+.bot-row-text { display: flex; flex-direction: column; justify-content: center; flex: 1; min-width: 0; }
+.bot-row-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.bot-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; line-height: 20px; }
+.bot-row[data-active="true"] .bot-row-name, .bot-row-name[data-unread="true"] { color: var(--text-strong); font-weight: var(--fw-semibold); }
+.bot-row-age { flex: 0 0 auto; font-size: 10px; line-height: 1; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.bot-row-line { display: flex; align-items: center; gap: 5px; min-width: 0; font-size: 11px; line-height: 16px; color: var(--text-dim); }
+.bot-row-line-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bot-attention { flex: 0 0 auto; width: 6px; height: 6px; border-radius: 50%; background: var(--meter-mid); }
+.bot-row-working { display: flex; align-items: center; padding: 0 12px 0 4px; }
+.bot-row-manage { align-self: center; opacity: 0; }
+.bot-row:hover .bot-row-manage, .bot-row:focus-within .bot-row-manage { opacity: 1; }
+/* the row's whole right edge, top to bottom, so the fold is easy to hit */
+.bot-row-fold { display: flex; align-items: center; justify-content: flex-end; gap: 2px; min-width: 40px; padding: 0 6px; border: 0; background: transparent; color: var(--text-dim); cursor: pointer; }
+.bot-row-fold:hover { color: var(--text-strong); }
+.bot-row-chevron { width: 14px; height: 14px; transition: transform var(--dur-fast) var(--ease-out); }
+.bot-row-chevron[data-folded="true"] { transform: rotate(-90deg); }
+.bot-row-children { padding-left: 40px; margin-bottom: var(--space-1); }
+.bot-child { display: flex; align-items: center; gap: 7px; width: 100%; min-width: 0; padding: 6px; border: 0; border-radius: 5px; background: transparent; color: var(--text-dim); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.bot-child:hover, .bot-child[aria-current="true"] { background: var(--bg-hover); color: var(--text-strong); }
+.bot-child-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px), (pointer: coarse) {
+  .bot-row-open, .bot-child { min-height: 44px; }
+  .bot-row-fold { min-width: 44px; }
+  .bot-row-manage { opacity: 1; }
 }
+@media (prefers-reduced-motion: reduce) { .bot-row-chevron { transition: none; } }

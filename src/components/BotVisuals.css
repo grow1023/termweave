@@ -1,0 +1,20 @@
+/* Orca's bot glyphs (BotVisuals.tsx): pictures, corner badges and item status marks, on TermWeave's own colors */
+.bot-avatar-slot { position: relative; display: inline-flex; flex: 0 0 auto; }
+.bot-avatar { display: flex; width: 100%; height: 100%; overflow: hidden; border-radius: 6px; }
+.bot-avatar img { width: 100%; height: 100%; object-fit: cover; }
+/* centred 3px in from the picture's bottom-right corner, in the gap the picture's mask cuts */
+.bot-avatar-badge { position: absolute; right: 3px; bottom: 3px; width: 0; height: 0; display: flex; align-items: center; justify-content: center; }
+.bot-avatar-badge svg { flex: 0 0 auto; width: 12px; height: 12px; color: var(--text-dim); }
+.bot-avatar-badge .bot-dot { flex: 0 0 auto; width: 8px; height: 8px; }
+
+.bot-dot { display: inline-block; border-radius: 50%; background: var(--text-dim); }
+.bot-dot.is-question { background: var(--status-blocked); }
+.bot-glyph { flex: 0 0 auto; width: 10px; height: 10px; overflow: visible; }
+.bot-ring { box-sizing: border-box; border: 2px solid var(--text-dim); border-radius: 50%; }
+.bot-ring.is-planned { border-style: dashed; }
+.bot-ring.is-working { border-color: var(--status-working); }
+.bot-waiting, .bot-glyph.is-canceled { color: var(--text-dim); }
+.bot-glyph.is-done { color: var(--status-done); }
+.bot-spinner { box-sizing: border-box; flex: 0 0 auto; width: 10px; height: 10px; border: 2px solid color-mix(in srgb, var(--status-working) 30%, transparent); border-top-color: var(--status-working); border-radius: 50%; animation: bot-spin 0.9s steps(8) infinite; }
+@keyframes bot-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .bot-spinner { animation: none; border-color: var(--status-working); border-style: dotted; } }

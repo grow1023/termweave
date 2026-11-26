@@ -45,6 +45,12 @@ export async function checkBotsPanel(browser: Browser, origin: string, botPane: 
       await until(() => calls.at(-1)?.path === "/api/bots/b1/items/1");
       assert.deepEqual(calls.at(-1)?.body, { answer: "yes" });
 
+      // its picture is one of the mascots; the picker changes it
+      await dialog.getByRole("button", { name: "Picture 2", exact: true }).click();
+      await until(() => calls.at(-1)?.method === "PATCH");
+      assert.deepEqual(calls.at(-1), { method: "PATCH", path: "/api/bots/b1", body: { avatar: "mascot:B1" } });
+      await dialog.getByRole("button", { name: "Picture 2", exact: true, pressed: true }).waitFor();
+
       // a schedule
       await dialog.getByRole("button", { name: "Add schedule" }).click();
       await dialog.getByRole("textbox", { name: "What to do" }).fill("Look at CI.");
@@ -76,6 +82,7 @@ export async function checkBotsPanel(browser: Browser, origin: string, botPane: 
         // the group lists the bot; its manage button opens the page on that bot
         await page.evaluate(() => window.dispatchEvent(new Event("termweave:bots-changed")));
         await group.getByRole("button", { name: /^Fixer\b/ }).waitFor();
+        assert.equal(await group.locator(".bot-row img").count(), 1, "a bot's row shows its picture");
         await group.getByRole("button", { name: "Manage Fixer" }).click();
         await dialog.getByRole("tab", { name: "Fixer", selected: true }).waitFor();
         await page.keyboard.press("Escape");
@@ -93,6 +100,9 @@ export async function checkBotsPanel(browser: Browser, origin: string, botPane: 
         await until(() => calls.at(-1)?.path === "/api/bots/b1/items/2");
         assert.deepEqual(calls.at(-1)?.body, { answer: "merge" });
         await bar.getByText("Merge now?", { exact: true }).waitFor({ state: "detached" });
+        // answered items sit in their status group: glyph, number, title
+        await bar.getByRole("button", { name: /In progress/ }).waitFor();
+        await bar.locator(".bot-item", { hasText: "Merge the fix" }).waitFor();
         const approval = bar.locator("li", { hasText: "npm test" });
         await approval.getByText('Type this into "api" (w1:p2) and press Enter?', { exact: true }).waitFor();
         assert.equal(await approval.getByText("a bot's own wording").count(), 0, "an approval shows the action, not the bot's words");
@@ -134,6 +144,10 @@ async function standIn(page: Page, botPane: string): Promise<{ calls: Array<{ me
         items: [{ botId: "b1", n: 1, title: "Fix login test", doneMeans: null, status: "needs_you", ask: "Ship the fix today?", options: ["yes", "no"], waitingOn: null, comments: [], createdAt: at, updatedAt: at }],
       };
       return route.fulfill({ json: bot });
+    }
+    if (request.method() === "PATCH" && path === "/api/bots/b1") {
+      view = { ...view, bots: view.bots.map((bot) => ({ ...bot, ...body })) };
+      return route.fulfill({ json: view.bots[0] });
     }
     const answered = /^\/api\/bots\/b1\/items\/(\d+)$/.exec(path);
     if (request.method() === "POST" && answered) {

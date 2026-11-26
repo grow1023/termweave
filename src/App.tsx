@@ -603,6 +603,15 @@ export function App() {
     window.addEventListener("termweave:open-pane", open);
     return () => window.removeEventListener("termweave:open-pane", open);
   }, []);
+  // the gear in a bot's chat head opens the bots page on that bot
+  useEffect(() => {
+    const manage = (event: Event): void => {
+      const botId = (event as CustomEvent<{ botId?: string }>).detail?.botId;
+      if (botId) { setBotsStart({ bot: botId, create: false }); setBotsOpen(true); }
+    };
+    window.addEventListener("termweave:manage-bot", manage);
+    return () => window.removeEventListener("termweave:manage-bot", manage);
+  }, []);
 
   // the lens follows the selected pane: each pane remembers its own
   useEffect(() => {

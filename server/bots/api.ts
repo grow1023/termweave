@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 
 import { BOT_AGENTS, BOT_ITEM_OPEN, BOT_ITEM_STATUSES, type BotAgent, type BotItemStatus } from "../../shared/bots/types.ts";
+import { isBotAvatar, isBotAvatarColor } from "../../shared/bots/avatar.ts";
 import { badRequest, jsonResponse } from "../http.ts";
 import { BotError, type BotRuntime } from "./runtime.ts";
 import type { BotStore } from "./store.ts";
@@ -46,6 +47,8 @@ export async function handleBotsRequest(request: Request, pathname: string, runt
     return answer(() => runtime.updateBot(botId, {
       ...(typeof input.paused === "boolean" ? { paused: input.paused } : {}),
       ...(input.repo === null || typeof input.repo === "string" ? { repo: str(input.repo) || null } : {}),
+      ...(isBotAvatar(input.avatar) ? { avatar: input.avatar } : {}),
+      ...(input.avatarColor === null || isBotAvatarColor(input.avatarColor) ? { avatarColor: input.avatarColor } : {}),
     }));
   }
   if (request.method === "POST" && section === "message") {

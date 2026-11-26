@@ -3,10 +3,10 @@
 .bots-dialog::backdrop { background: rgb(0 0 0 / 55%); }
 .bots-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .bots-header h2 { font-size: 16px; color: var(--text-strong); margin: 0 0 4px; text-wrap: balance; }
-.bots-header p { font-size: 12px; color: var(--text-muted); margin: 0; text-wrap: pretty; }
+.bots-header p { font-size: 12px; color: var(--text-dim); margin: 0; text-wrap: pretty; }
 .bots-body { padding: 14px 16px 18px; overflow: auto; min-height: 0; overscroll-behavior: contain; display: grid; gap: 14px; align-content: start; }
 .bots-dialog h3 { font-size: 13px; color: var(--text-strong); margin: 0 0 8px; text-wrap: balance; }
-.bots-muted { font-size: 12px; color: var(--text-muted); margin: 0; text-wrap: pretty; }
+.bots-muted { font-size: 12px; color: var(--text-dim); margin: 0; text-wrap: pretty; }
 .bots-path { font-family: var(--font-mono, ui-monospace, monospace); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bots-notice { font-size: 12px; margin: 0; padding: 8px 10px; border-radius: var(--radius-md); background: color-mix(in srgb, #dc2626 12%, transparent); }
 
@@ -15,7 +15,7 @@
 .bots-tabs button[aria-selected="true"] { background: var(--text-strong); color: var(--bg); border-color: var(--text-strong); }
 .bots-tabs svg { width: 14px; height: 14px; }
 
-.bots-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; }
+.bots-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; }
 .bots-dot.is-live { background: #16a34a; }
 .bots-dot.is-needs { background: #d97706; }
 
@@ -24,20 +24,19 @@
 .bots-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .bots-actions .btn { display: inline-flex; align-items: center; gap: 6px; }
 .bots-actions svg, .bots-form .btn svg { width: 15px; height: 15px; }
-.bots-state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); margin-right: auto; }
+.bots-state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); margin-right: auto; }
 
 .bots-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .bots-list li { display: grid; gap: 4px; padding: 8px 10px; border-radius: var(--radius-md); background: var(--bg-raised, color-mix(in srgb, var(--text) 4%, transparent)); min-width: 0; }
-.bots-list li.is-needs { background: color-mix(in srgb, #d97706 14%, transparent); }
-.bots-list small { font-size: 12px; color: var(--text-muted); text-wrap: pretty; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.bots-list small { font-size: 12px; color: var(--text-dim); text-wrap: pretty; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .bots-row { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
 .bots-title { flex: 1 1 160px; min-width: 0; font-size: 13px; }
-.bots-row code { font-size: 12px; color: var(--text-muted); }
+.bots-row code { font-size: 12px; color: var(--text-dim); }
 .bots-label { flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--text) 8%, transparent); }
-.bots-label.is-needs_you, .bots-label.is-blocked { background: color-mix(in srgb, #d97706 22%, transparent); }
+.bots-label.is-blocked { background: color-mix(in srgb, #d97706 22%, transparent); }
 .bots-label.is-working, .bots-label.is-starting { background: color-mix(in srgb, #2563eb 16%, transparent); }
 .bots-label.is-done { background: color-mix(in srgb, #16a34a 16%, transparent); }
-.bots-label.is-failed, .bots-label.is-canceled { background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text-muted); }
+.bots-label.is-failed, .bots-label.is-canceled { background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text-dim); }
 .bots-ask { margin: 0; font-size: 13px; text-wrap: pretty; }
 .bots-ask p { margin: 0; }
 .bots-action-text { margin: 6px 0 0; padding: 6px 8px; max-height: 160px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; font-family: var(--font-mono); border-radius: var(--radius-md); background: var(--bg-raised); }
@@ -62,16 +61,12 @@
 /* the bot bar above a bot's chat (BotBar.tsx): questions answered in place, then items and workers;
    a hairline below parts it from the conversation, state stays in the labels */
 .bot-bar { display: grid; gap: 8px; flex: 0 0 auto; max-height: 45%; overflow-y: auto; overscroll-behavior: contain; padding: 10px var(--space-4, 16px); border-bottom: 1px solid var(--border); background: var(--bg); word-break: keep-all; overflow-wrap: anywhere; }
-.bot-bar-head { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
-.bot-bar-head > svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--text-muted); }
-.bot-bar-name { font-size: 13px; color: var(--text-strong); }
-.bot-bar-summary { flex: 1 1 160px; min-width: 0; font-size: 12px; color: var(--text-muted); text-wrap: pretty; }
-.bot-bar-more { font-size: 12px; }
+.bot-bar-more { justify-self: start; font-size: 12px; }
 .bot-bar-list .bots-answers input { width: 100%; min-width: 0; padding: 8px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md); font: inherit; font-size: 13px; }
 .bot-bar-workers { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .bot-bar-worker { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: 32px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
 .bot-bar-worker:hover { background: var(--bg-hover, color-mix(in srgb, var(--text) 6%, transparent)); }
-.bot-bar-worker:focus-visible { outline: 1px solid var(--text-muted); }
+.bot-bar-worker:focus-visible { outline: 1px solid var(--text-dim); }
 .bot-bar-worker svg { width: 14px; height: 14px; flex-shrink: 0; }
 .bot-bar-worker-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 640px), (pointer: coarse) {
@@ -79,3 +74,49 @@
   .bot-bar .btn, .bot-bar-worker { min-height: 44px; }
   .bot-bar-list .bots-answers input { font-size: 16px; }
 }
+
+/* Orca's bot head (BotPanelHeader): picture, name over one status line, settings at the end */
+.bot-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.bot-head-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.bot-head-name { font-size: 14px; line-height: 20px; color: var(--text-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bot-head-status { font-size: 12px; line-height: 16px; color: var(--text-dim); text-wrap: pretty; }
+
+/* an item group: fold, status glyph, name, count */
+.bot-group { display: grid; gap: 2px; }
+.bot-group-head { display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 4px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-dim); font: inherit; font-size: 12px; font-weight: var(--fw-semibold); cursor: pointer; text-align: left; }
+.bot-group-head:hover { color: var(--text-strong); background: var(--bg-hover); }
+.bot-group-head:focus-visible { outline: 1px solid var(--text-dim); }
+.bot-group-head .bot-row-chevron { width: 14px; height: 14px; }
+.bot-group-head .bot-row-chevron[data-folded="true"] { transform: rotate(-90deg); }
+.bot-group-count { font-weight: var(--fw-regular); font-variant-numeric: tabular-nums; }
+
+/* an item row: glyph, number, title, age; no fill until hovered */
+.bots-list li.bot-item { padding: 4px 6px; background: transparent; gap: 2px; }
+.bots-list li.bot-item:hover { background: var(--bg-hover); }
+.bot-item-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.bot-item-n { flex: 0 0 auto; font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.bot-item-title { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bots-list li.bot-item small { padding-left: 18px; -webkit-line-clamp: 2; }
+.bot-item .bot-row-age { flex: 0 0 auto; font-size: 10px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+/* a question for the owner, as Orca's chat cards: a bordered tile, the answers in a tinted foot */
+.bots-list li.bot-card { padding: 0; gap: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-elevated); box-shadow: 0 1px 2px rgb(0 0 0 / 8%); }
+.bot-card-body { display: grid; gap: 4px; padding: 12px; min-width: 0; }
+.bot-card-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-dim); }
+.bot-card-status { display: inline-flex; align-items: center; gap: 6px; font-weight: var(--fw-semibold); color: var(--status-blocked); }
+.bot-card-status .bot-dot { width: 6px; height: 6px; }
+.bot-card-title { font-size: 14px; font-weight: var(--fw-semibold); color: var(--text-strong); }
+.bot-card-actions { align-items: center; padding: 8px 12px; background: color-mix(in srgb, var(--text) 4%, transparent); }
+.bot-card-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-left: auto; min-width: 0; max-width: 100%; }
+.bot-card-buttons .btn { min-height: 32px; height: auto; white-space: normal; }
+
+/* the picture picker: Orca's mascots, then its tile colors */
+.bot-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.bot-picker-face { width: 44px; height: 44px; padding: 0; border: 2px solid transparent; border-radius: 10px; background: transparent; overflow: hidden; cursor: pointer; }
+.bot-picker-face img { display: block; width: 100%; height: 100%; border-radius: 7px; }
+.bot-picker-color { width: 28px; height: 28px; padding: 0; border: 1px solid var(--border-strong); border-radius: 50%; cursor: pointer; }
+.bot-picker-face[aria-pressed="true"], .bot-picker-color[aria-pressed="true"] { border-color: var(--text-strong); box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--text-strong); }
+.bot-picker-face[aria-pressed="true"] { box-shadow: none; }
+.bot-picker button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.bots-tabs .bot-avatar-slot { margin-left: -4px; }
+@media (max-width: 640px), (pointer: coarse) { .bot-picker-color { width: 44px; height: 44px; } .bot-group-head { min-height: 44px; } }

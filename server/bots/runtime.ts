@@ -5,6 +5,7 @@ import { basename, join, resolve } from "node:path";
 import type { AgentStatus, SessionSnapshot } from "../../shared/protocol.ts";
 import { nextRunAfter, validateBotSchedule } from "../../shared/bots/schedule/index.ts";
 import { APPROVE, DENY, type Bot, type BotAgent, type BotAutomation, type BotItem, type BotPaneAction, type BotPaneEntry, type BotSchedule, type BotWorker } from "../../shared/bots/types.ts";
+import { randomBotAvatar } from "../../shared/bots/avatar.ts";
 import { buildBotInstructions, workerPrompt } from "./preamble.ts";
 import type { BotStore } from "./store.ts";
 
@@ -89,7 +90,7 @@ export class BotRuntime {
     if (input.repo !== null && !existsSync(join(input.repo, ".git"))) throw new BotError("invalid_repo", "the project must be a git repository");
     const id = randomUUID().slice(0, 8);
     const home = join(this.deps.homeRoot, `${name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-")}-${id}`);
-    const bot: Bot = { id, name, agent: input.agent, home, repo: input.repo, paused: false, paneId: null, createdAt: this.now().toISOString() };
+    const bot: Bot = { id, name, agent: input.agent, home, repo: input.repo, paused: false, paneId: null, createdAt: this.now().toISOString(), avatar: randomBotAvatar(), avatarColor: null, purpose: input.purpose.trim().split("\n")[0]!.slice(0, 200) };
     this.deps.store.addBot(bot);
     mkdirSync(join(home, "worktrees"), { recursive: true, mode: 0o700 });
     writeFileSync(join(home, "SOUL.md"), `${input.purpose.trim()}\n`, { flag: "wx" });
@@ -105,7 +106,7 @@ export class BotRuntime {
     return this.deps.store.bot(id)!;
   }
 
-  updateBot(id: string, change: { paused?: boolean; repo?: string | null }): Bot {
+  updateBot(id: string, change: { paused?: boolean; repo?: string | null; avatar?: string; avatarColor?: string | null }): Bot {
     const bot = this.mustBot(id);
     if (change.repo !== undefined && change.repo !== null && !existsSync(join(change.repo, ".git"))) throw new BotError("invalid_repo", "the project must be a git repository");
     const next = this.deps.store.updateBot(bot.id, change)!;
