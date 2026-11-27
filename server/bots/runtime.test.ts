@@ -31,7 +31,7 @@ function fakeSessions() {
       sessionId: launch.sessionId, pid: 1, exited: new Promise<Error>(() => {}),
       send: async (text) => { sent.push(text); },
       interrupt: async () => ({ cancelled: true }),
-      setPermissionMode: async () => {},
+      setPermissionMode: async () => {}, setModel: async () => {}, setEffort: async () => {}, models: async () => [],
       close: async () => { if (!ended) { ended = true; handlers.onExit(new Error("closed"), true); } },
     };
   };

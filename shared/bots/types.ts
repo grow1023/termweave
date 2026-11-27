@@ -3,7 +3,7 @@
  * hands code work to worker agents in their own git worktrees, and keeps the owner's view in items.
  * The design follows Orca Bots (stablyai/orca, MIT): the item statuses are Orca's.
  */
-import type { BotChatStatus, BotPermissionMode } from "./chat.ts";
+import type { BotChatStatus, BotPermissionMode, BotEffort } from "./chat.ts";
 
 export type BotAgent = "claude" | "codex";
 export const BOT_AGENTS: readonly BotAgent[] = ["claude", "codex"];
@@ -30,6 +30,10 @@ export interface Bot {
   claudeSessionId?: string | null;
   /** a session bot's tool permissions; absent is ask */
   permissionMode?: BotPermissionMode;
+  /** the model the bot runs on (an alias or an id); null or absent: its agent's default */
+  model?: string | null;
+  /** how hard the model reasons; null or absent: the model's default */
+  effort?: BotEffort | null;
   /** a session bot whose Claude conversation began in Claude Code's Code Mode: its session must start in that mode to resume it */
   codeMode?: boolean;
 }

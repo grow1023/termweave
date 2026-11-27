@@ -6,7 +6,7 @@
  */
 import { randomUUID } from "node:crypto";
 
-import type { BotChatStatus, JournalRow, JournalStatus, MessageFrom, PromptAnswer, QueuedMessage } from "../../../shared/bots/chat.ts";
+import type { BotChatStatus, JournalRow, JournalStatus, MessageFrom, PromptAnswer, QueuedMessage, BotEffort, BotModelOption } from "../../../shared/bots/chat.ts";
 import type { Bot } from "../../../shared/bots/types.ts";
 import { BotError } from "../runtime.ts";
 import { openClaudeConnection, type ClaudeConnection } from "./connection.ts";
@@ -84,13 +84,23 @@ export class BotSessionHost {
 
   status(botId: string): BotChatStatus { return liveStatus(this.lives.get(botId)); }
 
+  /** The models the account can use: asked of a live session, else the last answer; null when none was ever given. */
+  async models(botId: string): Promise<BotModelOption[] | null> {
+    const conn = this.lives.get(botId)?.conn ?? [...this.lives.values()].find((live) => live.conn !== null)?.conn ?? null;
+    if (conn !== null) {
+      try { this.knownModels = await conn.models(); } catch { /* the last answer stands */ }
+    }
+    return this.knownModels;
+  }
+  private knownModels: BotModelOption[] | null = null;
+
   page(botId: string, req: Parameters<BotJournal["page"]>[1]): ChatPage {
     const live = this.liveFor(botId);
     return { ...this.deps.journal.page(live.sessionId, req), status: this.status(botId), queued: this.deps.journal.queued(live.sessionId) };
   }
 
   /** A setting changed: a stopped bot may start again, and a live session takes the new mode. */
-  async settingsChanged(botId: string, change: { permissionMode?: BotPermissionMode }): Promise<void> {
+  async settingsChanged(botId: string, change: { permissionMode?: BotPermissionMode; model?: string | null; effort?: BotEffort | null }): Promise<void> {
     this.unblock(botId);
     const live = this.lives.get(botId);
     if (change.permissionMode !== undefined && live?.conn) {
@@ -99,6 +109,9 @@ export class BotSessionHost {
       if (mode === null) await this.close(botId);
       else await live.conn.setPermissionMode(mode);
     }
+    // a live session takes the new model or effort from its next turn; a closed one starts with them
+    if (change.model !== undefined && live?.conn) await live.conn.setModel(change.model);
+    if (change.effort !== undefined && live?.conn) await live.conn.setEffort(change.effort);
     void this.drain(botId);
   }
 
@@ -180,7 +193,7 @@ export class BotSessionHost {
         onError: (error) => console.error(`bot session: a frame was not translated: ${error instanceof Error ? error.name : "error"}`),
       });
       const conn = await this.open(
-        { cwd: bot.home, env, binary, sessionId: resume ? bot.claudeSessionId! : randomUUID(), resume, appendSystemPrompt: "", permissionMode: bot.permissionMode ?? "ask", ...(codeMode ? { codeMode } : {}) },
+        { cwd: bot.home, env, binary, sessionId: resume ? bot.claudeSessionId! : randomUUID(), resume, appendSystemPrompt: "", permissionMode: bot.permissionMode ?? "ask", ...(codeMode ? { codeMode } : {}), model: bot.model ?? null, effort: bot.effort ?? null },
         {
           onFrame: (frame) => this.frame(live, generation, frame),
           onPermission: (request) => this.permission(live, generation, request),

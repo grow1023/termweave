@@ -7,6 +7,8 @@
 import { spawn as nodeSpawn } from "node:child_process";
 import type { UUID } from "node:crypto";
 
+import type { BotEffort, BotModelOption } from "../../../shared/bots/chat.ts";
+
 import type { CanUseTool, McpServerConfig, Options, PermissionMode, SDKControlInterruptResponse, SDKMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { BotError } from "../runtime.ts";
 import { NO_ANSWER_MESSAGE, denyResult, permissionModeOptions, toPermissionRequest, type BotPermissionMode, type PermissionRequest, type PermissionResult, type SessionPermissionMode } from "./permission.ts";
@@ -20,6 +22,12 @@ export interface ClaudeConnection {
   send(text: string, opts: { uuid: string; priority?: "now" }): Promise<void>;
   interrupt(): Promise<{ cancelled: boolean }>;
   setPermissionMode(mode: SessionPermissionMode): Promise<void>;
+  /** null: Claude Code's default model */
+  setModel(model: string | null): Promise<void>;
+  /** null: the model's default effort */
+  setEffort(effort: BotEffort | null): Promise<void>;
+  /** the models this account can use, as Claude lists them */
+  models(): Promise<BotModelOption[]>;
   /** ends the input, then stops the process group; resolves once no child is left */
   close(): Promise<void>;
   readonly exited: Promise<Error>;
@@ -37,6 +45,8 @@ export interface ClaudeLaunch {
   mcpServers?: Record<string, McpServerConfig>;
   /** start in Claude Code's Code Mode (sdk.ts ownerCodeMode) */
   codeMode?: boolean;
+  model?: string | null;
+  effort?: BotEffort | null;
 }
 
 export interface ClaudeHandlers {
@@ -51,6 +61,9 @@ export interface ClaudeHandlers {
 export interface QueryHandle extends AsyncIterable<SDKMessage> {
   interrupt(): Promise<SDKControlInterruptResponse | undefined>;
   setPermissionMode(mode: PermissionMode): Promise<void>;
+  setModel(model?: string): Promise<void>;
+  applyFlagSettings(settings: { effortLevel?: BotEffort | null }): Promise<void>;
+  supportedModels(): Promise<{ value: string; displayName: string; description: string; supportedEffortLevels?: BotEffort[] }[]>;
 }
 export type QueryFn = (params: { prompt: AsyncIterable<SDKUserMessage>; options: Options }) => QueryHandle;
 
@@ -144,6 +157,8 @@ export function buildQueryOptions(launch: ClaudeLaunch, hooks: { spawn: NonNulla
     supportedDialogKinds: [],
     // Claude echoes each user message when it takes it: the host learns a queued message started
     extraArgs: { "replay-user-messages": null },
+    ...(launch.model ? { model: launch.model } : {}),
+    ...(launch.effort ? { effort: launch.effort } : {}),
     ...permissionModeOptions(launch.permissionMode),
     ...(launch.mcpServers === undefined ? {} : { mcpServers: launch.mcpServers }),
     // --resume fails without a transcript; --session-id collides with an existing one
@@ -263,6 +278,21 @@ export async function openClaudeConnection(launch: ClaudeLaunch, handlers: Claud
     async setPermissionMode(mode) {
       if (finished) throw new BotError("session_closed", "this chat session has ended");
       await q.setPermissionMode(mode);
+    },
+    async setModel(model) {
+      if (finished) throw new BotError("session_closed", "this chat session has ended");
+      await q.setModel(model ?? undefined);
+    },
+    async setEffort(effort) {
+      if (finished) throw new BotError("session_closed", "this chat session has ended");
+      await q.applyFlagSettings({ effortLevel: effort });
+    },
+    async models() {
+      if (finished) throw new BotError("session_closed", "this chat session has ended");
+      return (await q.supportedModels()).map((model) => ({
+        value: model.value, label: model.displayName, description: model.description,
+        ...(model.supportedEffortLevels ? { efforts: model.supportedEffortLevels } : {}),
+      }));
     },
     close() {
       closing ??= (async () => {

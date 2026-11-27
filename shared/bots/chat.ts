@@ -212,6 +212,19 @@ export type BotChatStatus = "working" | "waiting" | "blocked" | "done" | "offlin
 export type BotPermissionMode = "ask" | "accept-edits" | "auto" | "own";
 export const BOT_PERMISSION_MODES: readonly BotPermissionMode[] = ["ask", "accept-edits", "auto", "own"];
 
+/** How hard a bot's model reasons. null on a bot: the model's own default. */
+export type BotEffort = "low" | "medium" | "high" | "xhigh" | "max";
+export const BOT_EFFORTS: readonly BotEffort[] = ["low", "medium", "high", "xhigh", "max"];
+export const isBotEffort = (value: unknown): value is BotEffort => typeof value === "string" && (BOT_EFFORTS as readonly string[]).includes(value);
+/** A model name as Claude Code or Codex takes it: an alias (opus) or a full id. */
+export const BOT_MODEL = /^[A-Za-z0-9][A-Za-z0-9._:\[\]-]{0,79}$/;
+/** One model a bot can run on; `efforts` lists the levels it takes (absent: unknown, offer all). */
+export interface BotModelOption { value: string; label: string; description?: string; efforts?: BotEffort[] }
+/** Offered when no live session has listed the account's models yet: Claude Code's own aliases. */
+export const CLAUDE_MODEL_ALIASES: readonly BotModelOption[] = [
+  { value: "opus", label: "Opus" }, { value: "sonnet", label: "Sonnet" }, { value: "haiku", label: "Haiku" },
+];
+
 /** What the SDK's permission callback asks, as the journal records it. */
 export interface PromptRequest {
   /** the SDK's requestId; unique per prompt */

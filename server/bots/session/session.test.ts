@@ -39,6 +39,8 @@ interface FakeConn extends ClaudeConnection {
   sent: { text: string; uuid: string }[];
   interrupts: number;
   modes: string[];
+  models_: (string | null)[];
+  efforts: (string | null)[];
   closed: boolean;
   sendError: Error | null;
   crash(): void;
@@ -64,11 +66,14 @@ function fakeOpen(launch: ClaudeLaunch, handlers: ClaudeHandlers): Promise<Claud
   let ended = false;
   const end = (error: Error, expected: boolean): void => { if (!ended) { ended = true; handlers.onExit(error, expected); } };
   const conn: FakeConn = {
-    launch, handlers, sent: [], interrupts: 0, modes: [], closed: false, sendError: null,
+    launch, handlers, sent: [], interrupts: 0, modes: [], models_: [], efforts: [], closed: false, sendError: null,
     sessionId: launch.sessionId, pid: 4242, exited: new Promise<Error>(() => {}),
     async send(text, opts) { if (conn.sendError) throw conn.sendError; conn.sent = [...conn.sent, { text, uuid: opts.uuid }]; },
     async interrupt() { conn.interrupts += 1; return { cancelled: true }; },
     async setPermissionMode(mode) { conn.modes = [...conn.modes, mode]; },
+    async setModel(model) { conn.models_ = [...conn.models_, model]; },
+    async setEffort(effort) { conn.efforts = [...conn.efforts, effort]; },
+    async models() { return [{ value: "opus", label: "Opus", efforts: ["low", "high"] }]; },
     async close() { conn.closed = true; end(new BotError("claude_exited", "Claude Code exited with code 0"), true); },
     crash() { end(new BotError("claude_exited", "Claude Code exited with code 1"), false); },
   };
@@ -184,6 +189,20 @@ test("a resume refused for Code Mode marks the bot, and its next start runs in t
   await settle();
   expect(conns.at(-1)!.launch.codeMode).toBe(true);
   expect(conns.at(-1)!.launch.env["CLAUDE_CODE_ENTRYPOINT"]).toBe("sdk-ts");
+});
+
+test("a model and an effort start with the session, and a change reaches a live one", async () => {
+  addBot("b1", { model: "sonnet", effort: "low" });
+  await host.tell("b1", "hello", owner);
+  const conn = conns[0]!;
+  expect(conn.launch).toMatchObject({ model: "sonnet", effort: "low" });
+  await host.settingsChanged("b1", { model: "opus", effort: null });
+  expect(conn.models_).toEqual(["opus"]);
+  expect(conn.efforts).toEqual([null]);
+  expect(await host.models("b1")).toEqual([{ value: "opus", label: "Opus", efforts: ["low", "high"] }]);
+  await host.close("b1");
+  // with no live session the last list still answers
+  expect(await host.models("b1")).toHaveLength(1);
 });
 
 test("messages during a turn wait and go after it, one per turn, in order", async () => {

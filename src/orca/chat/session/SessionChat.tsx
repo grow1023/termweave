@@ -9,7 +9,7 @@ import { useT, type Translate } from "../../../lib/i18n.ts";
 import { useSettings } from "../../../lib/settings.ts";
 import { BotAvatar } from "../../bots/BotAvatar.tsx";
 import { useChatScrollBinding } from "../adapter/use-conversation-feed.ts";
-import { useChatBotParts, type RenderApproval } from "../bot/index.ts";
+import { BotModelPicker, useChatBotParts, type RenderApproval } from "../bot/index.ts";
 import { OrcaComposer } from "../composer/index.ts";
 import { ChatImages, ChatMarkdown } from "../markdown/index.ts";
 import { ApprovalCard } from "../prompts/index.ts";
@@ -140,7 +140,8 @@ export function SessionChat({ botId, readOnly, connected }: SessionChatProps) {
             <div className="session-chat-composer contents">
               {/* drafts are kept per bot: the composer keys them by this id */}
               <OrcaComposer paneId={`bot:${botId}`} connected={connected} agent="claude" agentStatus={agentStatus}
-                attach={false} completions={false} onSend={onSend} onAbort={session.stop} onUploadImage={onUploadImage} />
+                attach={false} completions={false}
+                modelControl={bot.context ? (running) => <BotModelPicker bot={bot.context!.bot} readOnly={readOnly} running={running} /> : undefined} onSend={onSend} onAbort={session.stop} onUploadImage={onUploadImage} />
             </div>
           )}
         </div>

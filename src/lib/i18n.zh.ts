@@ -1750,4 +1750,12 @@ export const ZH: Record<string, string> = {
   "{count} of {max} characters": "{count}/{max} 个字符",
   "Sidebar width": "侧边栏宽度",
   "Drag to resize the sidebar. Double-click to reset.": "拖动可调整侧边栏宽度。双击可恢复默认宽度。",
+  "Low": "低",
+  "High": "高",
+  "Extra high": "很高",
+  "Maximum": "最大",
+  "Model": "模型",
+  "Claude Code's own default model": "Claude Code 的默认模型",
+  "Model and reasoning: {current}": "模型和推理：{current}",
+  "A terminal bot uses the new model after its terminal restarts. To change it at once, and to set reasoning, run the bot as a chat session.": "终端机器人在终端重新启动后才使用新模型。要立即更改或设置推理，请以聊天会话方式运行机器人。",
 };

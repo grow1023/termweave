@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 // From stablyai/orca (MIT, Copyright (c) 2026 Lovecast Inc.), src/renderer/src/components/native-chat/composer/NativeChatComposer.tsx; adapted for TermWeave.
 import { Composer, type ComposerFrameParts, type ComposerProps } from "../../../components/Composer.tsx";
 import { useT } from "../../../lib/i18n.ts";
@@ -16,7 +17,11 @@ import "./orca-composer.css";
  * Decision: the frame's own element carries TermWeave's `.composer` class, once, so the bottom
  * safe-area inset, the `[data-keyboard]` rule and `.terminal-host:has(.composer)` still apply.
  */
+/** Draws the model control in place of the read-only chip; it gets what the chat reports it runs on. */
+export type ModelControl = (running: { model: string | null; effort: string | null }) => ReactNode;
+
 export interface OrcaComposerProps extends Omit<ComposerProps, "renderFrame"> {
+  modelControl?: ModelControl;
   /**
    * false: no attach button and no file input (a chat with no upload route, such as a session bot's).
    * A pasted or dropped file still goes to `onUploadImage`, which refuses it with its own message.
@@ -24,10 +29,10 @@ export interface OrcaComposerProps extends Omit<ComposerProps, "renderFrame"> {
   attach?: boolean;
 }
 
-export function OrcaComposer({ attach = true, ...props }: OrcaComposerProps) {
+export function OrcaComposer({ attach = true, modelControl, ...props }: OrcaComposerProps) {
   return (
     <div className="orca-composer contents" data-orca-composer="">
-      <Composer {...props} renderFrame={(parts) => <OrcaComposerFrame parts={parts} attach={attach} />} />
+      <Composer {...props} renderFrame={(parts) => <OrcaComposerFrame parts={parts} attach={attach} modelControl={modelControl} />} />
     </div>
   );
 }
@@ -83,14 +88,16 @@ function Notices({ parts }: { parts: ComposerFrameParts }) {
   );
 }
 
-function OrcaComposerFrame({ parts, attach }: { parts: ComposerFrameParts; attach: boolean }) {
+function OrcaComposerFrame({ parts, attach, modelControl }: { parts: ComposerFrameParts; attach: boolean; modelControl?: ModelControl }) {
   const t = useT();
   const context = parts.metadata?.context;
   const readouts = (
     <>
       {parts.backgroundTasks}
       {context ? <ContextRing used={context.used} window={context.window} /> : null}
-      <ModelChip model={parts.metadata?.model ?? null} effort={parts.metadata?.reasoning_effort ?? null} />
+      {modelControl
+        ? modelControl({ model: parts.metadata?.model ?? null, effort: parts.metadata?.reasoning_effort ?? null })
+        : <ModelChip model={parts.metadata?.model ?? null} effort={parts.metadata?.reasoning_effort ?? null} />}
     </>
   );
   const menus = (

@@ -8,3 +8,4 @@ export { CardActions, CardAvatar, CardFrame, CardStatus } from "./CardFrame.tsx"
 export { DividerRow } from "./DividerRow.tsx";
 export { EventRow, type EventRowProps } from "./EventRow.tsx";
 export { ChatBotDock, useChatBotParts, type ChatBotParts } from "./ChatBotDock.tsx";
+export { BotModelPicker, modelChipText } from "./BotModelPicker.tsx";

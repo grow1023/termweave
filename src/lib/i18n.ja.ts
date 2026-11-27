@@ -1748,4 +1748,12 @@ export const JA: Record<string, string> = {
   "{count} of {max} characters": "{count}/{max} 文字",
   "Sidebar width": "サイドバーの幅",
   "Drag to resize the sidebar. Double-click to reset.": "ドラッグしてサイドバーの幅を変えます。ダブルクリックで元の幅に戻ります。",
+  "Low": "低",
+  "High": "高",
+  "Extra high": "非常に高い",
+  "Maximum": "最大",
+  "Model": "モデル",
+  "Claude Code's own default model": "Claude Code の既定モデル",
+  "Model and reasoning: {current}": "モデルと推論: {current}",
+  "A terminal bot uses the new model after its terminal restarts. To change it at once, and to set reasoning, run the bot as a chat session.": "ターミナルのボットは、ターミナルを再起動した後に新しいモデルを使います。すぐに変える、または推論を設定するには、ボットをチャットセッションで実行してください。",
 };

@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 
-import { BOT_PERMISSION_MODES, type BotPermissionMode, type JournalDirection, type PromptAnswer, type QuestionAnswer } from "../../shared/bots/chat.ts";
+import { BOT_EFFORTS, BOT_MODEL, BOT_PERMISSION_MODES, isBotEffort, type BotPermissionMode, type JournalDirection, type PromptAnswer, type QuestionAnswer } from "../../shared/bots/chat.ts";
 import { BOT_AGENTS, BOT_ITEM_OPEN, BOT_ITEM_STATUSES, BOT_RUNTIMES, type BotAgent, type BotItemStatus, type BotRuntimeKind } from "../../shared/bots/types.ts";
 import { isBotAvatar } from "../../shared/bots/avatar.ts";
 import { badRequest, jsonResponse } from "../http.ts";
@@ -114,6 +114,8 @@ export async function handleBotsRequest(request: Request, pathname: string, runt
     if (input instanceof Response) return input;
     if (input.runtime !== undefined && !isRuntime(input.runtime)) return badRequest("invalid_runtime", "runtime is pane or session");
     if (input.permissionMode !== undefined && !isPermissionMode(input.permissionMode)) return badRequest("invalid_permission_mode", `permissionMode is one of ${BOT_PERMISSION_MODES.join(", ")}`);
+    if (input.model !== undefined && input.model !== null && !(typeof input.model === "string" && BOT_MODEL.test(input.model))) return badRequest("invalid_model", "model is a model name such as opus, or null for the default");
+    if (input.effort !== undefined && input.effort !== null && !isBotEffort(input.effort)) return badRequest("invalid_effort", `effort is one of ${BOT_EFFORTS.join(", ")}, or null for the default`);
     const to = isRuntime(input.runtime) ? input.runtime : null;
     return answer(async () => {
       // the switch first: a refused switch changes nothing else
@@ -124,6 +126,8 @@ export async function handleBotsRequest(request: Request, pathname: string, runt
         ...(typeof input.name === "string" ? { name: input.name } : {}),
         ...(isBotAvatar(input.avatar) ? { avatar: input.avatar } : {}),
         ...(isPermissionMode(input.permissionMode) ? { permissionMode: input.permissionMode } : {}),
+        ...(input.model === null || typeof input.model === "string" ? { model: input.model } : {}),
+        ...(input.effort === null || isBotEffort(input.effort) ? { effort: input.effort } : {}),
       });
     });
   }
@@ -142,6 +146,7 @@ export async function handleBotsRequest(request: Request, pathname: string, runt
     return answer(async () => ({ pane_id: await runtime.ensurePane(botId) }));
   }
   if (request.method === "POST" && section === "stop" && key === undefined) return answer(() => runtime.stopTurn(botId));
+  if (request.method === "GET" && section === "models" && key === undefined) return answer(async () => ({ models: await runtime.models(botId) }));
   if (request.method === "POST" && section === "prompts" && key !== undefined && parts.length === 3) {
     if (!sessions || store.bot(botId)?.runtime !== "session") return badRequest("not_session_bot", "this bot has no chat session");
     let itemId: string;

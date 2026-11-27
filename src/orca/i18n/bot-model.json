@@ -1,0 +1,57 @@
+{
+  "Low": {
+    "ko": "낮음",
+    "ja": "低",
+    "zh": "低"
+  },
+  "Medium": {
+    "ko": "보통",
+    "ja": "中",
+    "zh": "中"
+  },
+  "High": {
+    "ko": "높음",
+    "ja": "高",
+    "zh": "高"
+  },
+  "Extra high": {
+    "ko": "매우 높음",
+    "ja": "非常に高い",
+    "zh": "很高"
+  },
+  "Maximum": {
+    "ko": "최대",
+    "ja": "最大",
+    "zh": "最大"
+  },
+  "Model": {
+    "ko": "모델",
+    "ja": "モデル",
+    "zh": "模型"
+  },
+  "Reasoning": {
+    "ko": "추론",
+    "ja": "推論",
+    "zh": "推理"
+  },
+  "Default": {
+    "ko": "기본값",
+    "ja": "既定",
+    "zh": "默认"
+  },
+  "Claude Code's own default model": {
+    "ko": "Claude Code가 쓰는 기본 모델",
+    "ja": "Claude Code の既定モデル",
+    "zh": "Claude Code 的默认模型"
+  },
+  "Model and reasoning: {current}": {
+    "ko": "모델과 추론: {current}",
+    "ja": "モデルと推論: {current}",
+    "zh": "模型和推理：{current}"
+  },
+  "A terminal bot uses the new model after its terminal restarts. To change it at once, and to set reasoning, run the bot as a chat session.": {
+    "ko": "터미널 봇은 터미널을 다시 시작한 뒤부터 새 모델을 씁니다. 바로 바꾸거나 추론을 정하려면 봇을 채팅 세션으로 실행하세요.",
+    "ja": "ターミナルのボットは、ターミナルを再起動した後に新しいモデルを使います。すぐに変える、または推論を設定するには、ボットをチャットセッションで実行してください。",
+    "zh": "终端机器人在终端重新启动后才使用新模型。要立即更改或设置推理，请以聊天会话方式运行机器人。"
+  }
+}

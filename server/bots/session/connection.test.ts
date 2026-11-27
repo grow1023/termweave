@@ -65,6 +65,7 @@ function fakeSdk(behavior: { ignoreEndOfInput?: boolean; exitCodeOnEnd?: number;
     return Object.assign(frames(), {
       interrupt: async () => { state.interrupts += 1; return { still_queued: [] }; },
       setPermissionMode: async (mode: string) => { state.modes = [...state.modes, mode]; },
+      setModel: async () => {}, applyFlagSettings: async () => {}, supportedModels: async () => [],
     });
   };
   const deps: Partial<ConnectionDeps> = {

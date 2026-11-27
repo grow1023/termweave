@@ -1746,4 +1746,12 @@ export const KO: Record<string, string> = {
   "{count} of {max} characters": "{count}/{max}자",
   "Sidebar width": "사이드바 너비",
   "Drag to resize the sidebar. Double-click to reset.": "끌어서 사이드바 너비를 바꿉니다. 두 번 클릭하면 처음 너비로 돌아갑니다.",
+  "Low": "낮음",
+  "High": "높음",
+  "Extra high": "매우 높음",
+  "Maximum": "최대",
+  "Model": "모델",
+  "Claude Code's own default model": "Claude Code가 쓰는 기본 모델",
+  "Model and reasoning: {current}": "모델과 추론: {current}",
+  "A terminal bot uses the new model after its terminal restarts. To change it at once, and to set reasoning, run the bot as a chat session.": "터미널 봇은 터미널을 다시 시작한 뒤부터 새 모델을 씁니다. 바로 바꾸거나 추론을 정하려면 봇을 채팅 세션으로 실행하세요.",
 };

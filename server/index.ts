@@ -991,11 +991,13 @@ export function createServer(
       const created = await workspaceCreate({ cwd, label });
       return { workspaceId: created.workspace.workspace_id, paneId: created.root_pane.pane_id };
     },
-    startAgent: async (kind, paneId, cwd, resume) => {
+    startAgent: async (kind, paneId, cwd, resume, model) => {
       const trust = await trustFolder(kind, cwd);
       if (trust === "locked" || trust === "unreadable") console.warn(`bots: could not mark ${cwd} trusted for ${kind} (${trust})`);
       // herdr appends `args` to the agent's command: a bot back from a session continues its conversation
-      await startAgentInPane(kind, paneId, null, resume ? ["--resume", resume] : undefined);
+      // `--model` holds for this run only; the model name was checked against BOT_MODEL at the route
+      const args = [...(resume ? ["--resume", resume] : []), ...(model ? ["--model", model] : [])];
+      await startAgentInPane(kind, paneId, null, args.length > 0 ? args : undefined);
     },
     submit: (paneId, text) => serialize(paneId, () => submitText(paneId, text, text, (options.submitNow ?? performance.now.bind(performance))())),
     pressEnter: (paneId) => serialize(paneId, () => paneSendKeys(paneId, ["Enter"])),

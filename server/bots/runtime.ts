@@ -4,7 +4,7 @@ import { basename, join, resolve } from "node:path";
 
 import type { AgentStatus, SessionSnapshot } from "../../shared/protocol.ts";
 import { nextRunAfter, validateBotSchedule } from "../../shared/bots/schedule/index.ts";
-import type { BotChatStatus, BotPermissionMode, MessageFrom } from "../../shared/bots/chat.ts";
+import { CLAUDE_MODEL_ALIASES, type BotChatStatus, type BotEffort, type BotModelOption, type BotPermissionMode, type MessageFrom } from "../../shared/bots/chat.ts";
 import { APPROVE, DENY, type Bot, type BotAgent, type BotRuntimeKind, type BotAutomation, type BotItem, type BotPaneAction, type BotPaneEntry, type BotSchedule, type BotWorker } from "../../shared/bots/types.ts";
 import { randomBotAvatar } from "../../shared/bots/avatar.ts";
 import { buildBotInstructions, workerPrompt } from "./preamble.ts";
@@ -23,7 +23,7 @@ export interface BotDeps {
   createWorkspace(cwd: string, label: string): Promise<{ workspaceId: string; paneId: string }>;
   /** `cwd`: the folder the agent opens in, marked trusted for it first (server/bots/trust.ts);
    *  `resume`: a Claude session id to continue (`claude --resume`), for a bot switched back from a session */
-  startAgent(kind: BotAgent, paneId: string, cwd: string, resume?: string | null): Promise<void>;
+  startAgent(kind: BotAgent, paneId: string, cwd: string, resume?: string | null, model?: string | null): Promise<void>;
   /** type a message into an agent's prompt, as the composer does */
   submit(paneId: string, text: string): Promise<void>;
   /** press Enter in a pane: a message an agent took while it was still starting sits in its input line */
@@ -120,7 +120,7 @@ export class BotRuntime {
     return this.deps.store.bot(id)!;
   }
 
-  updateBot(id: string, change: { paused?: boolean; repo?: string | null; avatar?: string; name?: string; permissionMode?: BotPermissionMode }): Bot {
+  updateBot(id: string, change: { paused?: boolean; repo?: string | null; avatar?: string; name?: string; permissionMode?: BotPermissionMode; model?: string | null; effort?: BotEffort | null }): Bot {
     const bot = this.mustBot(id);
     if (change.name !== undefined) {
       change = { ...change, name: change.name.trim() };
@@ -132,9 +132,14 @@ export class BotRuntime {
     this.deps.changed();
     if (next.runtime === "session") {
       // a changed setting is the owner's go-ahead for a bot whose session stopped after failing
-      void this.deps.sessions?.settingsChanged(bot.id, change.permissionMode !== undefined ? { permissionMode: change.permissionMode } : {})
-        .catch((error) => console.error(`bots: ${String(error)}`));
+      void this.deps.sessions?.settingsChanged(bot.id, {
+        ...(change.permissionMode !== undefined ? { permissionMode: change.permissionMode } : {}),
+        ...(change.model !== undefined ? { model: change.model } : {}),
+        ...(change.effort !== undefined ? { effort: change.effort } : {}),
+      }).catch((error) => console.error(`bots: ${String(error)}`));
     } else if (change.paused === false) void this.flush(bot.id);
+    // A terminal bot takes its model when its terminal next starts (`--model`). Not sooner: Claude Code's
+    // /model command saves the choice as the owner's default for every new session (measured 2026-11-27).
     // its instructions open with its name; the home folder keeps the name it was made with
     if (change.name !== undefined) this.writeInstructions(next);
     return next;
@@ -168,6 +173,13 @@ export class BotRuntime {
     // messages that waited for the terminal's turn are not lost on the way
     for (const text of held) await sessions.tell(bot.id, text, TERMWEAVE_MAIL).catch((error) => console.error(`bots: ${String(error)}`));
     return next;
+  }
+
+  /** The models a bot can run on: what Claude listed to a session, else Claude Code's aliases. */
+  async models(id: string): Promise<BotModelOption[]> {
+    const bot = this.mustBot(id);
+    if (bot.agent !== "claude") return [];
+    return (await this.deps.sessions?.models(bot.id)) ?? [...CLAUDE_MODEL_ALIASES];
   }
 
   /** Each session bot's chat status, for GET /api/bots. */
@@ -274,7 +286,7 @@ export class BotRuntime {
       const { paneId } = await this.deps.createWorkspace(bot.home, `Bot · ${bot.name}`);
       this.deps.store.updateBot(bot.id, { paneId });
       // a bot switched back from a session continues that conversation in the terminal
-      await this.deps.startAgent(bot.agent, paneId, bot.home, bot.agent === "claude" ? bot.claudeSessionId ?? null : null);
+      await this.deps.startAgent(bot.agent, paneId, bot.home, bot.agent === "claude" ? bot.claudeSessionId ?? null : null, bot.agent === "claude" ? bot.model ?? null : null);
       await this.ready(paneId);
       return paneId;
     })();
@@ -665,3 +677,4 @@ const actionTitle = (action: BotPaneAction): string =>
   action.kind === "send" ? `Type into ${action.where}` : action.kind === "keys" ? `Press ${action.keys.join(" ")} in ${action.where}` : `Close ${action.where}`;
 
 const actionAsk = (action: BotPaneAction): string => (action.kind === "send" ? `${actionTitle(action)}?\n\n${action.text}` : `${actionTitle(action)}?`);
+

@@ -1,6 +1,6 @@
 // What Orca's bot screens read and call, on TermWeave's own server (server/bots/api.ts). The
 // screens themselves are Orca's; this file stands where Orca's store and runtime RPC stood.
-import type { BotChatStatus, BotPermissionMode, JournalDirection, JournalPage, PromptAnswer, QueuedMessage } from "../../../shared/bots/chat.ts";
+import type { BotChatStatus, BotEffort, BotModelOption, BotPermissionMode, JournalDirection, JournalPage, PromptAnswer, QueuedMessage } from "../../../shared/bots/chat.ts";
 import type { Bot, BotAgent, BotAutomation, BotItem, BotRuntimeKind } from "../../../shared/bots/types.ts";
 import { reloadBots } from "../../lib/bots.ts";
 import type { Translate } from "../../lib/i18n.ts";
@@ -108,4 +108,8 @@ export const botsApi = {
   /** pane to session needs the bot's terminal running; the server can refuse with its reason */
   setRuntime: (botId: string, runtime: BotRuntimeKind) => call<Bot>("PATCH", `/${botId}`, { runtime }),
   setPermissionMode: (botId: string, mode: BotPermissionMode) => call<Bot>("PATCH", `/${botId}`, { permissionMode: mode }),
+  /** the models the bot can run on */
+  models: async (botId: string) => (await call<{ models: BotModelOption[] }>("GET", `/${botId}/models`)).models,
+  /** null: back to the default; the bots view is read again so the chip shows the new choice */
+  setModel: async (botId: string, patch: { model?: string | null; effort?: BotEffort | null }) => { const bot = await call<Bot>("PATCH", `/${botId}`, patch); await reloadBots(); return bot; },
 };

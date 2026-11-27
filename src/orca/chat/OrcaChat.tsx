@@ -11,7 +11,7 @@ import { useT } from "../../lib/i18n.ts";
 import { useMachineApi, useMachineId } from "../../lib/machineContext.tsx";
 import { useSettings } from "../../lib/settings.ts";
 import { machinePath } from "../../../shared/machines.ts";
-import { useChatBotParts } from "./bot/index.ts";
+import { BotModelPicker, useChatBotParts } from "./bot/index.ts";
 import type { RenderApproval } from "./bot/index.ts";
 import { OrcaComposer, QueuedMessages, type QueuedMessagesProps } from "./composer/index.ts";
 import { ChatImages, ChatMarkdown } from "./markdown/index.ts";
@@ -123,6 +123,7 @@ export function OrcaChat(props: OrcaChatProps) {
     <ApprovalCard approval={approval} submitting={submitting} submittingIndex={submittingIndex} error={error} shouldFocus={false} onChoose={onChoose} placement="stacked" />
   ), []);
   const bot = useChatBotParts({ paneId, readOnly, messages: shown.messages, renderApproval });
+  const chatBot = bot.context?.bot ?? null;
   const turn = useMemo(() => turnState(shown, agentStatus), [shown, agentStatus]);
   return (
     <ChatRoot historyId={feed.historyId} className="absolute inset-0 z-[1]">
@@ -140,7 +141,7 @@ export function OrcaChat(props: OrcaChatProps) {
           {props.queue ? <QueuedMessages {...props.queue} /> : null}
           {/* lib/frontendReloadSafety.ts asks before a reload while this class is on the page */}
           {props.queue && props.queue.messages.length > 0 ? <span className="composer-queue" style={{ display: "none" }} /> : null}
-          {props.composer ? <OrcaComposer {...props.composer} /> : null}
+          {props.composer ? <OrcaComposer {...props.composer} modelControl={chatBot ? (running) => <BotModelPicker bot={chatBot} readOnly={readOnly} running={running} /> : undefined} /> : null}
         </div>
       </ChatSlotsContext.Provider>
     </ChatRoot>
