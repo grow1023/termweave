@@ -23,7 +23,7 @@ export interface BotDeps {
   createWorkspace(cwd: string, label: string): Promise<{ workspaceId: string; paneId: string }>;
   /** `cwd`: the folder the agent opens in, marked trusted for it first (server/bots/trust.ts);
    *  `resume`: a Claude session id to continue (`claude --resume`), for a bot switched back from a session */
-  startAgent(kind: BotAgent, paneId: string, cwd: string, resume?: string | null, model?: string | null): Promise<void>;
+  startAgent(kind: BotAgent, paneId: string, cwd: string, resume?: string | null, model?: string | null, effort?: BotEffort | null): Promise<void>;
   /** type a message into an agent's prompt, as the composer does */
   submit(paneId: string, text: string): Promise<void>;
   /** press Enter in a pane: a message an agent took while it was still starting sits in its input line */
@@ -175,6 +175,33 @@ export class BotRuntime {
     return next;
   }
 
+  /** A terminal bot's model changes by a restart of its terminal: not while it works on a turn. */
+  assertModelChange(id: string): void {
+    const bot = this.mustBot(id);
+    if (bot.runtime === "session" || bot.agent !== "claude" || bot.paneId === null) return;
+    if (this.starting.has(id)) throw new BotError("pane_starting", "its terminal is starting; change the model again in a moment");
+    if (this.busy.has(id)) throw new BotError("bot_busy", "the bot is working; change its model when this turn ends");
+  }
+
+  /**
+   * A terminal bot takes a new model at once: its terminal closes and a new one starts on the same
+   * conversation (`claude --resume --model`). Claude Code's /model command is not used: it saves the
+   * choice as the owner's default for every new session (measured 2026-11-27). A bot whose terminal is
+   * closed, or whose Claude session cannot be found, takes the model when its terminal next starts.
+   */
+  async restartPaneForModel(id: string): Promise<Bot> {
+    const bot = this.mustBot(id);
+    if (bot.runtime === "session" || bot.agent !== "claude" || bot.paneId === null || !(await this.deps.paneAlive(bot.paneId))) return bot;
+    const found = await this.deps.paneClaudeSession?.(bot.paneId) ?? null;
+    if (found === null) return bot;
+    await this.deps.closePane(bot.paneId);
+    this.deps.store.updateBot(bot.id, { claudeSessionId: found, paneId: null });
+    this.busy.delete(bot.id);
+    this.deps.changed();
+    await this.ensurePane(bot.id);
+    return this.mustBot(id);
+  }
+
   /** The models a bot can run on: what Claude listed to a session, else Claude Code's aliases. */
   async models(id: string): Promise<BotModelOption[]> {
     const bot = this.mustBot(id);
@@ -286,7 +313,7 @@ export class BotRuntime {
       const { paneId } = await this.deps.createWorkspace(bot.home, `Bot · ${bot.name}`);
       this.deps.store.updateBot(bot.id, { paneId });
       // a bot switched back from a session continues that conversation in the terminal
-      await this.deps.startAgent(bot.agent, paneId, bot.home, bot.agent === "claude" ? bot.claudeSessionId ?? null : null, bot.agent === "claude" ? bot.model ?? null : null);
+      await this.deps.startAgent(bot.agent, paneId, bot.home, bot.agent === "claude" ? bot.claudeSessionId ?? null : null, bot.agent === "claude" ? bot.model ?? null : null, bot.agent === "claude" ? bot.effort ?? null : null);
       await this.ready(paneId);
       return paneId;
     })();

@@ -1757,5 +1757,5 @@ export const ZH: Record<string, string> = {
   "Model": "模型",
   "Claude Code's own default model": "Claude Code 的默认模型",
   "Model and reasoning: {current}": "模型和推理：{current}",
-  "A terminal bot uses the new model after its terminal restarts. To change it at once, and to set reasoning, run the bot as a chat session.": "终端机器人在终端重新启动后才使用新模型。要立即更改或设置推理，请以聊天会话方式运行机器人。",
+  "A change restarts the bot's terminal. The conversation continues.": "更改会重新启动机器人的终端，对话会继续。",
 };

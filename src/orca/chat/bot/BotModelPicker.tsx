@@ -4,6 +4,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { BOT_EFFORTS, type BotEffort, type BotModelOption } from "../../../../shared/bots/chat.ts";
+import { openBotWhereItRuns } from "../../../lib/bots.ts";
 import { useT, type Translate } from "../../../lib/i18n.ts";
 import { botErrorText, botsApi, type Bot } from "../../bots/data.ts";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../../ui/dropdown-menu.tsx";
@@ -20,9 +21,9 @@ function effortLabel(effort: BotEffort, t: Translate): string {
 }
 
 /** The chip's text: what the bot is set to, or what the chat reports it runs on, or "Model". */
-export function modelChipText(bot: Pick<Bot, "model" | "effort" | "runtime">, models: readonly BotModelOption[], running: { model: string | null; effort: string | null }, t: Translate): string {
+export function modelChipText(bot: Pick<Bot, "model" | "effort">, models: readonly BotModelOption[], running: { model: string | null; effort: string | null }, t: Translate): string {
   const model = bot.model ? models.find((each) => each.value === bot.model)?.label ?? bot.model : running.model;
-  const effort = bot.effort && bot.runtime === "session" ? effortLabel(bot.effort, t) : running.effort;
+  const effort = bot.effort ? effortLabel(bot.effort, t) : running.effort;
   const text = [model, effort].filter((part): part is string => Boolean(part)).join(" · ");
   return text === "" ? t("Model") : text;
 }
@@ -61,15 +62,17 @@ export function BotModelPicker({ bot, readOnly, running }: {
   if (readOnly || bot.agent !== "claude") {
     return <span className={chipClass} aria-label={t("Model and reasoning")} title={text}><span className="min-w-0 truncate">{text}</span></span>;
   }
+  const session = bot.runtime === "session";
   const change = (patch: { model?: string | null; effort?: BotEffort | null }): void => {
     if (busy) return;
     setBusy(true);
     setError(null);
     void botsApi.setModel(bot.id, patch)
+      // a terminal bot came back in a new terminal: the screen follows it there
+      .then(() => { if (!session) openBotWhereItRuns(bot.id); })
       .catch((failure: unknown) => setError(botErrorText(failure, t)))
       .finally(() => setBusy(false));
   };
-  const session = bot.runtime === "session";
   const efforts = (bot.model ? models.find((each) => each.value === bot.model)?.efforts : undefined) ?? BOT_EFFORTS;
   return (
     <>
@@ -87,18 +90,15 @@ export function BotModelPicker({ bot, readOnly, running }: {
           {models.map((model) => (
             <Row key={model.value} chosen={bot.model === model.value} label={model.label} description={model.description} onPick={() => change({ model: model.value })} />
           ))}
-          {session ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>{t("Reasoning")}</DropdownMenuLabel>
-              <Row chosen={!bot.effort} label={t("Default")} onPick={() => change({ effort: null })} />
-              {efforts.map((effort) => (
-                <Row key={effort} chosen={bot.effort === effort} label={effortLabel(effort, t)} onPick={() => change({ effort })} />
-              ))}
-            </>
-          ) : (
-            // a terminal bot's model goes in when its terminal starts; reasoning is set in the terminal itself
-            <p className="px-2 py-1.5 text-xs text-muted-foreground [overflow-wrap:anywhere]">{t("A terminal bot uses the new model after its terminal restarts. To change it at once, and to set reasoning, run the bot as a chat session.")}</p>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>{t("Reasoning")}</DropdownMenuLabel>
+          <Row chosen={!bot.effort} label={t("Default")} onPick={() => change({ effort: null })} />
+          {efforts.map((effort) => (
+            <Row key={effort} chosen={bot.effort === effort} label={effortLabel(effort, t)} onPick={() => change({ effort })} />
+          ))}
+          {session ? null : (
+            // a terminal bot changes by a restart of its terminal on the same conversation
+            <p className="px-2 py-1.5 text-xs text-muted-foreground [overflow-wrap:anywhere]">{t("A change restarts the bot's terminal. The conversation continues.")}</p>
           )}
         </DropdownMenuContent>
       </DropdownMenu>

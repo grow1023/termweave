@@ -1755,5 +1755,5 @@ export const JA: Record<string, string> = {
   "Model": "モデル",
   "Claude Code's own default model": "Claude Code の既定モデル",
   "Model and reasoning: {current}": "モデルと推論: {current}",
-  "A terminal bot uses the new model after its terminal restarts. To change it at once, and to set reasoning, run the bot as a chat session.": "ターミナルのボットは、ターミナルを再起動した後に新しいモデルを使います。すぐに変える、または推論を設定するには、ボットをチャットセッションで実行してください。",
+  "A change restarts the bot's terminal. The conversation continues.": "変更するとボットのターミナルが再起動します。会話はそのまま続きます。",
 };

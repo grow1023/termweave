@@ -120,7 +120,10 @@ export async function handleBotsRequest(request: Request, pathname: string, runt
     return answer(async () => {
       // the switch first: a refused switch changes nothing else
       if (to !== null) await runtime.switchRuntime(botId, to);
-      return runtime.updateBot(botId, {
+      const modelChange = input.model !== undefined || input.effort !== undefined;
+      // refused before anything is stored: a terminal bot in the middle of a turn keeps its model
+      if (modelChange) runtime.assertModelChange(botId);
+      const updated = runtime.updateBot(botId, {
         ...(typeof input.paused === "boolean" ? { paused: input.paused } : {}),
         ...(input.repo === null || typeof input.repo === "string" ? { repo: str(input.repo) || null } : {}),
         ...(typeof input.name === "string" ? { name: input.name } : {}),
@@ -129,6 +132,7 @@ export async function handleBotsRequest(request: Request, pathname: string, runt
         ...(input.model === null || typeof input.model === "string" ? { model: input.model } : {}),
         ...(input.effort === null || isBotEffort(input.effort) ? { effort: input.effort } : {}),
       });
+      return modelChange ? await runtime.restartPaneForModel(botId) : updated;
     });
   }
   if (request.method === "POST" && section === "message") {
