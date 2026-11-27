@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "repoType": "app",
   "mode": "update",
-  "baselineCommit": "e8d1c38861904bac1e9c0c641ee2b7702ed75e7a",
-  "reviewedHead": "3d32fdc9dc2e5060b9dc750f2991f6d59cf0c438",
+  "baselineCommit": "3d32fdc9dc2e5060b9dc750f2991f6d59cf0c438",
+  "reviewedHead": "421be53282cdc46696d95ba65533f4008d0eb0dc",
   "references": [
     {
       "repo": "tsl0922/ttyd",
@@ -75,15 +75,14 @@
     "gaps": []
   },
   "diffReview": {
-    "since": "e8d1c38861904bac1e9c0c641ee2b7702ed75e7a",
+    "since": "3d32fdc9dc2e5060b9dc750f2991f6d59cf0c438",
     "files": [
       "CHANGELOG.termweave.md",
       "CITATION.cff",
       "herdr-plugin.toml",
       "package.json",
-      "server/bots/api.ts",
       "server/bots/runtime.ts",
-      "server/index.ts",
+      "shared/bots/chat.ts",
       "shared/product.ts",
       "src/lib/i18n.ja.ts",
       "src/lib/i18n.ko.ts",
@@ -92,7 +91,7 @@
       "src/orca/chat/bot/bot-model-picker.test.ts",
       "src/orca/i18n/bot-model.json"
     ],
-    "summary": "Automated review for v0.3.66 by tools/public-release/auto_release.sh. 14 file(s) changed since e8d1c3886190. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- feat(bots): a terminal bot takes a new model and reasoning effort at once"
+    "summary": "Automated review for v0.3.67 by tools/public-release/auto_release.sh. 13 file(s) changed since 3d32fdc9dc2e. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- feat(bots): Orca's model and reasoning picker for a bot, with each family's newest model only"
   },
   "readiness": {
     "verified": [
