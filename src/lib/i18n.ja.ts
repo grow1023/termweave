@@ -1746,4 +1746,6 @@ export const JA: Record<string, string> = {
   "Use the new version": "新しい版を使う",
   "Write here what this terminal is for and what to do next: its agent and the bots can read it.": "このターミナルの作業内容と次にやることを書いてください。このターミナルのエージェントとボットが読めます。",
   "{count} of {max} characters": "{count}/{max} 文字",
+  "Sidebar width": "サイドバーの幅",
+  "Drag to resize the sidebar. Double-click to reset.": "ドラッグしてサイドバーの幅を変えます。ダブルクリックで元の幅に戻ります。",
 };

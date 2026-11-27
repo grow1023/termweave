@@ -1,6 +1,6 @@
 import { initialPaneView, readPaneView, writePaneView } from "./lib/paneView.ts";
 import { adjacentWorkspacePane } from "./lib/workspaceNavigation.ts";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { FolderOpen, LogOut, Menu, MessageSquare, MoreHorizontal, Orbit, PanelLeft, Search, SquareTerminal, Users, X } from "lucide-react";
 
 import type { AgentStatus, ClientRole, ServerMessage, AccessRefusal, HealthAuth, HerdrPane } from "../shared/protocol.ts";
@@ -46,6 +46,8 @@ import { FrontendControls } from "./components/FrontendControls.tsx";
 import { ZoomControls } from "./components/ZoomControls.tsx";
 import { NewBotDialog } from "./orca/bots/settings/NewBotDialog.tsx";
 import { showBotSettings } from "./orca/bots/BotSide.tsx";
+import { SidebarResizer } from "./components/SidebarResizer.tsx";
+import { readSidebarWidth, storeSidebarWidth } from "./lib/sidebarWidth.ts";
 import { BotPage } from "./orca/bots/BotPage.tsx";
 import { botsApi } from "./orca/bots/data.ts";
 import { currentBotsView, useBotsView } from "./lib/bots.ts";
@@ -229,6 +231,9 @@ export function App() {
   // on a phone the drawer follows a swipe in from the left edge, and a swipe back (lib/edgeSwipe.ts)
   useEffect(() => watchDrawerSwipe(() => drawerOpenRef.current, setDrawerOpen), []);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // the sidebar's width as dragged (SidebarResizer); null: the stylesheet's own width
+  const [sidebarWidth, setSidebarWidth] = useState<number | null>(readSidebarWidth);
+  const sidebarRef = useRef<HTMLElement>(null);
   const [, refreshPaneViews] = useState(0);
   const [view, setViewState] = useState<PaneView>("terminal");
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -853,7 +858,7 @@ export function App() {
   if (locked) return <><header className="app-header"><Brand /><div className="header-meta"><FrontendControls /></div></header><AccessGate reason={lockReason} initialCode={pairCode} onUnlocked={unlock} /></>;
 
   return (
-    <MachineContext.Provider value={selectedMachineId}><div className={`app${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
+    <MachineContext.Provider value={selectedMachineId}><div className={`app${sidebarCollapsed ? " sidebar-collapsed" : ""}`} style={sidebarWidth === null ? undefined : { "--sidebar-w": `${sidebarWidth}px` } as CSSProperties}>
       <header className="app-header">
         <button
           type="button"
@@ -971,10 +976,11 @@ export function App() {
 
       <MachineActionBanner machines={machines} onSetup={(machine, update = false) => { setDrawerOpen(false); setUpdateRemote(update); setMachineDialog(machine); }} />
       <div className="app-body">
-        <aside id="workspace-drawer" className={`sidebar${drawerOpen ? " is-open" : ""}`}>
+        <aside ref={sidebarRef} id="workspace-drawer" className={`sidebar${drawerOpen ? " is-open" : ""}`}>
           {error && <div className="error-state" role="alert"><p>{error}</p><button className="btn" onClick={() => void load()}>{t("Retry")}</button></div>}
           <MachineSidebar onOpenBot={(bot) => void openBot(bot)} onOpenBotPage={selectBot} selectedBotId={botPage ? selectedBotId : null} readOnly={readOnly} onNewBot={() => { setDrawerOpen(false); setNewBotOpen(true); }} onBotSettings={(botId) => { const bot = botsView?.bots.find((entry) => entry.id === botId); if (bot) { showBotSettings(botId); void openBot(bot); } }} version={health?.herdr?.version ?? null} machines={machines} selectedMachineId={selectedMachineId} selectedPaneId={botPage ? null : selectedPaneId} selectedWorkspaceId={botPage ? null : sidebarOwnerId} onSelectWorkspace={selectWorkspace} actions={actions} onSelect={selectTarget} onSetup={(machine, update = false) => { setUpdateRemote(update); setMachineDialog(machine); }} onNew={(id) => { setNewSessionMachineId(id); setNewSessionOpen(true); setDrawerOpen(false); }} />
         </aside>
+        {!sidebarCollapsed && <SidebarResizer width={sidebarWidth ?? sidebarRef.current?.getBoundingClientRect().width ?? 300} onChange={setSidebarWidth} onCommit={storeSidebarWidth} />}
 
         {drawerOpen && <div className="scrim" aria-hidden="true" onClick={() => setDrawerOpen(false)} />}
 

@@ -1744,4 +1744,6 @@ export const KO: Record<string, string> = {
   "Use the new version": "새 버전 사용",
   "Write here what this terminal is for and what to do next: its agent and the bots can read it.": "이 터미널에서 하는 일과 다음에 할 일을 적으세요. 이 터미널의 에이전트와 봇이 읽을 수 있습니다.",
   "{count} of {max} characters": "{count}/{max}자",
+  "Sidebar width": "사이드바 너비",
+  "Drag to resize the sidebar. Double-click to reset.": "끌어서 사이드바 너비를 바꿉니다. 두 번 클릭하면 처음 너비로 돌아갑니다.",
 };

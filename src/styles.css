@@ -1376,3 +1376,26 @@ button, a, [role="button"] {
   :root #header-meta[data-open] .bell-popover { position: static; width: auto; max-width: 100%; box-shadow: none; }
   :root #header-meta[data-open] .bell-popover .btn { min-height: 44px; justify-self: stretch; }
 }
+
+/* The sidebar's right edge (SidebarResizer.tsx): an 9px grab strip over the hairline. It takes no
+   room of its own (negative margins), so the layout is the same with or without it. */
+.sidebar-resizer {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 9px;
+  margin: 0 -4px 0 -5px;
+  cursor: col-resize;
+  touch-action: none;
+  background: transparent;
+}
+.sidebar-resizer:hover,
+.sidebar-resizer:focus-visible,
+html[data-sidebar-resizing] .sidebar-resizer {
+  background: linear-gradient(to right, transparent 3px, var(--border-strong) 3px, var(--border-strong) 6px, transparent 6px);
+  outline: none;
+}
+html[data-sidebar-resizing] { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+html[data-sidebar-resizing] iframe { pointer-events: none; }
+@media (max-width: 768px) {
+  .sidebar-resizer { display: none; }
+}

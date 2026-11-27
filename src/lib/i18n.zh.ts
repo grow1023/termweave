@@ -1748,4 +1748,6 @@ export const ZH: Record<string, string> = {
   "Use the new version": "使用新版本",
   "Write here what this terminal is for and what to do next: its agent and the bots can read it.": "在这里写下这个终端的工作内容和下一步要做的事。这个终端的代理和机器人都能读取。",
   "{count} of {max} characters": "{count}/{max} 个字符",
+  "Sidebar width": "侧边栏宽度",
+  "Drag to resize the sidebar. Double-click to reset.": "拖动可调整侧边栏宽度。双击可恢复默认宽度。",
 };

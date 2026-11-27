@@ -4,7 +4,7 @@ import { MonitorCog, ShieldCheck } from "lucide-react";
 import { useId, useState } from "react";
 
 import { BOT_PERMISSION_MODES, type BotPermissionMode } from "../../../../shared/bots/chat.ts";
-import { openBotWhereItRuns } from "../../../lib/bots.ts";
+import { openBotWhereItRuns, reloadBots } from "../../../lib/bots.ts";
 import { useT } from "../../../lib/i18n.ts";
 import { Button } from "../../ui/button.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog.tsx";
@@ -30,6 +30,9 @@ function SwitchRuntimeDialog({ bot, to, open, onOpenChange }: { bot: Bot; to: Ru
     setError(null);
     try {
       await botsApi.setRuntime(bot.id, to);
+      // App opens the bot from the bots view: read it again first, or it still says how the bot ran before
+      // and the screen stays on the closed terminal (found 2026-11-27: the switch worked and nothing opened)
+      await reloadBots();
       onOpenChange(false);
       // the page or the pane follows the bot: App opens it where it runs now
       openBotWhereItRuns(bot.id);

@@ -10,19 +10,30 @@ import type { BotsView } from "../../shared/bots/types.ts";
 let current: BotsView | null = null;
 const listeners = new Set<() => void>();
 let loading = false;
-let again = false;
+let again: Promise<void> | null = null;
 
+/**
+ * Reads the bots view again. A call while a read runs asks for one more read after it and resolves
+ * when that one is in, so a caller that awaits always has an answer newer than its call.
+ */
 export async function reloadBots(): Promise<void> {
-  if (loading) { again = true; return; }
+  if (loading) {
+    again ??= new Promise<void>((resolve) => { afterLoad = resolve; }).then(reloadBots);
+    return again;
+  }
   loading = true;
   try {
     const response = await fetch("/api/bots", { cache: "no-store" });
     if (response.ok) { current = await response.json() as BotsView; for (const listener of listeners) listener(); }
   } catch { /* the sidebar shows no bots; the bots page says why */ } finally {
     loading = false;
-    if (again) { again = false; void reloadBots(); }
+    const next = afterLoad;
+    afterLoad = null;
+    again = null;
+    next?.();
   }
 }
+let afterLoad: (() => void) | null = null;
 
 const onChanged = (): void => { void reloadBots(); };
 
