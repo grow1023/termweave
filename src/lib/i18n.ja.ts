@@ -1756,4 +1756,6 @@ export const JA: Record<string, string> = {
   "Claude Code's own default model": "Claude Code の既定モデル",
   "Model and reasoning: {current}": "モデルと推論: {current}",
   "A change restarts the bot's terminal. The conversation continues.": "変更するとボットのターミナルが再起動します。会話はそのまま続きます。",
+  "Search models…": "モデルを検索…",
+  "No models match your search.": "検索に一致するモデルがありません。",
 };

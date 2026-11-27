@@ -220,6 +220,15 @@ export const isBotEffort = (value: unknown): value is BotEffort => typeof value 
 export const BOT_MODEL = /^[A-Za-z0-9][A-Za-z0-9._:\[\]-]{0,79}$/;
 /** One model a bot can run on; `efforts` lists the levels it takes (absent: unknown, offer all). */
 export interface BotModelOption { value: string; label: string; description?: string; efforts?: BotEffort[] }
+/**
+ * The owner wants each model family at its newest only (2026-11-28: "소넷이면 5.5, 5랑 과거모델은 제외").
+ * Claude lists a family's newest under its alias (`sonnet`) and older ones under a full id
+ * (`claude-sonnet-5`): the rows with a full id are left out.
+ */
+export function newestModelsOnly(models: readonly BotModelOption[]): BotModelOption[] {
+  return models.filter((model) => !/^claude-/i.test(model.value));
+}
+
 /** Offered when no live session has listed the account's models yet: Claude Code's own aliases. */
 export const CLAUDE_MODEL_ALIASES: readonly BotModelOption[] = [
   { value: "opus", label: "Opus" }, { value: "sonnet", label: "Sonnet" }, { value: "haiku", label: "Haiku" },

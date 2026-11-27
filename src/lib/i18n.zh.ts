@@ -1758,4 +1758,6 @@ export const ZH: Record<string, string> = {
   "Claude Code's own default model": "Claude Code 的默认模型",
   "Model and reasoning: {current}": "模型和推理：{current}",
   "A change restarts the bot's terminal. The conversation continues.": "更改会重新启动机器人的终端，对话会继续。",
+  "Search models…": "搜索模型…",
+  "No models match your search.": "没有与搜索匹配的模型。",
 };

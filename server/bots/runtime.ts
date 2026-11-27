@@ -4,7 +4,7 @@ import { basename, join, resolve } from "node:path";
 
 import type { AgentStatus, SessionSnapshot } from "../../shared/protocol.ts";
 import { nextRunAfter, validateBotSchedule } from "../../shared/bots/schedule/index.ts";
-import { CLAUDE_MODEL_ALIASES, type BotChatStatus, type BotEffort, type BotModelOption, type BotPermissionMode, type MessageFrom } from "../../shared/bots/chat.ts";
+import { CLAUDE_MODEL_ALIASES, newestModelsOnly, type BotChatStatus, type BotEffort, type BotModelOption, type BotPermissionMode, type MessageFrom } from "../../shared/bots/chat.ts";
 import { APPROVE, DENY, type Bot, type BotAgent, type BotRuntimeKind, type BotAutomation, type BotItem, type BotPaneAction, type BotPaneEntry, type BotSchedule, type BotWorker } from "../../shared/bots/types.ts";
 import { randomBotAvatar } from "../../shared/bots/avatar.ts";
 import { buildBotInstructions, workerPrompt } from "./preamble.ts";
@@ -206,7 +206,7 @@ export class BotRuntime {
   async models(id: string): Promise<BotModelOption[]> {
     const bot = this.mustBot(id);
     if (bot.agent !== "claude") return [];
-    return (await this.deps.sessions?.models(bot.id)) ?? [...CLAUDE_MODEL_ALIASES];
+    return newestModelsOnly((await this.deps.sessions?.models(bot.id)) ?? [...CLAUDE_MODEL_ALIASES]);
   }
 
   /** Each session bot's chat status, for GET /api/bots. */

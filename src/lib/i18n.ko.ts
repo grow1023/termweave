@@ -1754,4 +1754,6 @@ export const KO: Record<string, string> = {
   "Claude Code's own default model": "Claude Code가 쓰는 기본 모델",
   "Model and reasoning: {current}": "모델과 추론: {current}",
   "A change restarts the bot's terminal. The conversation continues.": "바꾸면 봇의 터미널이 다시 시작됩니다. 대화는 그대로 이어집니다.",
+  "Search models…": "모델 검색…",
+  "No models match your search.": "검색과 맞는 모델이 없습니다.",
 };
