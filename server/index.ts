@@ -57,6 +57,7 @@ import {
   workspaceMove,
   workspaceRename, PANE_GONE_CODES } from "./herdr/client.ts";
 import { Companions, handleCompanionRequest } from "./companion.ts";
+import { noteSummary } from "../shared/pane-notes.ts";
 import { type AlertTiming, createPushService, defaultStateDir, handlePushRequest } from "./push.ts";
 import { codexQuestionsCollapsed, handlePromptRequest } from "./prompt.ts";
 import { rememberWidth, secretPrompt, validSecret } from "../shared/secret-prompt.ts";
@@ -992,13 +993,25 @@ export function createServer(
       // a terminal with no name of its own goes by its workspace's, as the header shows it
       const workspaceLabel = new Map(snapshot.workspaces.map((workspace) => [workspace.workspace_id, workspace.label]));
       return snapshot.panes.map((pane) => ({
-      pane_id: pane.pane_id, label: pane.label || workspaceLabel.get(pane.workspace_id) || null, cwd: pane.cwd, agent: pane.agent,
+      pane_id: pane.pane_id, label: pane.label || workspaceLabel.get(pane.workspace_id) || null, cwd: pane.cwd, agent: pane.agent, status: pane.agent_status,
       number: (pane as typeof pane & { global_pane_number?: number }).global_pane_number ?? null,
       }));
     },
     readScreen: async (paneId, lines) => (await paneRead({ paneId, source: "recent", lines, stripAnsi: true })).text,
     conversation: async (paneId) => (await paneConversation(paneId, options.codexHome)).turns,
     note: async (paneId) => noteOfPane(paneNotes, (await sessionSnapshot()).panes, paneId).note.text,
+    // run only after the owner pressed Allow on the action's card (server/companion-actions.ts)
+    sendText: async (paneId, text) => { await paneSendText(paneId, text); await Bun.sleep(SUBMIT_DELAY_MS); await paneSendKeys(paneId, ["Enter"]); },
+    openTerminal: async (cwd, label) => {
+      const made = await workspaceCreate({ cwd, ...(label === null ? {} : { label }) });
+      return label ?? made.workspace.label ?? made.root_pane.pane_id;
+    },
+    appendNote: async (paneId, text) => {
+      const terminalId = (await sessionSnapshot()).panes.find((pane) => pane.pane_id === paneId)?.terminal_id;
+      if (!terminalId) throw new HerdrError("no_terminal", "that pane has no terminal");
+      const note = paneNotes.append(terminalId, "companion", text, new Date().toISOString());
+      broadcastAll({ type: "pane-notes", terminal_id: terminalId, summary: noteSummary(note) });
+    },
     // a companion's rows go out as a session bot's do, so the same chat screen follows them
     changed: (id, epoch, rows, status) => broadcastAll({ type: "bot-chat", bot_id: id, epoch, rows, status }),
   });

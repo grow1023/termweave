@@ -94,6 +94,9 @@ export interface JournalApproval {
   plan?: string;
   /** the formatted tool input */
   detail: string | null;
+  /** a companion's action (shared/companion.ts): the card says what will happen in the owner's words.
+   *  `agent`: the agent that runs in the target terminal and will act on the text */
+  action?: { kind: "send" | "open" | "note"; target: string; agent?: string };
   options: PromptOption[];
   resolution: PromptResolution;
 }
@@ -246,4 +249,6 @@ export interface PromptRequest {
   description?: string;
   decisionReason?: string;
   blockedPath?: string;
+  /** the host's own card for this request: no "for this session" option, its own detail text and action */
+  card?: { once?: boolean; detail?: string; action?: { kind: "send" | "open" | "note"; target: string; agent?: string } };
 }

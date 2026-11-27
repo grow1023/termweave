@@ -12,6 +12,7 @@ import * as f from "./fixtures.ts";
 import { BotJournal } from "./journal.ts";
 import { DENIED_MESSAGE, type PermissionRequest, type PermissionResult } from "./permission.ts";
 import { BotSessionHost } from "./session.ts";
+import type { PromptGate } from "./host-types.ts";
 import type { TranslatorClock } from "./translate.ts";
 
 const MIN = 60_000;
@@ -59,6 +60,7 @@ let statusPushes: number;
 let pushedStatus: string | null;
 let prepared: string[];
 let host: BotSessionHost;
+let gate: ((request: PermissionRequest) => PromptGate | undefined) | null;
 
 function fakeOpen(launch: ClaudeLaunch, handlers: ClaudeHandlers): Promise<ClaudeConnection> {
   opens += 1;
@@ -94,6 +96,7 @@ beforeEach(() => {
   statusPushes = 0;
   pushedStatus = null;
   prepared = [];
+  gate = null;
   host = new BotSessionHost({
     journal, store,
     env: async () => ({ PATH: "/usr/bin", CLAUDECODE: "1" }),
@@ -102,6 +105,7 @@ beforeEach(() => {
     notify: async (_title, body, _pane, tag) => { notified = [...notified, { tag, body }]; },
     paneLive: async () => paneLive,
     open: fakeOpen,
+    gate: async (_bot, request) => gate?.(request),
     resolveBinary: () => "/opt/claude",
     clock,
   });
@@ -428,4 +432,26 @@ test("no session opens while the bot's terminal still runs (one Claude session, 
 test("a pane bot is refused", async () => {
   addBot("b1", { runtime: "pane" });
   await expect(host.tell("b1", "hi", owner)).rejects.toMatchObject({ code: "not_session_bot" });
+});
+
+test("a host's gate refuses a request with no card, or asks with no lasting option and hears of the approval", async () => {
+  let approvals = 0;
+  gate = (request) => request.toolName === "mcp__other__delete" ? { deny: "not yours" }
+    : { card: { once: true, detail: "npm test", action: { kind: "send", target: "P3 api" } }, allowed: () => { approvals += 1; } };
+  const refused = await promptFor("mcp__other__delete", { id: 1 });
+  await settle();
+  expect(refused.result()).toEqual({ behavior: "deny", message: "not yours", toolUseID: "tool-req-1" });
+  expect(body("b1", "prompt:req-1")).toBeUndefined();
+
+  const req = request("mcp__termweave__send_to_terminal", { pane_id: "w1:p1", text: "npm test" }, "req-2");
+  let result: PermissionResult | null | "waiting" = "waiting";
+  void refused.conn.handlers.onPermission(req).then((value) => { result = value; });
+  await settle();
+  expect(body("b1", "prompt:req-2")).toMatchObject({ detail: "npm test", action: { kind: "send", target: "P3 api" }, options: [{ id: "allow" }, { id: "deny" }] });
+  await expect(host.answer("b1", "prompt:req-2", { kind: "option", optionId: "allowForSession" }, "owner")).rejects.toMatchObject({ code: "invalid_answer" });
+  expect(approvals).toBe(0);
+  await host.answer("b1", "prompt:req-2", { kind: "option", optionId: "allow" }, "owner");
+  await settle();
+  expect(result).toMatchObject({ behavior: "allow", updatedInput: { pane_id: "w1:p1", text: "npm test" } });
+  expect(approvals).toBe(1);
 });

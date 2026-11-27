@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { JournalApproval, JournalQuestion, QuestionAnswer } from "../../../../shared/bots/chat.ts";
 import { useT } from "../../../lib/i18n.ts";
+import { useMountedSettled } from "../../bots/homepanel/use-settled-cards.ts";
 import { ApprovalCard } from "../prompts/index.ts";
 import { QuestionCard } from "../prompts/QuestionCard.tsx";
 import type { ChatPromptAnswer } from "../shared/index.ts";
@@ -39,13 +40,20 @@ function ApprovalSlot({ row, body, readOnly, answer }: SlotProps & { body: Journ
   const approval = useMemo(() => sessionApproval(body, readOnly, t), [body, readOnly, t]);
   const { submitting, error, run } = useSubmit(answer, row.itemId);
   const [chosen, setChosen] = useState<number | null>(null);
+  // a companion's action card takes no press in its first half second: a card that has just appeared
+  // under the pointer must not be approved by a click meant for something else (as the bots' cards)
+  const settled = useMountedSettled();
+  const guarded = body.action !== undefined && !settled;
   return (
-    <ApprovalCard approval={approval} submitting={submitting} submittingIndex={submitting ? chosen : null} error={error} shouldFocus={false}
-      detailAs={body.plan !== undefined ? "markdown" : "code"}
-      onChoose={(index) => {
-        setChosen(index);
-        run({ kind: "option", optionId: approvalOptionId(body, index) });
-      }} />
+    <div className="group/settle" data-settled={guarded ? "false" : "true"} data-action-card={body.action?.kind}>
+      <ApprovalCard approval={approval} submitting={submitting} submittingIndex={submitting ? chosen : null} error={error} shouldFocus={false}
+        detailAs={body.plan !== undefined ? "markdown" : "code"}
+        onChoose={(index) => {
+          if (guarded) return;
+          setChosen(index);
+          run({ kind: "option", optionId: approvalOptionId(body, index) });
+        }} />
+    </div>
   );
 }
 

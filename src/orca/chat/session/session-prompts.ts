@@ -16,14 +16,26 @@ function optionWord(option: PromptOption, plan: boolean, t: Translate): string {
   }
 }
 
+/** A companion's action in the owner's words; the card's detail is the exact text that will be used. */
+function actionTitle(action: NonNullable<JournalApproval["action"]>, t: Translate): string {
+  switch (action.kind) {
+    case "send": return t("Send this to {terminal} and press Enter?", { terminal: action.target });
+    case "open": return t("Open a new terminal in {folder}?", { folder: action.target });
+    case "note": return t("Add this line to the note of {terminal}?", { terminal: action.target });
+  }
+}
+
 /** The approval card for a permission row; with `readOnly` it has no options, so no buttons draw. */
 export function sessionApproval(body: JournalApproval, readOnly: boolean, t: Translate): ChatApproval {
   const plan = body.plan !== undefined;
   const tool = body.displayName ?? body.toolName;
-  const description = [body.description, body.decisionReason, body.blockedPath].filter((part): part is string => Boolean(part)).join("\n");
+  const handoff = body.action?.kind === "send" && body.action.agent
+    ? t("This card approves the text only. The {agent} agent in that terminal acts on it, and what it then changes or runs is not shown here. Check that terminal's permission mode first.", { agent: body.action.agent })
+    : undefined;
+  const description = [handoff, body.description, body.decisionReason, body.blockedPath].filter((part): part is string => Boolean(part)).join("\n");
   const detail = plan ? body.plan : body.detail;
   return {
-    title: plan ? t("Review proposed plan") : t("Allow {tool}?", { tool }),
+    title: plan ? t("Review proposed plan") : body.action ? actionTitle(body.action, t) : t("Allow {tool}?", { tool }),
     ...(description.length > 0 ? { description } : {}),
     ...(detail ? { detail } : {}),
     options: readOnly ? [] : body.options.map((option, index) => ({ label: optionWord(option, plan, t), description: option.description ?? null, index })),

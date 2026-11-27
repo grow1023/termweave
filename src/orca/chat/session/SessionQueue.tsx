@@ -2,6 +2,7 @@
 // and NativeChatQueuedMessageCard.tsx (the frame and row classes, as src/orca/chat/composer/QueuedMessages.tsx copies them); adapted for TermWeave.
 // Decision: a session bot's queue is the server's, with no edit, discard or Send now, so the rows carry no
 // row tools (QueuedMessages always draws them); each row says its state instead.
+import { stripCompanionContext } from "../../../../shared/companion.ts";
 import { useId, useState } from "react";
 import { AlertCircle, ChevronDown, ChevronUp, ListEnd } from "lucide-react";
 
@@ -20,7 +21,9 @@ function stateWord(state: QueueEntryState, t: Translate): string {
 
 function QueueRow({ entry, index }: { entry: QueueEntry; index: number }) {
   const t = useT();
-  const line = entry.text.replace(/\s+/g, " ").trim();
+  // a companion's message waits with the server's context block in front: the owner sees their own words
+  const own = stripCompanionContext(entry.text);
+  const line = own.replace(/\s+/g, " ").trim();
   const failed = entry.state === "undelivered";
   return (
     <li data-queued-message-id={entry.id} data-queued-message-state={entry.state} className="relative px-2.5 py-1.5">
@@ -32,7 +35,7 @@ function QueueRow({ entry, index }: { entry: QueueEntry; index: number }) {
         </span>
         <div className="min-w-0 flex-1">
           <span className="sr-only">{t("Message {n}", { n: index + 1 })}</span>
-          <p className="truncate text-sm text-foreground" title={entry.text}>{line}</p>
+          <p className="truncate text-sm text-foreground" title={own}>{line}</p>
           <p className={failed ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>{stateWord(entry.state, t)}</p>
         </div>
       </div>

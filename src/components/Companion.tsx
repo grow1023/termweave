@@ -4,21 +4,59 @@
 import { MessageCircleQuestion, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
-import { COMPANION_STATUS_ASK, type CompanionView } from "../../shared/companion.ts";
+import { COMPANION_STATUS_ASK, type CompanionNotice, type CompanionView } from "../../shared/companion.ts";
 import { paneStorageId } from "../../shared/machines.ts";
 import { MAX_COMPOSER_CHARS } from "../lib/compose.ts";
 import { composerDrafts } from "../lib/composerDraft.ts";
-import { useT } from "../lib/i18n.ts";
+import { useT, type Translate } from "../lib/i18n.ts";
 import { isCloseKey } from "../lib/modalFocus.ts";
 import { appendToDraft } from "../lib/paneNotes.ts";
 import { terminalSelection } from "../lib/terminalSelection.ts";
 import { botsApi } from "../orca/bots/data.ts";
 import { SessionChat } from "../orca/chat/session/SessionChat.tsx";
 import { OrcaRoot } from "../orca/OrcaRoot.tsx";
+import { CompanionVoice } from "./CompanionVoice.tsx";
 import "./Companion.css";
 
 const POSITION_KEY = "termweave:companion-position";
 const DRAG_THRESHOLD = 4;
+const NOTICES_KEY = "termweave:companion-notices";
+const NOTICE_POLL_MS = 10_000;
+const NOTICES_SHOWN = 3;
+const AUTO_KEY = "termweave:companion-auto";
+/** at most one look the companion starts by itself in this long: each one is a turn on the owner's plan */
+export const AUTO_LOOK_MS = 5 * 60_000;
+
+function autoWanted(): boolean {
+  try { return window.localStorage.getItem(AUTO_KEY) !== "off"; } catch { return true; }
+}
+
+/** The notice the companion looks into by itself now, or null: none is new, or the last look was too recent. */
+export function nextAutoLook(notices: readonly CompanionNotice[], looked: ReadonlySet<string>, lastAt: number, now: number): CompanionNotice | null {
+  if (now - lastAt < AUTO_LOOK_MS) return null;
+  return notices.find((notice) => !looked.has(notice.key)) ?? null;
+}
+
+function noticesWanted(): boolean {
+  try { return window.localStorage.getItem(NOTICES_KEY) !== "off"; } catch { return true; }
+}
+
+async function readNotices(id: string, dismiss?: string): Promise<CompanionNotice[]> {
+  const response = await fetch("/api/companion/notices", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, ...(dismiss === undefined ? {} : { dismiss }) }) });
+  const body = await response.json().catch(() => null) as { notices?: CompanionNotice[] } | null;
+  return response.ok && Array.isArray(body?.notices) ? body.notices : [];
+}
+
+/** A notice's one line, and the question its button sends as the owner's own message. */
+export function noticeWords(notice: CompanionNotice, t: Translate): { line: string; ask: string } {
+  const terminal = notice.terminal;
+  switch (notice.kind) {
+    case "waiting": return { line: t("{terminal} is waiting for your answer.", { terminal }), ask: t("{terminal} is waiting for me. What is it asking, what are my options, and what does each one lead to?", { terminal }) };
+    case "started": return { line: t("{terminal} has just started. Look for what could break?", { terminal }), ask: t("Pre-mortem for {terminal}: it has just started. What are the most likely ways this run breaks, and what should I tell it now? If an instruction would help, propose it as a card.", { terminal }) };
+    case "finished": return { line: t("{terminal} has finished. Look back at what it did?", { terminal }), ask: t("Post-mortem for {terminal}: what did it do, what went wrong or is unverified, and what should I check before I trust it?", { terminal }) };
+    case "repeated": return { line: t("The same error showed twice in {terminal}.", { terminal }), ask: t("The same error showed twice in {terminal}: {line} What is the root cause, and what should I tell the agent? If an instruction would help, propose it as a card.", { terminal, line: notice.line ?? "" }) };
+  }
+}
 
 interface Position { right: number; bottom: number }
 
@@ -74,6 +112,40 @@ export function Companion({ paneId, connected, focusTerminal }: {
     return () => { live = false; };
   }, [paneId]);
 
+  // what the companion points out unasked: a dot on the orb and a line in the window, never a sound or a popup
+  const [notices, setNotices] = useState<CompanionNotice[]>([]);
+  const [wanted, setWanted] = useState(noticesWanted);
+  const companionId = view?.id ?? null;
+  useEffect(() => {
+    if (companionId === null || !wanted) { setNotices([]); return undefined; }
+    let live = true;
+    const read = (): void => { if (!document.hidden) void readNotices(companionId).then((next) => { if (live) setNotices(next); }).catch(() => { /* the next read tries again */ }); };
+    read();
+    const timer = window.setInterval(read, NOTICE_POLL_MS);
+    return () => { live = false; window.clearInterval(timer); };
+  }, [companionId, wanted, paneId]);
+  const dismissNotice = (key: string): void => {
+    setNotices((current) => current.filter((notice) => notice.key !== key));
+    if (companionId !== null) void readNotices(companionId, key).catch(() => {});
+  };
+  // "by itself": the companion starts the look (a pre-mortem, a post-mortem, the cause of a repeated error)
+  // without being asked. It only reads and answers; anything it wants done is still a card.
+  const [auto, setAuto] = useState(autoWanted);
+  const [unread, setUnread] = useState(false);
+  const looked = useRef<Set<string>>(new Set());
+  const lastLook = useRef(-Infinity);
+  const openRef = useRef(false);
+  const toggleAuto = (): void => {
+    const next = !auto;
+    setAuto(next);
+    try { window.localStorage.setItem(AUTO_KEY, next ? "on" : "off"); } catch { /* until a reload */ }
+  };
+  const toggleNotices = (): void => {
+    const next = !wanted;
+    setWanted(next);
+    try { window.localStorage.setItem(NOTICES_KEY, next ? "on" : "off"); } catch { /* until a reload */ }
+  };
+
   const fold = useCallback(() => { setOpen(false); focusTerminal(); }, [focusTerminal]);
   const toggle = useCallback(() => { if (open) fold(); else setOpen(true); }, [open, fold]);
   useEffect(() => {
@@ -123,9 +195,26 @@ export function Companion({ paneId, connected, focusTerminal }: {
     try { window.localStorage.setItem(POSITION_KEY, JSON.stringify(position)); } catch { /* the place lasts until a reload */ }
   };
 
-  const ask = (text: string): void => {
-    if (view === null) return;
-    void botsApi.sendMessage(view.id, text).catch((failure: unknown) => setError(failure instanceof Error ? failure.message : String(failure)));
+  const send = async (text: string): Promise<boolean> => {
+    if (view === null) return false;
+    try { await botsApi.sendMessage(view.id, text); setError(null); return true; } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+      return false;
+    }
+  };
+  const ask = (text: string): void => { void send(text); };
+  /** a message the owner said aloud: the companion answers it for the ear (server/companion.ts) */
+  const sendSpoken = async (text: string, heard: string | null): Promise<boolean> => {
+    if (view === null) return false;
+    try {
+      const response = await fetch(`/api/bots/${encodeURIComponent(view.id)}/message`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, spoken: true, ...(heard === null ? {} : { heard }) }) });
+      if (!response.ok) throw new Error((await response.json().catch(() => null) as { error?: { message?: string } } | null)?.error?.message ?? `HTTP ${response.status}`);
+      setError(null);
+      return true;
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+      return false;
+    }
   };
   /** "Ask about the selection": what is selected in the page goes into the message box as a quote, not sent. */
   const quoteSelection = (): void => {
@@ -154,8 +243,21 @@ export function Companion({ paneId, connected, focusTerminal }: {
   }, []);
   useEffect(() => { if (secret) setOpen(false); }, [secret]);
   if (secret) return null;
+  openRef.current = open;
+  useEffect(() => { if (open) setUnread(false); }, [open]);
+  useEffect(() => {
+    if (!auto || !wanted || !connected || view === null) return;
+    const notice = nextAutoLook(notices, looked.current, lastLook.current, Date.now());
+    if (notice === null) return;
+    looked.current.add(notice.key);
+    lastLook.current = Date.now();
+    void send(noticeWords(notice, t).ask).then((sent) => { if (sent && !openRef.current) setUnread(true); });
+    dismissNotice(notice.key);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the notices change; send and dismissNotice read the current view
+  }, [notices, auto, wanted, connected, view?.id]);
   const paneName = view ? `${view.pane.number ? `P${view.pane.number} ` : ""}${view.pane.label}` : "";
-  const label = open ? t("Close the companion") : t("Open the companion");
+  const first = notices[0] ? noticeWords(notices[0], t).line : unread ? t("The companion looked into something for you.") : null;
+  const label = `${open ? t("Close the companion") : t("Open the companion")}${first && !open ? ` · ${first}` : ""}`;
   return (
     <>
       <button ref={orbRef} type="button" className="companion-orb" data-companion-orb="" data-open={open ? "" : undefined}
@@ -163,6 +265,7 @@ export function Companion({ paneId, connected, focusTerminal }: {
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={() => { drag.current = null; }}
         onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggle(); } }}>
         <MessageCircleQuestion aria-hidden="true" />
+        {(notices.length > 0 || unread) && <span className="companion-dot" data-companion-dot="" aria-hidden="true" />}
       </button>
       {open && (
         <section ref={windowRef} id="companion-window" className="companion-window" role="dialog" aria-label={t("Project companion")} data-companion-window=""
@@ -179,7 +282,24 @@ export function Companion({ paneId, connected, focusTerminal }: {
           <div className="companion-tools">
             <button type="button" disabled={view === null || !connected} data-companion-status="" onClick={() => ask(COMPANION_STATUS_ASK)}>{t("Where am I?")}</button>
             <button type="button" disabled={view === null} data-companion-quote="" onClick={quoteSelection}>{t("Ask about the selection")}</button>
+            <button type="button" role="switch" aria-checked={wanted} data-companion-notices-switch="" onClick={toggleNotices}>{t("Point things out")}</button>
+            {wanted && <button type="button" role="switch" aria-checked={auto} data-companion-auto-switch="" title={t("Starts a pre-mortem or a post-mortem by itself, at most once in five minutes. It uses your Claude plan.")} onClick={toggleAuto}>{t("Look into it by itself")}</button>}
           </div>
+          <CompanionVoice companionId={view?.id ?? null} connected={connected} onAsk={sendSpoken} />
+          {notices.length > 0 && (
+            <ul className="companion-notices" aria-label={t("Things to look at")}>
+              {notices.slice(0, NOTICES_SHOWN).map((notice) => {
+                const words = noticeWords(notice, t);
+                return (
+                  <li key={notice.key} data-companion-notice={notice.kind}>
+                    <span>{words.line}</span>
+                    <button type="button" disabled={!connected} onClick={() => { ask(words.ask); dismissNotice(notice.key); }}>{t("Look into it")}</button>
+                    <button type="button" className="companion-notice-dismiss" aria-label={t("Dismiss")} onClick={() => dismissNotice(notice.key)}><X aria-hidden="true" /></button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
           {error && <p className="companion-alert" role="alert">{error}</p>}
           <div className="companion-chat">
             {view && (
@@ -189,7 +309,7 @@ export function Companion({ paneId, connected, focusTerminal }: {
               </OrcaRoot>
             )}
           </div>
-          <p className="companion-foot">{t("The companion can read this project. It cannot change files or run commands.")}</p>
+          <p className="companion-foot">{t("The companion reads this project. It changes nothing unless you press Allow on its card.")}</p>
         </section>
       )}
     </>

@@ -14,6 +14,8 @@ const TOOL_OPTIONS: PromptOption[] = [
   { id: "allowForSession", label: "Allow for this session", intent: "allow_always" },
   { id: "deny", label: "Deny", intent: "reject_once" },
 ];
+/** a request the host wants asked every time: no option that lasts */
+const ONCE_OPTIONS: PromptOption[] = TOOL_OPTIONS.filter((option) => option.intent !== "allow_always");
 const PLAN_OPTIONS: PromptOption[] = [
   { id: "allow", label: "Approve plan", intent: "allow_once" },
   { id: "deny", label: "Keep planning", intent: "reject_once" },
@@ -62,8 +64,9 @@ export function promptBody(p: PromptRequest): JournalApproval | JournalQuestion 
     toolName: clip(p.toolName, FIELD_MAX_BYTES),
     ...Object.fromEntries(Object.entries(optional).filter(([, value]) => value !== undefined)),
     ...(plan !== undefined ? { plan: clip(plan, TOOL_OUTPUT_MAX_BYTES) } : {}),
-    detail: plan !== undefined ? null : clip(pretty(p.input), TOOL_OUTPUT_MAX_BYTES),
-    options: plan !== undefined ? PLAN_OPTIONS : TOOL_OPTIONS,
+    detail: plan !== undefined ? null : clip(p.card?.detail ?? pretty(p.input), TOOL_OUTPUT_MAX_BYTES),
+    ...(p.card?.action ? { action: { kind: p.card.action.kind, target: clip(p.card.action.target, FIELD_MAX_BYTES), ...(p.card.action.agent ? { agent: clip(p.card.action.agent, FIELD_MAX_BYTES) } : {}) } } : {}),
+    options: plan !== undefined ? PLAN_OPTIONS : p.card?.once ? ONCE_OPTIONS : TOOL_OPTIONS,
     resolution: PENDING,
   };
 }

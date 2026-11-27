@@ -160,7 +160,8 @@ export function buildQueryOptions(launch: ClaudeLaunch, hooks: { spawn: NonNulla
     ...(launch.tools ? { tools: launch.tools } : {}),
     // a session with a fixed tool list also takes no MCP server from the owner's account or config: such a
     // server can carry tools that write (measured 2026-11-28: a claude.ai connector added create and delete tools)
-    ...(launch.tools ? { strictMcpConfig: true, mcpServers: launch.mcpServers ?? {}, disallowedTools: ["mcp__*"] } : {}),
+    // Its own servers (launch.mcpServers) are the exception; the host's gate refuses any other MCP tool.
+    ...(launch.tools ? { strictMcpConfig: true, mcpServers: launch.mcpServers ?? {}, ...(Object.keys(launch.mcpServers ?? {}).length === 0 ? { disallowedTools: ["mcp__*"] } : {}) } : {}),
     ...(launch.additionalDirectories ? { additionalDirectories: launch.additionalDirectories } : {}),
     // Code Mode is taken from the SDK's settings option only, not from the environment
     ...(launch.codeMode ? { settings: { env: { [CODE_MODE_ENV]: "1" } } } : {}),

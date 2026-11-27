@@ -20,6 +20,17 @@
 .companion-orb:focus-visible { outline: var(--ring); outline-offset: var(--ring-offset); }
 .companion-orb[data-open] { background: var(--accent-tint); border-color: var(--accent); }
 .companion-orb svg { width: 22px; height: 22px; }
+/* something to look at: a still dot, no motion and no sound */
+.companion-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--bg-elevated);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
 
 .companion-window {
   position: fixed;
@@ -77,13 +88,77 @@
 .companion-tools button:hover:not(:disabled) { background: var(--bg-hover); }
 .companion-tools button:disabled { opacity: 0.5; cursor: default; }
 .companion-tools button:focus-visible { outline: var(--ring); outline-offset: var(--ring-offset); }
+.companion-tools button[role="switch"][aria-checked="true"] { background: var(--accent-tint); border-color: var(--accent); }
+.companion-notices { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0 var(--space-3) var(--space-2); list-style: none; }
+.companion-notices li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--accent-tint);
+  font-size: var(--fs-sm);
+}
+.companion-notices li span { flex: 1 1 auto; min-width: 0; }
+.companion-notices button {
+  flex: none;
+  min-height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.companion-notices button:hover:not(:disabled) { background: var(--bg-hover); }
+.companion-notices button:disabled { opacity: 0.5; cursor: default; }
+.companion-notices button:focus-visible { outline: var(--ring); outline-offset: var(--ring-offset); }
+.companion-notices .companion-notice-dismiss { display: inline-flex; align-items: center; justify-content: center; width: var(--control-h); padding: 0; border-color: transparent; background: transparent; color: var(--text-dim); }
+.companion-notices .companion-notice-dismiss svg { width: var(--icon-size); height: var(--icon-size); }
+.companion-voice { display: flex; flex-direction: column; gap: var(--space-1); padding: 0 var(--space-3) var(--space-2); }
+.companion-voice .companion-alert { padding: 0; }
+.companion-voice-row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.companion-voice button, .companion-mic-help a {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: var(--hairline) solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: none;
+}
+.companion-voice button:hover:not(:disabled), .companion-mic-help a:hover { background: var(--bg-hover); }
+.companion-voice button:disabled { opacity: 0.5; cursor: default; }
+.companion-voice button:focus-visible, .companion-mic-help a:focus-visible { outline: var(--ring); outline-offset: var(--ring-offset); }
+.companion-voice button svg { width: var(--icon-size); height: var(--icon-size); }
+.companion-talk[aria-pressed="true"], .companion-speak[aria-checked="true"] { background: var(--accent-tint); border-color: var(--accent); }
+.companion-speak { width: var(--control-h); padding: 0 !important; }
+.companion-heard { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--text-dim); font-size: var(--fs-sm); text-overflow: ellipsis; white-space: nowrap; }
+.companion-mic-help { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-2); border-radius: var(--radius-md); background: var(--accent-tint); font-size: var(--fs-sm); }
+.companion-mic-help span { flex: 1 1 12em; min-width: 0; }
+.companion-mic-help button, .companion-mic-help a { background: var(--bg-elevated); }
 .companion-alert { margin: 0; padding: 0 var(--space-3) var(--space-2); color: var(--danger-text); font-size: var(--fs-sm); }
 .companion-chat { position: relative; flex: 1 1 auto; min-height: 0; container-type: size; }
 .companion-chat-root { position: absolute; inset: 0; }
+/* an action's card is what the owner must read whole: the conversation above gives way to it, and a card
+   taller than most of the window scrolls with its buttons in reach */
+.companion-chat [data-orca-chat-prompt] { flex-shrink: 0; max-height: 72cqh; overflow-y: auto; }
 .companion-foot { margin: 0; padding: var(--space-1) var(--space-3) var(--space-2); color: var(--text-dim); font-size: var(--fs-xs); }
 
 @media (max-width: 640px) {
   .companion-window { right: 8px !important; left: 8px; width: auto; }
-  .companion-tools button, .companion-close { min-height: var(--touch-target); }
+  .companion-tools button, .companion-close, .companion-notices button, .companion-voice button, .companion-mic-help a { min-height: var(--touch-target); }
+  .companion-speak { width: var(--touch-target); }
+  .companion-notices .companion-notice-dismiss { width: var(--touch-target); }
   .companion-close { width: var(--touch-target); }
 }

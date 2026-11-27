@@ -1,9 +1,10 @@
 /** The session host's settings and what it needs from the server; session.ts is the host itself. */
-import type { BotChatStatus, JournalPage, JournalRow, QueuedMessage } from "../../../shared/bots/chat.ts";
+import type { BotChatStatus, JournalPage, JournalRow, PromptRequest, QueuedMessage } from "../../../shared/bots/chat.ts";
 import type { Bot } from "../../../shared/bots/types.ts";
 import type { BotStore } from "../store.ts";
 import type { ClaudeConnection, ClaudeHandlers, ClaudeLaunch } from "./connection.ts";
 import type { BotJournal } from "./journal.ts";
+import type { PermissionRequest } from "./permission.ts";
 import type { TranslatorClock } from "./translate.ts";
 
 export interface HostLimits {
@@ -41,7 +42,18 @@ export interface SessionHostDeps {
   clock?: TranslatorClock;
   limits?: Partial<HostLimits>;
   /** more for a session's launch (its tools, settings files, readable folders, system prompt); a bot's host gives none */
-  launch?(bot: Bot): Partial<ClaudeLaunch>;
+  launch?(bot: Bot): Partial<ClaudeLaunch> | Promise<Partial<ClaudeLaunch>>;
+  /** a say over each permission request before its card; a bot's host has none */
+  gate?(bot: Bot, request: PermissionRequest): Promise<PromptGate | undefined>;
+}
+
+/** What a host's gate decides: refuse outright, or shape the card and hear of an approval. */
+export interface PromptGate {
+  /** refused with this message for the model; no card is shown */
+  deny?: string;
+  card?: PromptRequest["card"];
+  /** the owner pressed Allow on this request's card */
+  allowed?(): void;
 }
 
 export type SendState = "accepted" | "queued";

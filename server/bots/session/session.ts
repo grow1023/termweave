@@ -13,7 +13,7 @@ import { openClaudeConnection, type ClaudeConnection } from "./connection.ts";
 import { HOST_LIMITS, type ChatPage, type HostLimits, type OpenConnection, type SendState, type SessionHostDeps } from "./host-types.ts";
 import type { BotJournal } from "./journal.ts";
 import { busy, clearIdle, liveStatus, newLive, type Live } from "./live.ts";
-import { sdkPermissionMode, type BotPermissionMode, type PermissionRequest, type PermissionResult } from "./permission.ts";
+import { denyResult, sdkPermissionMode, type BotPermissionMode, type PermissionRequest, type PermissionResult } from "./permission.ts";
 import { answerPrompt, holdPrompt } from "./prompting.ts";
 import { buildClaudeEnv, codeModeResumeRefusal, ownerCodeMode, resolveClaudeBinary } from "./sdk.ts";
 import { createTranslator, type LiveState, type SessionFacts, type TranslatorClock } from "./translate.ts";
@@ -193,7 +193,7 @@ export class BotSessionHost {
         onError: (error) => console.error(`bot session: a frame was not translated: ${error instanceof Error ? error.name : "error"}`),
       });
       const conn = await this.open(
-        { cwd: bot.home, env, binary, sessionId: resume ? bot.claudeSessionId! : randomUUID(), resume, appendSystemPrompt: "", permissionMode: bot.permissionMode ?? "ask", ...(codeMode ? { codeMode } : {}), model: bot.model ?? null, effort: bot.effort ?? null, ...this.deps.launch?.(bot) },
+        { cwd: bot.home, env, binary, sessionId: resume ? bot.claudeSessionId! : randomUUID(), resume, appendSystemPrompt: "", permissionMode: bot.permissionMode ?? "ask", ...(codeMode ? { codeMode } : {}), model: bot.model ?? null, effort: bot.effort ?? null, ...(await this.deps.launch?.(bot)) },
         {
           onFrame: (frame) => this.frame(live, generation, frame),
           onPermission: (request) => this.permission(live, generation, request),
@@ -328,16 +328,24 @@ export class BotSessionHost {
     }
   }
 
-  private permission(live: Live, generation: number, request: PermissionRequest): Promise<PermissionResult | null> {
+  private async permission(live: Live, generation: number, request: PermissionRequest): Promise<PermissionResult | null> {
+    if (generation !== live.generation || live.translator === null) return null;
+    const bot = this.deps.store.bot(live.botId);
+    // a failing gate is no answer: the request is denied (connection.ts routePermissions)
+    const gate = bot && this.deps.gate ? await this.deps.gate(bot, request) : undefined;
+    if (gate?.deny !== undefined) return denyResult(request, gate.deny);
     const translator = live.translator;
-    if (generation !== live.generation || translator === null) return Promise.resolve(null);
-    const name = this.deps.store.bot(live.botId)?.name ?? "A bot";
-    return holdPrompt(live, translator, request, {
+    if (generation !== live.generation || translator === null) return null;
+    const name = bot?.name ?? "A bot";
+    const result = await holdPrompt(live, translator, request, {
       clock: this.clock,
       repushMs: this.limits.repushMs,
       push: (body, tag) => { void this.deps.notify(`${name} needs you`, body, null, tag).catch(() => {}); },
       changed: () => { this.touch(live); this.emitted(live, []); },
+      ...(gate?.card ? { card: gate.card } : {}),
     });
+    if (result?.behavior === "allow") gate?.allowed?.();
+    return result;
   }
 
   private exited(live: Live, generation: number, error: Error, expected: boolean): void {

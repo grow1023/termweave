@@ -19,6 +19,17 @@ export interface CompanionView {
   pane: { pane_id: string; label: string; number: number | null };
 }
 
+/** Something the companion points out unasked; it only marks the orb (server/companion-watch.ts). */
+export interface CompanionNotice {
+  key: string;
+  /** an agent waits for the owner, has just started, has just finished, or the same error shows twice */
+  kind: "waiting" | "started" | "finished" | "repeated";
+  pane_id: string;
+  terminal: string;
+  /** repeated: the error line */
+  line?: string;
+}
+
 /** The canned question behind the "Where am I?" strip. */
 export const COMPANION_STATUS_ASK = "/status";
 

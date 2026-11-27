@@ -29,6 +29,7 @@ beforeEach(() => {
     conversation: async (paneId) => paneId === "w1:p1" ? [{ role: "user", ts: null, parts: [{ kind: "text", text: "fix the login bug" }] }] : [],
     note: async (paneId) => paneId === "w1:p1" ? "- [ ] ship the fix" : "",
     changed: () => {},
+    sendText: async () => {}, openTerminal: async () => "new", appendNote: async () => {},
   });
 });
 afterEach(async () => { await companions.closeAll(); rmSync(dir, { recursive: true, force: true }); });

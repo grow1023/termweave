@@ -17,16 +17,19 @@ export interface PromptContext {
   push(body: string, tag: string): void;
   /** the prompt set changed: status and idle clock follow */
   changed(): void;
+  /** the host's own card for this request (host-types.ts PromptGate) */
+  card?: PromptRequest["card"];
 }
 
 /** The SDK request as the journal records it; absent fields stay absent. */
-function promptRequest(request: PermissionRequest): PromptRequest {
+function promptRequest(request: PermissionRequest, card: PromptRequest["card"]): PromptRequest {
   const optional = {
     title: request.title, displayName: request.displayName, description: request.description,
     decisionReason: request.decisionReason, blockedPath: request.blockedPath,
   };
   return {
     promptKey: request.requestId, toolName: request.toolName, input: request.input, toolUseId: request.toolUseID,
+    ...(card ? { card } : {}),
     ...Object.fromEntries(Object.entries(optional).filter(([, value]) => value !== undefined)),
   };
 }
@@ -53,7 +56,7 @@ export function holdPrompt(live: Live, translator: Translator, request: Permissi
       translator.promptCancelled(key, ctx.clock.now());
       settle(null);
     }, { once: true });
-    translator.prompt(promptRequest(request), ctx.clock.now());
+    translator.prompt(promptRequest(request, ctx.card), ctx.clock.now());
     ctx.changed();
     ctx.push(body, tag);
   });
