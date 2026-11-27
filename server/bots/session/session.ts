@@ -193,7 +193,7 @@ export class BotSessionHost {
         onError: (error) => console.error(`bot session: a frame was not translated: ${error instanceof Error ? error.name : "error"}`),
       });
       const conn = await this.open(
-        { cwd: bot.home, env, binary, sessionId: resume ? bot.claudeSessionId! : randomUUID(), resume, appendSystemPrompt: "", permissionMode: bot.permissionMode ?? "ask", ...(codeMode ? { codeMode } : {}), model: bot.model ?? null, effort: bot.effort ?? null },
+        { cwd: bot.home, env, binary, sessionId: resume ? bot.claudeSessionId! : randomUUID(), resume, appendSystemPrompt: "", permissionMode: bot.permissionMode ?? "ask", ...(codeMode ? { codeMode } : {}), model: bot.model ?? null, effort: bot.effort ?? null, ...this.deps.launch?.(bot) },
         {
           onFrame: (frame) => this.frame(live, generation, frame),
           onPermission: (request) => this.permission(live, generation, request),

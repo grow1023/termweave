@@ -1,0 +1,57 @@
+{
+  "Open or close the companion": {
+    "ko": "동행 열기/닫기",
+    "ja": "コンパニオンを開く/閉じる",
+    "zh": "打开或关闭同伴"
+  },
+  "Open the companion": {
+    "ko": "동행 열기",
+    "ja": "コンパニオンを開く",
+    "zh": "打开同伴"
+  },
+  "Close the companion": {
+    "ko": "동행 닫기",
+    "ja": "コンパニオンを閉じる",
+    "zh": "关闭同伴"
+  },
+  "Project companion": {
+    "ko": "프로젝트 동행",
+    "ja": "プロジェクトのコンパニオン",
+    "zh": "项目同伴"
+  },
+  "Viewing: {terminal}": {
+    "ko": "보는 터미널: {terminal}",
+    "ja": "表示中のターミナル: {terminal}",
+    "zh": "正在查看的终端：{terminal}"
+  },
+  "Where am I?": {
+    "ko": "지금 뭐 하는 중이지?",
+    "ja": "今なにをしている?",
+    "zh": "现在在做什么？"
+  },
+  "Ask about the selection": {
+    "ko": "선택한 부분 묻기",
+    "ja": "選択部分について聞く",
+    "zh": "询问所选内容"
+  },
+  "Select some text in the terminal or the chat first.": {
+    "ko": "먼저 터미널이나 채팅에서 글자를 선택하세요.",
+    "ja": "先にターミナルかチャットで文字を選択してください。",
+    "zh": "请先在终端或聊天中选择文字。"
+  },
+  "The selection is too long for one message.": {
+    "ko": "선택한 부분이 메시지 하나에 넣기에는 너무 깁니다.",
+    "ja": "選択部分が長すぎて 1 つのメッセージに入りません。",
+    "zh": "所选内容太长，无法放入一条消息。"
+  },
+  "Ask what this terminal is doing, or anything about this project.": {
+    "ko": "이 터미널이 무엇을 하는 중인지, 또는 이 프로젝트에 관해 무엇이든 물어보세요.",
+    "ja": "このターミナルが何をしているか、またはこのプロジェクトについて何でも聞いてください。",
+    "zh": "问问这个终端在做什么，或关于这个项目的任何问题。"
+  },
+  "The companion can read this project. It cannot change files or run commands.": {
+    "ko": "동행은 이 프로젝트를 읽을 수 있습니다. 파일을 바꾸거나 명령을 실행할 수는 없습니다.",
+    "ja": "コンパニオンはこのプロジェクトを読めます。ファイルの変更やコマンドの実行はできません。",
+    "zh": "同伴可以读取此项目，但不能更改文件或运行命令。"
+  }
+}

@@ -10,6 +10,7 @@ import "@xterm/xterm/css/xterm.css";
 import "./PaneTerminal.css";
 
 import { HerdrSocket } from "../lib/ws.ts";
+import { noteTerminalSelection } from "../lib/terminalSelection.ts";
 import { controlCode, isPrintable, keySequence, type KeyBarKey } from "../lib/keys.ts";
 import { EMPTY_DRAFT, applyToDraft, draftIsEmpty, type InputDraft } from "../lib/draft.ts";
 import { messageQueues } from "../lib/messageQueue.ts";
@@ -480,6 +481,7 @@ export function PaneTerminal({
       );
     };
     const selectionChange = term.onSelectionChange(() => {
+      noteTerminalSelection(term, term.hasSelection() ? term.getSelection() : "");
       if (!term.hasSelection()) {
         copiedText = null;
         selectionGeneration++;
@@ -1070,6 +1072,7 @@ export function PaneTerminal({
       host.removeEventListener("copy", onCopy);
       stopEdge();
       selectionChange.dispose();
+      noteTerminalSelection(term, "");
       window.removeEventListener("focus", refit);
       document.removeEventListener("visibilitychange", onVisible);
       onShiftEnter.dispose();

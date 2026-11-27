@@ -1,0 +1,89 @@
+/* The project companion (Companion.tsx): an orb that floats over the app and the chat window it opens
+   into. Both are position: fixed, so neither changes the terminal's size. No transition. */
+.companion-orb {
+  position: fixed;
+  z-index: var(--z-popover);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: var(--hairline) solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  color: var(--text);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  touch-action: none;
+}
+.companion-orb:hover { background: var(--bg-hover); }
+.companion-orb:focus-visible { outline: var(--ring); outline-offset: var(--ring-offset); }
+.companion-orb[data-open] { background: var(--accent-tint); border-color: var(--accent); }
+.companion-orb svg { width: 22px; height: 22px; }
+
+.companion-window {
+  position: fixed;
+  z-index: var(--z-popover);
+  display: flex;
+  flex-direction: column;
+  width: min(440px, calc(100vw - 16px));
+  border: var(--hairline) solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--bg-elevated);
+  color: var(--text);
+  box-shadow: var(--shadow-drawer);
+  overflow: hidden;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.companion-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-2);
+}
+.companion-title { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.companion-title strong { font-size: var(--fs-md); font-weight: var(--fw-semibold); text-wrap: balance; }
+.companion-viewing { color: var(--text-dim); font-size: var(--fs-sm); }
+.companion-close {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.companion-close:hover { background: var(--bg-hover); color: var(--text); }
+.companion-close:focus-visible { outline: var(--ring); outline-offset: var(--ring-offset); }
+.companion-close svg { width: var(--icon-size); height: var(--icon-size); }
+.companion-tools { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0 var(--space-3) var(--space-2); }
+.companion-tools button {
+  min-height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: var(--hairline) solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.companion-tools button:hover:not(:disabled) { background: var(--bg-hover); }
+.companion-tools button:disabled { opacity: 0.5; cursor: default; }
+.companion-tools button:focus-visible { outline: var(--ring); outline-offset: var(--ring-offset); }
+.companion-alert { margin: 0; padding: 0 var(--space-3) var(--space-2); color: var(--danger-text); font-size: var(--fs-sm); }
+.companion-chat { position: relative; flex: 1 1 auto; min-height: 0; container-type: size; }
+.companion-chat-root { position: absolute; inset: 0; }
+.companion-foot { margin: 0; padding: var(--space-1) var(--space-3) var(--space-2); color: var(--text-dim); font-size: var(--fs-xs); }
+
+@media (max-width: 640px) {
+  .companion-window { right: 8px !important; left: 8px; width: auto; }
+  .companion-tools button, .companion-close { min-height: var(--touch-target); }
+  .companion-close { width: var(--touch-target); }
+}

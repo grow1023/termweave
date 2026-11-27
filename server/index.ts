@@ -56,6 +56,7 @@ import {
   workspaceCreate,
   workspaceMove,
   workspaceRename, PANE_GONE_CODES } from "./herdr/client.ts";
+import { Companions, handleCompanionRequest } from "./companion.ts";
 import { type AlertTiming, createPushService, defaultStateDir, handlePushRequest } from "./push.ts";
 import { codexQuestionsCollapsed, handlePromptRequest } from "./prompt.ts";
 import { rememberWidth, secretPrompt, validSecret } from "../shared/secret-prompt.ts";
@@ -982,6 +983,25 @@ export function createServer(
     notify: (title, body, paneId, tag) => push.announce({ pane_id: paneId, title, body, tag }),
     paneLive: async (bot) => bot.paneId !== null && (await sessionSnapshot()).panes.some((pane) => pane.pane_id === bot.paneId),
   });
+  /** The project companion (server/companion.ts): a read-only session per project, apart from the bots */
+  const companions = new Companions({
+    stateDir: options.stateDir ?? defaultStateDir(),
+    env: async () => process.env,
+    panes: async () => {
+      const snapshot = await clientSnapshot();
+      // a terminal with no name of its own goes by its workspace's, as the header shows it
+      const workspaceLabel = new Map(snapshot.workspaces.map((workspace) => [workspace.workspace_id, workspace.label]));
+      return snapshot.panes.map((pane) => ({
+      pane_id: pane.pane_id, label: pane.label || workspaceLabel.get(pane.workspace_id) || null, cwd: pane.cwd, agent: pane.agent,
+      number: (pane as typeof pane & { global_pane_number?: number }).global_pane_number ?? null,
+      }));
+    },
+    readScreen: async (paneId, lines) => (await paneRead({ paneId, source: "recent", lines, stripAnsi: true })).text,
+    conversation: async (paneId) => (await paneConversation(paneId, options.codexHome)).turns,
+    note: async (paneId) => noteOfPane(paneNotes, (await sessionSnapshot()).panes, paneId).note.text,
+    // a companion's rows go out as a session bot's do, so the same chat screen follows them
+    changed: (id, epoch, rows, status) => broadcastAll({ type: "bot-chat", bot_id: id, epoch, rows, status }),
+  });
   const bots: BotRuntime = new BotRuntime({
     store: botStore,
     homeRoot: options.botHomeRoot ?? join(homedir(), ".termweave", "bots"),
@@ -1238,6 +1258,11 @@ export function createServer(
       }
       if (pathname === "/api/herdr/update") return handleHerdrUpdateRequest(request, options.herdrUpdate);
 
+      {
+        // the project companion: its own routes, and its chat under /api/bots/<companion id>/
+        const companion = await handleCompanionRequest(request, url, companions, readOnly);
+        if (companion) return companion;
+      }
       if (pathname === "/api/bots" || pathname.startsWith("/api/bots/")) { bunServer.timeout(request, 120); return handleBotsRequest(request, pathname, bots, botStore, readOnly, botSessions); }
       if (pathname === "/api/usage") return handleUsageRequest(request, url, usage);
       if (pathname === "/api/host-status") return handleHostStatusRequest(request, hostStatus);
@@ -2110,10 +2135,11 @@ export function createServer(
     port: server.port ?? 0,
     hostname,
     /** ends every bot session's Claude child; shutdown waits for it before the process exits */
-    closeBotSessions: () => botSessions.closeAll(),
+    closeBotSessions: async () => { await Promise.all([botSessions.closeAll(), companions.closeAll()]); },
     stop: () => {
       clearInterval(outputTimer);
       void botSessions.closeAll();
+      void companions.closeAll();
       android.dispose();
       terminalNotifications.close();
       mobileRelay.dispose();

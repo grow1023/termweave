@@ -15,6 +15,7 @@ export const SHORTCUTS = [
   { id: "next-pane", label: "Next pane", keys: ["Mod", "Shift", "ArrowDown"] },
   { id: "settings", label: "Settings", keys: ["Mod", "Shift", ","] },
   { id: "toggle-bionic", label: "Toggle bionic reading", keys: ["Mod", "Shift", "E"] },
+  { id: "companion", label: "Open or close the companion", keys: ["Mod", "Shift", "U"] },
   // listed only: held, not dispatched; VoiceInput.tsx listens for it itself (isVoiceShortcut)
   { id: "voice", label: "Dictate (hold)", keys: ["Mod", "Shift", "Space"] },
 ] as const;
@@ -42,6 +43,7 @@ const KEY_TO_ID: Readonly<Record<string, ShortcutId>> = {
   ArrowDown: "next-pane",
   ",": "settings",
   e: "toggle-bionic",
+  u: "companion",
 };
 
 export function shortcutKeys(id: ShortcutId, overrides: ShortcutOverrides): string[] {
@@ -157,6 +159,10 @@ export function useShortcuts(actions: AppActions, enabled: boolean): void {
           break;
         case "toggle-bionic":
           actions.toggleBionic();
+          break;
+        case "companion":
+          // Companion.tsx listens: it knows the viewed terminal
+          window.dispatchEvent(new Event("termweave:companion-toggle"));
           break;
       }
     };

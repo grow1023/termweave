@@ -40,6 +40,8 @@ export interface SessionHostDeps {
   ownerCodeMode?: (env: Readonly<Record<string, string | undefined>>) => boolean;
   clock?: TranslatorClock;
   limits?: Partial<HostLimits>;
+  /** more for a session's launch (its tools, settings files, readable folders, system prompt); a bot's host gives none */
+  launch?(bot: Bot): Partial<ClaudeLaunch>;
 }
 
 export type SendState = "accepted" | "queued";

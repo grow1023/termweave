@@ -46,6 +46,7 @@ import { FrontendControls } from "./components/FrontendControls.tsx";
 import { ZoomControls } from "./components/ZoomControls.tsx";
 import { NewBotDialog } from "./orca/bots/settings/NewBotDialog.tsx";
 import { showBotSettings } from "./orca/bots/BotSide.tsx";
+import { Companion } from "./components/Companion.tsx";
 import { SidebarResizer } from "./components/SidebarResizer.tsx";
 import { readSidebarWidth, storeSidebarWidth } from "./lib/sidebarWidth.ts";
 import { BotPage } from "./orca/bots/BotPage.tsx";
@@ -1047,6 +1048,12 @@ export function App() {
         }}
       /></MachineContext.Provider>
       {machineDialog && <MachineDialog updateRemote={updateRemote} machine={machineDialog === "new" ? undefined : machineDialog} onClose={(underway) => closeMachineDialog(!underway)} onConnected={(id) => { closeMachineDialog(false); selectTarget(id, null); void load(); }} />}
+      {/* the project companion: while a terminal of this PC is in view and this device may act; not over a
+          bot's own chat (it has its Home) and not for a watching device (the companion spends the owner's plan) */}
+      {selectedPaneId !== null && selectedMachineId === "local" && !botPage && !readOnly && locked === false
+        && !(botsView?.bots.some((bot) => bot.paneId === selectedPaneId) ?? false)
+        && <Companion paneId={selectedPaneId} connected={eventsLive}
+          focusTerminal={() => document.querySelector<HTMLElement>(`.dock-group[data-pane-id="${CSS.escape(selectedPaneId)}"] .xterm-helper-textarea, .dock-group[data-pane-id="${CSS.escape(selectedPaneId)}"] textarea`)?.focus({ preventScroll: true })} />}
       <Droplet onOpen={(machineId, paneId) => {
         // an ended pane's card outlives the pane: the refetch has dropped it, and selecting it attaches nothing
         if (!machinesRef.current.find((m) => m.id === machineId)?.snapshot?.panes.some((p) => p.pane_id === paneId)) return;

@@ -47,6 +47,12 @@ export interface ClaudeLaunch {
   codeMode?: boolean;
   model?: string | null;
   effort?: BotEffort | null;
+  /** the built-in tools the session has at all (absent: Claude Code's full set). A session that must not write or run names only read tools. */
+  tools?: string[];
+  /** which settings files load (absent: user, project and local). An empty list loads none, so no hook and no MCP server of the owner's runs. */
+  settingSources?: ("user" | "project" | "local")[];
+  /** folders besides `cwd` the session may read */
+  additionalDirectories?: string[];
 }
 
 export interface ClaudeHandlers {
@@ -150,7 +156,12 @@ export function buildQueryOptions(launch: ClaudeLaunch, hooks: { spawn: NonNulla
     pathToClaudeCodeExecutable: launch.binary,
     includePartialMessages: true,
     systemPrompt: { type: "preset", preset: "claude_code", ...(launch.appendSystemPrompt === "" ? {} : { append: launch.appendSystemPrompt }) },
-    settingSources: ["user", "project", "local"],
+    settingSources: launch.settingSources ?? ["user", "project", "local"],
+    ...(launch.tools ? { tools: launch.tools } : {}),
+    // a session with a fixed tool list also takes no MCP server from the owner's account or config: such a
+    // server can carry tools that write (measured 2026-11-28: a claude.ai connector added create and delete tools)
+    ...(launch.tools ? { strictMcpConfig: true, mcpServers: launch.mcpServers ?? {}, disallowedTools: ["mcp__*"] } : {}),
+    ...(launch.additionalDirectories ? { additionalDirectories: launch.additionalDirectories } : {}),
     // Code Mode is taken from the SDK's settings option only, not from the environment
     ...(launch.codeMode ? { settings: { env: { [CODE_MODE_ENV]: "1" } } } : {}),
     // no request_user_dialog: TermWeave renders none

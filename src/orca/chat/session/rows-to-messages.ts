@@ -2,6 +2,7 @@
 // the chat contract shaped after stablyai/orca (MIT, Copyright (c) 2026 Lovecast Inc.),
 // src/shared/native-chat/native-chat-types.ts. Pure: no React, no fetch. Unlike the pane adapter it
 // keeps what the journal knows: stable ids, the state of each tool call, and how each turn ended.
+import { stripCompanionContext } from "../../../../shared/companion.ts";
 import type { JournalApproval, JournalQuestion, JournalRow, JournalToolCall, JournalTurn } from "../../../../shared/bots/chat.ts";
 import type { Translate } from "../../../lib/i18n.ts";
 import { mcpIdentity, parseToolInput } from "../adapter/turns-to-messages.ts";
@@ -149,7 +150,8 @@ function addRow(drafts: Draft[], row: JournalRow, t: Translate, children: Readon
         // mail from TermWeave (a worker's report, a schedule) is not the owner's words: a notice row
         // labelled with the mail's own label, its text kept apart
         if (body.from?.kind === "termweave") return [...drafts, mailDraft(row, body.from.label, body.text)];
-        return [...drafts, textDraft(row, "user", body.text)];
+        // a companion's message carries a context block the server wrote: the owner sees their own words
+        return [...drafts, textDraft(row, "user", stripCompanionContext(body.text))];
       }
       if (body.role === "reasoning") return [...drafts, textDraft(row, "reasoning", body.text)];
       return appendAssistant(drafts, row, "text", [{ type: "text", text: body.text }]);

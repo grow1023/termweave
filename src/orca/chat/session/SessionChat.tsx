@@ -30,6 +30,10 @@ export interface SessionChatProps {
   readOnly: boolean;
   /** the server connection is up (the composer says so when it is not) */
   connected: boolean;
+  /** shown in an empty chat in place of the bot's own line (a chat that is not a bot's, such as the companion) */
+  emptyText?: string;
+  /** replaces the root's "fill the positioned parent" classes */
+  className?: string;
 }
 
 /**
@@ -63,13 +67,13 @@ function holdLine(hold: ChatHold, t: Translate): { text: string; error: boolean 
 }
 
 /** Orca's empty chat: the bot's picture and what to do first. */
-function SessionEmpty({ name, bot }: { name: string; bot: { id: string; avatar?: string | null } | null }) {
+function SessionEmpty({ name, bot, text }: { name: string; bot: { id: string; avatar?: string | null } | null; text?: string }) {
   const t = useT();
   return (
     <div className="relative min-h-[min(max(160px,40cqh),60cqh)] flex-1">
       <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-16 text-center">
         {bot ? <BotAvatar bot={bot} className="size-8 rounded-md" /> : null}
-        <p className="text-sm text-chat-foreground-faint">{t("Say what you want {name} to do.", { name })}</p>
+        <p className="text-sm text-chat-foreground-faint">{text ?? t("Say what you want {name} to do.", { name })}</p>
       </div>
     </div>
   );
@@ -95,7 +99,7 @@ function StatusLines({ connected, status, hold, stopError }: { connected: boolea
 }
 
 /** Fills its parent (`absolute inset-0` inside a positioned box, as OrcaChat does). */
-export function SessionChat({ botId, readOnly, connected }: SessionChatProps) {
+export function SessionChat({ botId, readOnly, connected, emptyText, className }: SessionChatProps) {
   const t = useT();
   const { settings } = useSettings();
   const scroll = useChatScrollBinding();
@@ -125,11 +129,11 @@ export function SessionChat({ botId, readOnly, connected }: SessionChatProps) {
     return send(text);
   }, [scroll, send]);
   return (
-    <ChatRoot historyId={session.feed.historyId} className="absolute inset-0 z-[1]">
+    <ChatRoot historyId={session.feed.historyId} className={className ?? "absolute inset-0 z-[1]"}>
       <ChatSlotsContext.Provider value={SLOTS}>
         <div data-orca-chat="" data-session-chat={botId} className="flex min-h-0 flex-1 flex-col">
           {shown.status === "empty"
-            ? <SessionEmpty name={name} bot={bot.context?.bot ?? null} />
+            ? <SessionEmpty name={name} bot={bot.context?.bot ?? null} text={emptyText} />
             : <ChatTranscript feed={shown} turn={turn} agentName="claude" timedRows={bot.timedRows} renderTimedRow={bot.renderTimedRow}
                 loadFullOutput={loadFullOutput} scroll={scroll} />}
           <StatusLines connected={connected} status={session.status} hold={session.hold} stopError={session.stopError} />
