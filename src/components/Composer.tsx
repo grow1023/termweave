@@ -40,6 +40,8 @@ import { MicButton, VoiceRecordingPill, useDictation } from "./VoiceInput.tsx";
 import { useT } from "../lib/i18n.ts";
 
 export interface ComposerProps {
+  /** false: no slash or @ lists (a chat with no pane routes, such as a session bot's) */
+  completions?: boolean;
   connected: boolean;
   paneId: string;
   /** false: appearing must not take the keyboard (App switched to this pane on its own) */
@@ -254,6 +256,7 @@ export function Composer({
   onAbort,
   onUploadImage,
   renderFrame,
+  completions = true,
 }: ComposerProps) {
   const t = useT();
   const machineId = useMachineId();
@@ -313,6 +316,7 @@ export function Composer({
     : answerHint ?? offered ?? t("Message {agent}…", { agent: agentLabel });
 
   useEffect(() => {
+    if (!completions) { setCommands([]); return; }
     let live = true;
     void cachedPaneCommands(paneId, machineId, fetchPaneCommands)
       .then((next) => {
@@ -324,11 +328,11 @@ export function Composer({
     return () => {
       live = false;
     };
-  }, [paneId]);
+  }, [paneId, completions]);
 
   useEffect(() => {
     const request = ++fileRequest.current;
-    if (trigger?.kind !== "file") {
+    if (!completions || trigger?.kind !== "file") {
       setFiles([]);
       return;
     }
@@ -342,7 +346,7 @@ export function Composer({
         });
     }, 150);
     return () => window.clearTimeout(timer);
-  }, [paneId, trigger?.kind, trigger?.query]);
+  }, [paneId, completions, trigger?.kind, trigger?.query]);
 
   useEffect(() => {
     setSelectedIndex(0);

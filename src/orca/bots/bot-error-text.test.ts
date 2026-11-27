@@ -12,6 +12,11 @@ describe("botErrorText", () => {
     expect(botErrorText(new BotApiError("already_answered", "item #3 was already answered"), t)).toBe("T:This was already answered.");
   });
 
+  test("a server with no session host says what the owner can do instead", () => {
+    expect(botErrorText(new BotApiError("sessions_unavailable", "chat sessions are not available on this server"), t))
+      .toBe("T:This server cannot run chat bots. Create the bot as a terminal bot, or start the app's server with chat sessions turned on.");
+  });
+
   test("a failed terminal action keeps the server's reason", () => {
     expect(botErrorText(new BotApiError("action_failed", "no terminal w1:p2"), t)).toBe("T:The terminal action failed: no terminal w1:p2");
   });

@@ -81,6 +81,7 @@ import { MachineRelay } from "./machine-relay.ts";
 import { sameOrigin } from "./machine-security.ts";
 import { handlePaneSplit } from "./pane-split.ts";
 import { handlePaneMove, handlePaneSwap } from "./pane-move.ts";
+import { PaneNoteStore, handlePaneNotesRequest, noteOfPane } from "./pane-notes.ts";
 import { TmuxRuntime } from "./tmux/runtime.ts";
 import { PaneNumbers } from "./pane-numbers.ts";
 import { handleTmuxRequest } from "./tmux/api.ts";
@@ -328,6 +329,7 @@ export function createServer(
   const tmux = options.tmux ?? new TmuxRuntime(join(options.stateDir ?? defaultStateDir(), "tmux"));
   const tmuxClients = new Set<TmuxTerminal>();
   const workspaceColors = new WorkspaceColors(options.stateDir ?? defaultStateDir());
+  const paneNotes = new PaneNoteStore(options.stateDir ?? defaultStateDir());
   const paneNumbers = new PaneNumbers(options.stateDir ?? defaultStateDir(), socketPath());
   /** whether this bridge can `terminal attach`: herdr is asked once, and the PTY sidecar has to be runnable here (server/pty/sidecar.ts) */
   /** whether the sidecar can run, settled as the server starts so that attach, /api/health and /api/bridge tell one answer; a forced answer (tests) stands in for it */
@@ -1098,7 +1100,8 @@ export function createServer(
       // the bot CLI carries its bot's own secret instead of the app's sign-in (server/bots/api.ts)
       if (pathname.startsWith("/api/bot-cli/")) {
         return handleBotCliRequest(request, pathname, ip !== null && isLoopbackAddress(ip.address), bots, botStore, async () =>
-          [...new Set((await sessionSnapshot()).panes.map((pane) => pane.cwd).filter((cwd): cwd is string => typeof cwd === "string" && existsSync(join(cwd, ".git"))))]);
+          [...new Set((await sessionSnapshot()).panes.map((pane) => pane.cwd).filter((cwd): cwd is string => typeof cwd === "string" && existsSync(join(cwd, ".git"))))],
+          async (paneId) => noteOfPane(paneNotes, (await sessionSnapshot()).panes, paneId));
       }
       if (requiresAuth(pathname) && !authenticated) {
         // The WS client never parses a body, so the upgrade refusal stays plain text.
@@ -1507,6 +1510,11 @@ export function createServer(
         const server_time = new Date().toISOString();
         if (session === null) return jsonResponse({ tasks: [], runs: [], server_time });
         return jsonResponse({ tasks: omoTasks(session.cwd, session.sessionId, processAlive), runs: omoRuns(session.cwd, session.sessionId), server_time });
+      }
+
+      if (pathname.startsWith("/api/pane/notes")) {
+        const notesResponse = await handlePaneNotesRequest(request, url, { store: paneNotes, panes: async () => (await sessionSnapshot()).panes, broadcast: broadcastAll, readOnly });
+        if (notesResponse) return notesResponse;
       }
 
       if (pathname === "/api/pane/read") {

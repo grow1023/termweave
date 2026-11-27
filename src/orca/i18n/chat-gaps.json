@@ -1,0 +1,10 @@
+{
+  "TermWeave message": { "ko": "TermWeave 메시지", "ja": "TermWeave のメッセージ", "zh": "TermWeave 消息" },
+  "1 step": { "ko": "단계 1개", "ja": "1 ステップ", "zh": "1 步" },
+  "{count} steps": { "ko": "단계 {count}개", "ja": "{count} ステップ", "zh": "{count} 步" },
+  "This server cannot run chat bots. Create the bot as a terminal bot, or start the app's server with chat sessions turned on.": {
+    "ko": "이 서버에서는 채팅 봇을 실행할 수 없습니다. 봇을 터미널 봇으로 만들거나, 채팅 세션을 켠 상태로 앱 서버를 시작하세요.",
+    "ja": "このサーバーではチャットボットを実行できません。ボットをターミナルボットとして作成するか、チャットセッションを有効にしてアプリのサーバーを起動してください。",
+    "zh": "此服务器无法运行聊天机器人。请将机器人创建为终端机器人，或在启用聊天会话的情况下启动应用服务器。"
+  }
+}

@@ -12,7 +12,8 @@ export type ComposerPrimary =
   | { kind: "stop"; disabled: boolean; onStop: () => void };
 
 export interface ComposerActionsProps {
-  attach: { disabled: boolean; onAttach: () => void };
+  /** null: no attach control at all (a chat that takes no files). */
+  attach: { disabled: boolean; onAttach: () => void } | null;
   /** TermWeave's `MicButton`, mounted as it is (its press and release logic stays in VoiceInput.tsx). */
   voice?: ReactNode;
   /** `ContextRing`, `ModelChip`: read-only readouts left of the primary action. */
@@ -133,9 +134,11 @@ export function StopButton({ disabled, onStop, label }: { disabled: boolean; onS
 export function ComposerActions({ attach, voice, readouts, queue, primary, stop, labels }: ComposerActionsProps) {
   return (
     <div className="group/toolbar flex w-full items-center justify-between gap-2 text-chat-foreground-faint">
-      <div className="flex shrink-0 items-center gap-0.5">
-        <AttachButton disabled={attach.disabled} onAttach={attach.onAttach} />
-      </div>
+      {attach ? (
+        <div className="flex shrink-0 items-center gap-0.5">
+          <AttachButton disabled={attach.disabled} onAttach={attach.onAttach} />
+        </div>
+      ) : null}
       <div className="ml-auto flex min-w-0 items-center gap-1.5">
         {readouts}
         {voice ? <div className="inline-flex w-max shrink-0">{voice}</div> : null}

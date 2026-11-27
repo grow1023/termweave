@@ -30,6 +30,8 @@ export interface Bot {
   claudeSessionId?: string | null;
   /** a session bot's tool permissions; absent is ask */
   permissionMode?: BotPermissionMode;
+  /** a session bot whose Claude conversation began in Claude Code's Code Mode: its session must start in that mode to resume it */
+  codeMode?: boolean;
 }
 
 export type BotRuntimeKind = "pane" | "session";

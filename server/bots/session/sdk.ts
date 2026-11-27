@@ -5,7 +5,7 @@
  * Nothing here prints an environment value.
  */
 import { spawn as nodeSpawn, type ChildProcess, type SpawnOptions as NodeSpawnOptions } from "node:child_process";
-import { accessSync, constants, realpathSync, statSync } from "node:fs";
+import { accessSync, constants, readFileSync, realpathSync, statSync } from "node:fs";
 import { delimiter, isAbsolute, join } from "node:path";
 
 import type { SpawnedProcess, SpawnOptions } from "@anthropic-ai/claude-agent-sdk";
@@ -63,6 +63,34 @@ const AUTH_HEADER = /(^|\n)\s*(authorization|x-api-key|proxy-authorization)\s*:/
 const LOOPBACK = ["127.0.0.1", "localhost", "::1"];
 
 export const CLAUDE_ENTRYPOINT = "termweave";
+/** Claude Code offers Code Mode to Agent SDK apps only: a session that must run in it names itself as one. */
+export const CLAUDE_SDK_ENTRYPOINT = "sdk-ts";
+export const CODE_MODE_ENV = "CLAUDE_CODE_EXPERIMENTAL_CODE_MODE";
+
+const on = (value: unknown): boolean => value === "1" || value === "true" || value === 1 || value === true;
+
+/**
+ * True when the owner's Claude Code starts in Code Mode: the variable is in the environment or in the
+ * `env` block of the user settings. A conversation begun in that mode resumes only in that mode, so a
+ * bot switched from a terminal to a chat session must start the same way (measured 2026-11-27: the
+ * resume failed with "started in Code Mode"). Reads one key; an unreadable file reads as off.
+ */
+export function ownerCodeMode(base: Readonly<Record<string, string | undefined>>, read: (path: string) => string = (path) => readFileSync(path, "utf8")): boolean {
+  if (on(base[CODE_MODE_ENV])) return true;
+  const dir = base["CLAUDE_CONFIG_DIR"] ?? (base["HOME"] ? join(base["HOME"], ".claude") : null);
+  if (dir === null) return false;
+  try {
+    const settings = JSON.parse(read(join(dir, "settings.json"))) as { env?: Record<string, unknown> } | null;
+    return on(settings?.env?.[CODE_MODE_ENV]);
+  } catch {
+    return false;
+  }
+}
+
+/** Claude's own words when a resume is refused for the mode the conversation began in. */
+export function codeModeResumeRefusal(text: string): boolean {
+  return /Failed to resume session/i.test(text) && /Code Mode/i.test(text);
+}
 
 function stripped(name: string, value: string): boolean {
   if (PARENT_STAMPS.includes(name) || AMBIENT_AUTH.includes(name) || name.startsWith("CODEX_")) return true;
@@ -79,7 +107,7 @@ function withLoopbackNoProxy(current: string | undefined): string {
  * The child's environment: `base` without parent stamps and ambient auth, plus the session-state
  * frames the translator needs and TermWeave's entrypoint. `configDir` pins a non-default account only.
  */
-export function buildClaudeEnv(input: { base: Readonly<Record<string, string | undefined>>; configDir?: string | null }): Record<string, string> {
+export function buildClaudeEnv(input: { base: Readonly<Record<string, string | undefined>>; configDir?: string | null; codeMode?: boolean }): Record<string, string> {
   const kept = Object.entries(input.base).filter((entry): entry is [string, string] => entry[1] !== undefined && !stripped(entry[0], entry[1]));
   const env = Object.fromEntries(kept);
   const noProxy = withLoopbackNoProxy(env["NO_PROXY"] ?? env["no_proxy"]);
@@ -90,7 +118,7 @@ export function buildClaudeEnv(input: { base: Readonly<Record<string, string | u
     ...(input.configDir ? { CLAUDE_CONFIG_DIR: input.configDir } : {}),
     // the turn translator relies on Claude's own idle frame when no result arrives
     CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS: "1",
-    CLAUDE_CODE_ENTRYPOINT: CLAUDE_ENTRYPOINT,
+    CLAUDE_CODE_ENTRYPOINT: input.codeMode ? CLAUDE_SDK_ENTRYPOINT : CLAUDE_ENTRYPOINT,
   };
 }
 

@@ -30,6 +30,7 @@ export function botErrorText(failure: unknown, t: Translate): string {
     case "note_too_long": return t("The text is too long (40,000 characters at most).");
     case "action_failed": return t("The terminal action failed: {why}", { why: message });
     case "read_only": return t("This device can only watch.");
+    case "sessions_unavailable": return t("This server cannot run chat bots. Create the bot as a terminal bot, or start the app's server with chat sessions turned on.");
     default: return message;
   }
 }

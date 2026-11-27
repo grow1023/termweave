@@ -424,6 +424,8 @@ export function App() {
       // a color change leaves the snapshot equal: the sidebar re-reads colors on this
       if (message.type === "session-changed") window.dispatchEvent(new Event("termweave:session-changed"));
       if (message.type === "bots-changed") window.dispatchEvent(new Event("termweave:bots-changed"));
+      // a terminal's note changed (src/lib/paneNotes.ts reads the summary and fetches a newer note)
+      if (message.type === "pane-notes") window.dispatchEvent(new CustomEvent("termweave:pane-notes", { detail: message }));
       // a session bot's new chat rows (src/orca/chat/session reads them); the bots are this app's own PC's
       if (message.type === "bot-chat" && machine.kind === "local") window.dispatchEvent(new CustomEvent("termweave:bot-chat", { detail: message }));
     };

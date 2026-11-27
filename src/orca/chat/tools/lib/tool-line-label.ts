@@ -120,6 +120,9 @@ export function nativeChatToolLineLabel(
   } else if (category === 'subAgentActivity') {
     verb = 'subagent'
     target = nativeChatToolInputText(call.input, 'description') ?? target
+    // TermWeave: a session bot's journal counts the calls a sub-agent made into the summary (" · 4 steps")
+    const steps = call.summary?.startsWith(`${target} · `) ? call.summary.slice(target.length) : ''
+    target = `${target}${steps}`
     title = target
   } else if (category === 'search') {
     verb = phaseVerb(phase, { running: 'searching', completed: 'searched', failed: 'triedSearch' })

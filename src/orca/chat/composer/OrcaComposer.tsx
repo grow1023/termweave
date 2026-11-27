@@ -16,10 +16,18 @@ import "./orca-composer.css";
  * Decision: the frame's own element carries TermWeave's `.composer` class, once, so the bottom
  * safe-area inset, the `[data-keyboard]` rule and `.terminal-host:has(.composer)` still apply.
  */
-export function OrcaComposer(props: Omit<ComposerProps, "renderFrame">) {
+export interface OrcaComposerProps extends Omit<ComposerProps, "renderFrame"> {
+  /**
+   * false: no attach button and no file input (a chat with no upload route, such as a session bot's).
+   * A pasted or dropped file still goes to `onUploadImage`, which refuses it with its own message.
+   */
+  attach?: boolean;
+}
+
+export function OrcaComposer({ attach = true, ...props }: OrcaComposerProps) {
   return (
     <div className="orca-composer contents" data-orca-composer="">
-      <Composer {...props} renderFrame={(parts) => <OrcaComposerFrame parts={parts} />} />
+      <Composer {...props} renderFrame={(parts) => <OrcaComposerFrame parts={parts} attach={attach} />} />
     </div>
   );
 }
@@ -75,7 +83,7 @@ function Notices({ parts }: { parts: ComposerFrameParts }) {
   );
 }
 
-function OrcaComposerFrame({ parts }: { parts: ComposerFrameParts }) {
+function OrcaComposerFrame({ parts, attach }: { parts: ComposerFrameParts; attach: boolean }) {
   const t = useT();
   const context = parts.metadata?.context;
   const readouts = (
@@ -90,7 +98,7 @@ function OrcaComposerFrame({ parts }: { parts: ComposerFrameParts }) {
       {/* lib/frontendReloadSafety.ts asks before a reload while this class is on the page */}
       {parts.attachments.length > 0 ? <span className="composer-attachments" style={{ display: "none" }} /> : null}
       {parts.resizeGrip}
-      {parts.fileInput}
+      {attach ? parts.fileInput : null}
       {parts.menuState.open ? (
         <CommandMenu id={parts.menuState.id} label={parts.menuState.label} groups={parts.menuState.groups}
           selectedIndex={parts.menuState.selectedIndex} onChoose={parts.menuState.choose} />
@@ -115,7 +123,7 @@ function OrcaComposerFrame({ parts }: { parts: ComposerFrameParts }) {
       onDrop={parts.onDrop}
       actions={
         <ComposerActions
-          attach={{ disabled: !parts.connected || parts.uploading, onAttach: parts.openFilePicker }}
+          attach={attach ? { disabled: !parts.connected || parts.uploading, onAttach: parts.openFilePicker } : null}
           voice={parts.dictation.shown ? parts.dictation.micButton : undefined}
           readouts={readouts}
           labels={parts.labels}

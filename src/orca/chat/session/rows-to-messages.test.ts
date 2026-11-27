@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import type { JournalBody, JournalRow } from "../../../../shared/bots/chat.ts";
 import type { Translate } from "../../../lib/i18n.ts";
+import type { NativeChatTextBlock } from "../shared/index.ts";
+import { noticeLabel } from "../transcript/notice-label.ts";
 import { currentHold, pendingPromptRows, rowsToMessages } from "./rows-to-messages.ts";
 
 /** English with the placeholders filled, as the app's `t` does for a missing key. */
@@ -72,7 +74,29 @@ describe("rowsToMessages", () => {
   test("mail from TermWeave is a notice, not the owner's bubble", () => {
     const mail = row("user:m1", { kind: "message", role: "user", text: "worker 2 finished", from: { kind: "termweave", label: "Worker report" } });
     const [message] = rowsToMessages([mail], t);
-    expect(message).toMatchObject({ role: "system", blocks: [{ type: "text", text: "Worker report: worker 2 finished", presentation: "notice" }] });
+    expect(message).toMatchObject({ role: "system", blocks: [{ type: "text", text: "worker 2 finished", presentation: "notice", noticeLabel: "Worker report" }] });
+  });
+
+  test("mail's label and text stay apart; mail with no label gets the neutral label", () => {
+    const mail = (id: string, label: string | null) => row(`user:${id}`, { kind: "message", role: "user", text: "schedule fired", from: { kind: "termweave", label } });
+    const [labelled, bare] = rowsToMessages([mail("m1", "Schedule"), mail("m2", null)], t);
+    const first = labelled!.blocks[0] as NativeChatTextBlock;
+    const second = bare!.blocks[0] as NativeChatTextBlock;
+    expect([noticeLabel(first, t), first.text]).toEqual(["Schedule", "schedule fired"]);
+    expect([noticeLabel(second, t), second.text]).toEqual(["TermWeave message", "schedule fired"]);
+  });
+
+  test("a pane notice keeps its own label", () => {
+    expect(noticeLabel({ type: "text", text: "done", presentation: "notice" }, t)).toBe("Background result delivered");
+  });
+
+  test("a Task call counts the calls its sub-agent made; one with none has no suffix", () => {
+    const task = (id: string) => tool(id, "completed", { name: "Task", summary: "Explore the repo" });
+    const messages = rowsToMessages([
+      task("task1"), tool("c1", "completed", { parentCallId: "call-task1" }), tool("c2", "completed", { parentCallId: "call-task1" }), task("task2"),
+    ], t);
+    const calls = messages.flatMap((m) => m.blocks).filter((b) => b.type === "tool-call");
+    expect(calls.map((b) => [b.callId, b.summary])).toEqual([["call-task1", "Explore the repo · 2 steps"], ["call-task2", "Explore the repo"]]);
   });
 
   test("an interrupted turn leaves an interruption line after its last row", () => {

@@ -80,6 +80,8 @@ export function DockGroup({ node, panes, busy, zoomed, groupIds, activate, drop,
       <span className={`dock-strip-end${preview?.index === node.tabs.length ? " dock-insert-end" : ""}`} aria-hidden="true" />
       </div>
       <div className="dock-tab-actions">
+      {/* the active terminal's note button (PaneNotes.tsx) comes here, clear of the terminal's first line */}
+      <span className="dock-notes-slot" data-pane-notes-slot="" />
       {viewControls}
       <button type="button" className="dock-add" disabled={busy || !canAdd} aria-label={t("New terminal tab")} title={t("New terminal tab")} onClick={add}><Plus size={16} aria-hidden="true" />{t("Add terminal")}</button>
       {/* the gear between "+" and the trash: terminating sat 3px from "new terminal" */}

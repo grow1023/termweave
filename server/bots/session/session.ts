@@ -15,7 +15,7 @@ import type { BotJournal } from "./journal.ts";
 import { busy, clearIdle, liveStatus, newLive, type Live } from "./live.ts";
 import { sdkPermissionMode, type BotPermissionMode, type PermissionRequest, type PermissionResult } from "./permission.ts";
 import { answerPrompt, holdPrompt } from "./prompting.ts";
-import { buildClaudeEnv, resolveClaudeBinary } from "./sdk.ts";
+import { buildClaudeEnv, codeModeResumeRefusal, ownerCodeMode, resolveClaudeBinary } from "./sdk.ts";
 import { createTranslator, type LiveState, type SessionFacts, type TranslatorClock } from "./translate.ts";
 
 export { HOST_LIMITS, type ChatPage, type HostLimits, type OpenConnection, type SendState, type SessionHostDeps } from "./host-types.ts";
@@ -169,7 +169,9 @@ export class BotSessionHost {
     live.generation = generation;
     try {
       this.prepare(bot);
-      const env = buildClaudeEnv({ base: await this.deps.env() });
+      const base = await this.deps.env();
+      const codeMode = bot.codeMode === true || (this.deps.ownerCodeMode ?? ownerCodeMode)(base);
+      const env = buildClaudeEnv({ base, codeMode });
       const binary = (this.deps.resolveBinary ?? resolveClaudeBinary)(env);
       const resume = typeof bot.claudeSessionId === "string" && bot.claudeSessionId !== "";
       live.translator = createTranslator(live.sessionId, this.deps.journal, (rows) => this.emitted(live, rows), {
@@ -178,7 +180,7 @@ export class BotSessionHost {
         onError: (error) => console.error(`bot session: a frame was not translated: ${error instanceof Error ? error.name : "error"}`),
       });
       const conn = await this.open(
-        { cwd: bot.home, env, binary, sessionId: resume ? bot.claudeSessionId! : randomUUID(), resume, appendSystemPrompt: "", permissionMode: bot.permissionMode ?? "ask" },
+        { cwd: bot.home, env, binary, sessionId: resume ? bot.claudeSessionId! : randomUUID(), resume, appendSystemPrompt: "", permissionMode: bot.permissionMode ?? "ask", ...(codeMode ? { codeMode } : {}) },
         {
           onFrame: (frame) => this.frame(live, generation, frame),
           onPermission: (request) => this.permission(live, generation, request),
@@ -289,6 +291,10 @@ export class BotSessionHost {
   private frame(live: Live, generation: number, frame: Record<string, unknown>): void {
     const translator = live.translator;
     if (generation !== live.generation || translator === null) return;
+    // a resume refused for its mode: the next start (the owner's next message) runs in that mode
+    if (frame["type"] === "result" && codeModeResumeRefusal(resultText(frame)) && this.deps.store.bot(live.botId)?.codeMode !== true) {
+      this.deps.store.updateBot(live.botId, { codeMode: true });
+    }
     const before = translator.currentTurnId;
     const wasIdle = translator.liveState === "idle";
     translator.frame(frame, this.clock.now());
@@ -390,4 +396,10 @@ export class BotSessionHost {
       if (live.conn !== null && !busy(live)) void this.close(live.botId);
     }, this.limits.idleMs);
   }
+}
+
+/** A result frame's error text: `result`, or its `errors` joined. */
+function resultText(frame: Record<string, unknown>): string {
+  if (typeof frame["result"] === "string") return frame["result"];
+  return Array.isArray(frame["errors"]) ? frame["errors"].map(String).join("\n") : "";
 }

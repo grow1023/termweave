@@ -3,6 +3,10 @@
 TermWeave(herdr web ui 포크)의 변경 기록입니다. 원본 프로젝트의 기록은 `CHANGELOG.md`에 있습니다.
 이 파일에는 실제 동작이나 게이트로 확인된 완료 항목만 적습니다. 일부만 끝난 항목은 "남은 일"에 따로 적습니다.
 
+## [0.3.63] - 2026-11-27
+
+- feat: a note for each terminal that its agent and the bots can read, and four fixes found by live runs
+
 ## [0.3.62] - 2026-11-27
 
 - feat(bots): a new Claude bot runs as a chat session with its own page, and nine approved card and row changes

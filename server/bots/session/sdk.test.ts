@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 
 import { BotError } from "../runtime.ts";
-import { buildClaudeEnv, CLAUDE_ENTRYPOINT, createClaudeSpawner, resolveClaudeBinary } from "./sdk.ts";
+import { buildClaudeEnv, CLAUDE_ENTRYPOINT, CLAUDE_SDK_ENTRYPOINT, codeModeResumeRefusal, createClaudeSpawner, ownerCodeMode, resolveClaudeBinary } from "./sdk.ts";
 import { allowForSession, allowOnce, denyResult, permissionModeOptions, sdkPermissionMode, type PermissionRequest } from "./permission.ts";
 
 let roots: string[] = [];
@@ -46,6 +46,35 @@ describe("resolveClaudeBinary", () => {
     expect((caught as BotError).code).toBe("claude_not_found");
     expect((caught as BotError).message).not.toContain("secret-folder-name");
     expect(() => resolveClaudeBinary({})).toThrow(BotError);
+  });
+});
+
+describe("Code Mode", () => {
+  const settings = (env: Record<string, unknown>) => () => JSON.stringify({ env });
+  test("on when the environment or the user settings turn it on", () => {
+    expect(ownerCodeMode({ CLAUDE_CODE_EXPERIMENTAL_CODE_MODE: "1" }, () => { throw new Error("not read"); })).toBe(true);
+    expect(ownerCodeMode({ HOME: "/srv/owner" }, settings({ CLAUDE_CODE_EXPERIMENTAL_CODE_MODE: "1" }))).toBe(true);
+    expect(ownerCodeMode({ HOME: "/srv/owner" }, settings({ CLAUDE_CODE_EXPERIMENTAL_CODE_MODE: true }))).toBe(true);
+  });
+  test("off without it, without a home, and when the settings cannot be read", () => {
+    expect(ownerCodeMode({ HOME: "/srv/owner" }, settings({}))).toBe(false);
+    expect(ownerCodeMode({ HOME: "/srv/owner" }, settings({ CLAUDE_CODE_EXPERIMENTAL_CODE_MODE: "0" }))).toBe(false);
+    expect(ownerCodeMode({}, settings({ CLAUDE_CODE_EXPERIMENTAL_CODE_MODE: "1" }))).toBe(false);
+    expect(ownerCodeMode({ HOME: "/srv/owner" }, () => { throw new Error("no file"); })).toBe(false);
+    expect(ownerCodeMode({ HOME: "/srv/owner" }, () => "not json")).toBe(false);
+  });
+  test("the settings are read from the account's config folder when one is set", () => {
+    let asked = "";
+    ownerCodeMode({ HOME: "/srv/owner", CLAUDE_CONFIG_DIR: "/srv/acct" }, (path) => { asked = path; return "{}"; });
+    expect(asked).toBe("/srv/acct/settings.json");
+  });
+  test("a session in Code Mode names itself an Agent SDK app; any other keeps TermWeave's name", () => {
+    expect(buildClaudeEnv({ base: {}, codeMode: true })["CLAUDE_CODE_ENTRYPOINT"]).toBe(CLAUDE_SDK_ENTRYPOINT);
+    expect(buildClaudeEnv({ base: {} })["CLAUDE_CODE_ENTRYPOINT"]).toBe(CLAUDE_ENTRYPOINT);
+  });
+  test("knows Claude's refusal to resume a Code Mode conversation", () => {
+    expect(codeModeResumeRefusal("Failed to resume session: This session was started in Code Mode (experimental), which is off in this run")).toBe(true);
+    expect(codeModeResumeRefusal("Failed to resume session: no conversation found")).toBe(false);
   });
 });
 

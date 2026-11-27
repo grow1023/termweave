@@ -1,6 +1,0 @@
-/* A session bot takes text only: no route uploads an image for it, so the composer's attach button
-   (the first group of ComposerActions' toolbar) is hidden rather than left to fail. Stopgap until
-   OrcaComposer can be told not to draw it. */
-.session-chat-composer .group\/toolbar > div:first-child {
-  display: none;
-}

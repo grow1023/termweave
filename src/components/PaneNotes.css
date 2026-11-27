@@ -1,0 +1,363 @@
+/* Pane notes (src/components/PaneNotes.tsx): a note per terminal that folds and unfolds.
+   Every part floats over .terminal-surface (position: relative) or the viewport: nothing
+   here sits in the flex column, so opening or folding never refits the xterm grid. No
+   transition: the panel appears and goes in one step. */
+
+/* top left: the terminal's banners (View only, Reconnecting…) hold the top right */
+.pane-notes-anchor {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-3);
+  z-index: var(--z-banner);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: min(420px, calc(100% - 2 * var(--space-3)));
+  max-height: calc(100% - 2 * var(--space-2));
+  pointer-events: none;
+}
+
+.pane-notes-anchor > * { pointer-events: auto; }
+
+.pane-notes-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  min-height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: var(--hairline) solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+}
+
+.pane-notes-toggle:hover { background: var(--bg-hover); }
+.pane-notes-toggle:focus-visible { outline: var(--ring); outline-offset: var(--ring-offset); }
+.pane-notes-toggle[aria-expanded="true"] { background: var(--accent-tint); border-color: var(--accent); }
+.pane-notes-toggle svg { flex: none; width: var(--icon-size); height: var(--icon-size); }
+
+.pane-notes-count {
+  flex: none;
+  min-width: var(--chip-h);
+  height: var(--chip-h);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--primary-tint);
+  color: var(--text-strong);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--chip-h);
+  text-align: center;
+}
+
+/* the folded line: the first open task, one line, cut with an ellipsis */
+.pane-notes-next {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pane-notes-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+  width: min(420px, calc(100vw - 2 * var(--space-4)));
+  max-width: 100%;
+  max-height: min(70vh, 560px);
+  border: var(--hairline) solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  color: var(--text);
+  box-shadow: var(--shadow-pop);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.pane-notes-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+}
+
+.pane-notes-heading h2 {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  text-wrap: balance;
+}
+
+.pane-notes-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+.pane-notes-empty {
+  margin: var(--space-2) 0;
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+  text-wrap: pretty;
+}
+
+.pane-notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pane-notes-text {
+  margin: var(--space-1) 0;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+  white-space: pre-wrap;
+  text-wrap: pretty;
+}
+
+.pane-notes-text.is-heading {
+  margin-top: var(--space-3);
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold);
+}
+
+.pane-notes-task {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+}
+
+.pane-notes-task:hover { background: var(--bg-hover); }
+
+.pane-notes-task label {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: var(--control-h);
+  padding-top: var(--space-1);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+  cursor: pointer;
+}
+
+.pane-notes-task input[type="checkbox"] {
+  flex: none;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  margin: 2px 0 0;
+  accent-color: var(--primary);
+}
+
+.pane-notes-task-mark {
+  flex: none;
+  display: inline-flex;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  margin-top: 2px;
+  color: var(--text-dim);
+}
+
+.pane-notes-task-mark svg { width: 100%; height: 100%; }
+
+.pane-notes-task-text { min-width: 0; }
+.pane-notes-task.is-done .pane-notes-task-text { color: var(--text-dim); text-decoration: line-through; }
+
+.pane-notes-task-readonly {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-top: var(--space-1);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+}
+
+.pane-notes-put {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.pane-notes-put:hover { background: var(--bg-elevated); color: var(--text); }
+
+/* agent lines: a muted tint and the author label, never a stripe */
+.pane-notes-agent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--status-working-tint);
+  color: var(--text-dim);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+}
+
+.pane-notes-author {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-weight: var(--fw-semibold);
+}
+
+.pane-notes-agent time { font-variant-numeric: tabular-nums; }
+.pane-notes-agent-text { flex: 1 1 100%; color: var(--text); white-space: pre-wrap; }
+
+.pane-notes-editor { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.pane-notes-editor textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 180px;
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+  resize: vertical;
+}
+
+.pane-notes-editor textarea:focus-visible { outline: var(--ring); outline-offset: 0; }
+
+.pane-notes-meta {
+  color: var(--text-dim);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.pane-notes-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) var(--space-3);
+}
+
+.pane-notes-actions button,
+.pane-notes-heading button,
+.pane-notes-conflict button {
+  min-height: var(--control-h);
+  white-space: normal;
+}
+
+.pane-notes-alert,
+.pane-notes-conflict {
+  margin: var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--danger-tint);
+  color: var(--text-strong);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+}
+
+.pane-notes-conflict p { margin: 0 0 var(--space-2); }
+.pane-notes-conflict .pane-notes-actions { padding: 0; justify-content: flex-start; }
+
+.pane-notes-conflict pre {
+  max-height: 160px;
+  margin: var(--space-2) 0 0;
+  overflow: auto;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  white-space: pre-wrap;
+}
+
+.pane-notes-status {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border: var(--hairline) solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  box-shadow: var(--shadow-card);
+}
+
+/* a phone: the panel is a sheet from the bottom of the screen, over a scrim; both are portaled
+   to the body, so no positioned ancestor pins or clips them */
+.pane-notes-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-scrim);
+  background: var(--scrim);
+}
+
+@media (max-width: 640px) {
+  .pane-notes-anchor { max-width: calc(100% - 2 * var(--space-2)); left: var(--space-2); }
+  .pane-notes-toggle { min-height: var(--touch-target); }
+
+  .pane-notes-panel {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: var(--z-drawer);
+    width: auto;
+    max-height: 80vh;
+    max-height: 80dvh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .pane-notes-heading button,
+  .pane-notes-actions button,
+  .pane-notes-conflict button,
+  .pane-notes-put { min-height: var(--touch-target); min-width: var(--touch-target); }
+  .pane-notes-task label { min-height: var(--touch-target); }
+  .pane-notes-editor textarea { font-size: var(--fs-input); }
+}
+
+@media (pointer: coarse) {
+  .pane-notes-toggle,
+  .pane-notes-put,
+  .pane-notes-heading button,
+  .pane-notes-actions button { min-height: var(--touch-target); }
+}
+
+/* in the tab row (DockGroup's slot): the row's own height, no shadow, and a shorter folded line */
+.dock-notes-slot { display: contents; }
+.dock-notes-slot .pane-notes-toggle { box-shadow: none; max-width: min(260px, 32vw); }
+@media (max-width: 640px) {
+  .dock-notes-slot .pane-notes-next { display: none; }
+}

@@ -19,7 +19,7 @@ const USAGE = `tw-bot <command>
   item done <n> | item cancel <n> --reason "..."
   automation create --name "..." --cron "<min hour day month weekday>" --prompt "..." [--timezone <zone>] [--once]
   automation list | automation remove <id>
-  pane list | pane read <id> [--lines <n>]
+  pane list | pane read <id> [--lines <n>] | pane notes <id>
   pane send <id> (--text "..." | --text-file <file>) | pane keys <id> <key>... | pane close <id>
   workspace open --cwd <path> [--agent claude|codex] [--label "..."] [--prompt "..." | --prompt-file <file>]`;
 
@@ -89,6 +89,7 @@ async function main(argv: string[]): Promise<void> {
     case "automation remove": return run("automation-remove", { id: target });
     case "pane list": return run("pane-list");
     case "pane read": return run("pane-read", { id: target, lines: Number(one(flags, "lines") ?? 80) });
+    case "pane notes": return run("pane-notes", { id: target });
     case "pane send": return run("pane-send", { id: target, text: text(flags, "text") ?? "" });
     case "pane keys": return run("pane-keys", { id: target, keys: words.slice(3) });
     case "pane close": return run("pane-close", { id: target });

@@ -7,6 +7,7 @@ import { cn } from "../../cn.ts";
 import { useT } from "../../../lib/i18n.ts";
 import { disclosureKey, Expandable, isTextBlock, useChatSlots, useDisclosure } from "../shared/index.ts";
 import type { NativeChatMessage } from "../shared/index.ts";
+import { noticeLabel } from "./notice-label.ts";
 
 const LINE_CLASS = "min-w-0 max-w-full select-text text-sm text-chat-foreground-faint [overflow-wrap:anywhere]";
 
@@ -65,7 +66,7 @@ export function NoticeRow({ message }: { message: NativeChatMessage }) {
       );
     case "notice":
       return (
-        <DividerDisclosure id={message.id} label={t("Background result delivered")}>
+        <DividerDisclosure id={message.id} label={noticeLabel(block, t)}>
           {/* Why: command output is laid out in columns; proportional type breaks its grid. */}
           <pre className="whitespace-pre-wrap break-words pb-2 font-mono text-xs text-chat-foreground">{block.text}</pre>
         </DividerDisclosure>

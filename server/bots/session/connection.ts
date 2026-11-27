@@ -10,7 +10,7 @@ import type { UUID } from "node:crypto";
 import type { CanUseTool, McpServerConfig, Options, PermissionMode, SDKControlInterruptResponse, SDKMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { BotError } from "../runtime.ts";
 import { NO_ANSWER_MESSAGE, denyResult, permissionModeOptions, toPermissionRequest, type BotPermissionMode, type PermissionRequest, type PermissionResult, type SessionPermissionMode } from "./permission.ts";
-import { createClaudeSpawner, killProcessGroup, loadClaudeAgentSdk, type ChildExit, type ClaudeChild, type SpawnDeps } from "./sdk.ts";
+import { CODE_MODE_ENV, createClaudeSpawner, killProcessGroup, loadClaudeAgentSdk, type ChildExit, type ClaudeChild, type SpawnDeps } from "./sdk.ts";
 
 export interface ClaudeConnection {
   /** Claude's session id: the one given, for a new session and a resume alike */
@@ -35,6 +35,8 @@ export interface ClaudeLaunch {
   appendSystemPrompt: string;
   permissionMode: BotPermissionMode;
   mcpServers?: Record<string, McpServerConfig>;
+  /** start in Claude Code's Code Mode (sdk.ts ownerCodeMode) */
+  codeMode?: boolean;
 }
 
 export interface ClaudeHandlers {
@@ -136,6 +138,8 @@ export function buildQueryOptions(launch: ClaudeLaunch, hooks: { spawn: NonNulla
     includePartialMessages: true,
     systemPrompt: { type: "preset", preset: "claude_code", ...(launch.appendSystemPrompt === "" ? {} : { append: launch.appendSystemPrompt }) },
     settingSources: ["user", "project", "local"],
+    // Code Mode is taken from the SDK's settings option only, not from the environment
+    ...(launch.codeMode ? { settings: { env: { [CODE_MODE_ENV]: "1" } } } : {}),
     // no request_user_dialog: TermWeave renders none
     supportedDialogKinds: [],
     // Claude echoes each user message when it takes it: the host learns a queued message started

@@ -20,7 +20,6 @@ import type { ChatHold } from "./rows-to-messages.ts";
 import { SessionPromptSlot } from "./SessionPromptSlot.tsx";
 import { SessionQueue } from "./SessionQueue.tsx";
 import { useSessionFeed } from "./use-session-feed.ts";
-import "./session-chat.css";
 
 const SLOTS: ChatSlots = { Markdown: ChatMarkdown, Images: ChatImages, ToolRun };
 const LINE_CLASS = "mx-auto w-full max-w-(--chat-content-max-width) shrink-0 px-4 py-1 text-xs [overflow-wrap:anywhere]";
@@ -114,7 +113,7 @@ export function SessionChat({ botId, readOnly, connected }: SessionChatProps) {
   const turn = useMemo(() => turnState(shown, agentStatus), [shown, agentStatus]);
   // no tool output is cut by reference in the journal, so nothing asks for this; it refuses plainly if something does
   const loadFullOutput = useCallback(async (): Promise<string> => { throw new Error(t("The full output is not available for this bot.")); }, [t]);
-  // no route takes an image for a session bot: the attach button is hidden (session-chat.css) and a pasted image is refused
+  // no route takes an image for a session bot: the composer draws no attach control, and a pasted or dropped image is refused
   const onUploadImage = useCallback(async (): Promise<string> => { throw new Error(t("Images cannot be sent to this bot yet.")); }, [t]);
   const name = bot.context?.bot.name ?? "";
   // the owner's own message is at the end: sending goes there, as the pane chat does on a send
@@ -141,7 +140,7 @@ export function SessionChat({ botId, readOnly, connected }: SessionChatProps) {
             <div className="session-chat-composer contents">
               {/* drafts are kept per bot: the composer keys them by this id */}
               <OrcaComposer paneId={`bot:${botId}`} connected={connected} agent="claude" agentStatus={agentStatus}
-                onSend={onSend} onAbort={session.stop} onUploadImage={onUploadImage} />
+                attach={false} completions={false} onSend={onSend} onAbort={session.stop} onUploadImage={onUploadImage} />
             </div>
           )}
         </div>

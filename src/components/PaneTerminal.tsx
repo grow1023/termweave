@@ -30,6 +30,7 @@ import { mayAskForSecret, secretPrompt } from "../../shared/secret-prompt.ts";
 import { ChatView } from "./ChatView.tsx";
 import { RenderBoundary } from "./RenderBoundary.tsx";
 import { Composer } from "./Composer.tsx";
+import { PaneNotes } from "./PaneNotes.tsx";
 import type { AgentStatus, ClientRole, ConversationMetadata, InteractivePrompt, ServerMessage } from "../../shared/protocol.ts";
 import type { PaneView } from "../lib/actions.ts";
 import { BIONIC_RATIO, createBionic } from "../lib/bionic.ts";
@@ -1414,7 +1415,9 @@ export function PaneTerminal({
   // A bot's chat on this PC shows Orca's chat (src/orca/chat): transcript, the bot's dock, the queue
   // and the composer in one column. Every other pane keeps ChatView and the composer below.
   const botsView = useBotsView();
-  const orcaChat = paneId !== null && chatView && machineId === "local" && (botsView?.bots.some((bot) => bot.paneId === paneId) ?? false);
+  // read on every render now (the note button hides for a bot's pane): an answer that is not a bots view reads as no bot
+  const botPane = paneId !== null && machineId === "local" && Array.isArray(botsView?.bots) && botsView.bots.some((bot) => bot.paneId === paneId);
+  const orcaChat = chatView && botPane;
   // Send now of one queued message: the same steps as the old queue section's button
   const sendQueued = (owner: string, id: string): void => {
     const message = queued.find((item) => item.id === id);
@@ -1555,6 +1558,8 @@ export function PaneTerminal({
       {paneId !== null && chatView && machineId === "local" && <BotSide paneId={paneId} readOnly={observing} />}
       <div className="terminal-surface">
         <div className={`pane-terminal${paneId === null ? " is-idle" : ""}`} ref={hostRef} />
+        {/* the terminal's note floats over the surface (no refit); a bot's pane has its Home panel instead */}
+        {paneId !== null && !botPane && <PaneNotes key={paneId} paneId={paneId} readOnly={observing} lens={chatView ? "chat" : "terminal"} onOpenChat={onOpenChat} />}
         {paneId !== null && orcaChat && (
           <RenderBoundary resetKey={paneId} fallback={(retry) => (
             <div className="chat-view"><div className="chat-empty" role="alert">

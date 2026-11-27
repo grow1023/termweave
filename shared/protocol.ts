@@ -24,6 +24,7 @@ export type {
 
 import type { AgentStatus, PaneInfo, SessionSnapshot, TabInfo, WorkspaceInfo } from "./herdr-api.generated.ts";
 import type { BotChatStatus, JournalRow } from "./bots/chat.ts";
+import type { PaneNoteSummary } from "./pane-notes.ts";
 
 /** Friendly aliases used across the UI. */
 export type HerdrWorkspace = WorkspaceInfo;
@@ -549,6 +550,8 @@ export type ServerMessage =
   | { type: "session-changed" }
   /** a bot, item, automation or worker changed: refetch /api/bots */
   | { type: "bots-changed" }
+  /** a terminal's note changed: its new summary (GET /api/pane/notes has the text) */
+  | { type: "pane-notes"; terminal_id: string; summary: PaneNoteSummary }
   /**
    * A session bot's chat rows written since the last push (newest revision of each, batched per
    * 100 ms). A client that sees a new `epoch` or a sequence gap reloads with

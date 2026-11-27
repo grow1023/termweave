@@ -172,6 +172,20 @@ test("the status pushed to open chats is the status the host reports, after ever
   expect(host.status("b1")).toBe("done");
 });
 
+test("a resume refused for Code Mode marks the bot, and its next start runs in that mode", async () => {
+  addBot("b1", { claudeSessionId: "11111111-1111-4111-8111-111111111111" });
+  await host.tell("b1", "hello", owner);
+  expect(conns[0]!.launch.codeMode).toBeUndefined();
+  feed(conns[0]!, [{ type: "result", subtype: "error_during_execution", is_error: true, errors: ["Failed to resume session: This session was started in Code Mode (experimental), which is off in this run, so it can't be resumed."] }]);
+  expect(store.bot("b1")?.codeMode).toBe(true);
+  conns[0]!.handlers.onExit(new Error("exit 1"), false);
+  await settle();
+  await host.tell("b1", "again", owner);
+  await settle();
+  expect(conns.at(-1)!.launch.codeMode).toBe(true);
+  expect(conns.at(-1)!.launch.env["CLAUDE_CODE_ENTRYPOINT"]).toBe("sdk-ts");
+});
+
 test("messages during a turn wait and go after it, one per turn, in order", async () => {
   addBot("b1");
   const a = await host.tell("b1", "A", owner);

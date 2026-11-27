@@ -87,7 +87,8 @@ function DockWorkspace({ machineId, panes, primaryId, ownerId, terminal, onSelec
   const [focusSpatial, setFocusSpatial] = useState<string | null>(null);
   const dragRef = useRef<string | null>(null);
   const [preview, setPreview] = useState<DockPreview | null>(null);
-  const [focusDropped, setFocusDropped] = useState<string | null>(ownerId ? primaryId : null);
+  // a pane App switched to on its own (its row closed) must not take the keyboard: a phone would raise it
+  const [focusDropped, setFocusDropped] = useState<string | null>(ownerId && !terminal.autoSelected ? primaryId : null);
   const cancelDrag = () => { dragRef.current = null; setPreview(null); };
   useEffect(() => {
     const cancel = () => cancelDrag();
@@ -143,6 +144,14 @@ function DockWorkspace({ machineId, panes, primaryId, ownerId, terminal, onSelec
       window.removeEventListener("focusin", onOutsidePointer, true);
     };
   }, [focusDropped, tree]);
+  // the user picked the pane App had switched to on its own: the grid takes the keyboard now
+  const wasAutoSelected = useRef(terminal.autoSelected ?? false);
+  useEffect(() => {
+    const was = wasAutoSelected.current;
+    wasAutoSelected.current = terminal.autoSelected ?? false;
+    // not on a phone: a pane picked there waits for a tap before it raises the keyboard
+    if (was && !terminal.autoSelected && primaryId && !matchMedia("(pointer: coarse)").matches && window.innerWidth > 760) setFocusDropped(primaryId);
+  }, [terminal.autoSelected, primaryId]);
   useEffect(() => {
     if (dragRef.current && !validDockDrag(tree, roster.map(pane => pane.pane_id), dragRef.current, ["application/x-herdr-pane"])) cancelDrag();
   }, [tree, panes]);

@@ -1,0 +1,92 @@
+{
+  "Edit": {
+    "ko": "편집",
+    "ja": "編集",
+    "zh": "编辑"
+  },
+  "Keep my text": {
+    "ko": "내 글 유지",
+    "ja": "自分の文章を残す",
+    "zh": "保留我的文字"
+  },
+  "Not done": {
+    "ko": "미완료",
+    "ja": "未完了",
+    "zh": "未完成"
+  },
+  "Note text (Markdown)": {
+    "ko": "메모 본문(Markdown)",
+    "ja": "メモ本文(Markdown)",
+    "zh": "笔记正文(Markdown)"
+  },
+  "Put in message box": {
+    "ko": "메시지 상자에 넣기",
+    "ja": "メッセージ欄に入れる",
+    "zh": "放入消息框"
+  },
+  "Put in message box: {task}": {
+    "ko": "메시지 상자에 넣기: {task}",
+    "ja": "メッセージ欄に入れる: {task}",
+    "zh": "放入消息框:{task}"
+  },
+  "Put in the message box. It is not sent.": {
+    "ko": "메시지 상자에 넣었습니다. 아직 보내지 않았습니다.",
+    "ja": "メッセージ欄に入れました。まだ送信していません。",
+    "zh": "已放入消息框,尚未发送。"
+  },
+  "Show the new version": {
+    "ko": "새 버전 보기",
+    "ja": "新しい版を表示",
+    "zh": "查看新版本"
+  },
+  "Terminal note": {
+    "ko": "터미널 메모",
+    "ja": "ターミナルのメモ",
+    "zh": "终端笔记"
+  },
+  "Terminal note: {n} open task": {
+    "ko": "터미널 메모: 남은 할 일 {n}개",
+    "ja": "ターミナルのメモ: 未完了のタスク {n} 件",
+    "zh": "终端笔记:{n} 项待办"
+  },
+  "Terminal note: {n} open tasks": {
+    "ko": "터미널 메모: 남은 할 일 {n}개",
+    "ja": "ターミナルのメモ: 未完了のタスク {n} 件",
+    "zh": "终端笔记:{n} 项待办"
+  },
+  "The message box is full: the task was not added.": {
+    "ko": "메시지 상자가 가득 차서 할 일을 넣지 못했습니다.",
+    "ja": "メッセージ欄がいっぱいのため、タスクを入れられませんでした。",
+    "zh": "消息框已满,未能放入该待办。"
+  },
+  "The note changed meanwhile. It is shown again: try once more.": {
+    "ko": "그사이 메모가 바뀌었습니다. 새 내용을 다시 표시했으니 한 번 더 시도하세요.",
+    "ja": "その間にメモが変更されました。最新の内容を表示したので、もう一度お試しください。",
+    "zh": "笔记在此期间已更改。已重新显示最新内容,请再试一次。"
+  },
+  "The note could not be reached. Check the connection and try again.": {
+    "ko": "메모에 연결하지 못했습니다. 연결을 확인한 뒤 다시 시도하세요.",
+    "ja": "メモに接続できませんでした。接続を確認してもう一度お試しください。",
+    "zh": "无法连接到笔记。请检查连接后重试。"
+  },
+  "This note changed while you were editing. Your text is kept below.": {
+    "ko": "편집하는 동안 메모가 바뀌었습니다. 입력한 글은 아래에 그대로 남아 있습니다.",
+    "ja": "編集中にメモが変更されました。入力した文章は下にそのまま残っています。",
+    "zh": "你编辑期间笔记已被更改。你输入的文字仍保留在下方。"
+  },
+  "Use the new version": {
+    "ko": "새 버전 사용",
+    "ja": "新しい版を使う",
+    "zh": "使用新版本"
+  },
+  "Write here what this terminal is for and what to do next: its agent and the bots can read it.": {
+    "ko": "이 터미널에서 하는 일과 다음에 할 일을 적으세요. 이 터미널의 에이전트와 봇이 읽을 수 있습니다.",
+    "ja": "このターミナルの作業内容と次にやることを書いてください。このターミナルのエージェントとボットが読めます。",
+    "zh": "在这里写下这个终端的工作内容和下一步要做的事。这个终端的代理和机器人都能读取。"
+  },
+  "{count} of {max} characters": {
+    "ko": "{count}/{max}자",
+    "ja": "{count}/{max} 文字",
+    "zh": "{count}/{max} 个字符"
+  }
+}

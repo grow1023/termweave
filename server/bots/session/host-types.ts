@@ -36,6 +36,8 @@ export interface SessionHostDeps {
   paneLive(bot: Bot): Promise<boolean>;
   open?: OpenConnection;
   resolveBinary?: (env: Readonly<Record<string, string | undefined>>) => string;
+  /** whether the owner's Claude Code starts in Code Mode (sdk.ts ownerCodeMode); a test passes its own */
+  ownerCodeMode?: (env: Readonly<Record<string, string | undefined>>) => boolean;
   clock?: TranslatorClock;
   limits?: Partial<HostLimits>;
 }

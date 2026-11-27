@@ -268,3 +268,99 @@ describe("wait settles on this turn, not the last one", () => {
     });
   });
 });
+
+describe("a terminal's note", () => {
+  const stored = (extra = {}) => ({ terminal_id: "terminal-34", text: "# Plan\n- [ ] ship it\n- [x] test", revision: 3, updated_at: null, ...extra });
+  type Seen = { method: string; path: string; query: URLSearchParams; body: Record<string, unknown> | null };
+  function notes(seen: Seen[], answer: (seen: Seen) => Response | null = () => null) {
+    return async (req: Request) => {
+      const url = new URL(req.url);
+      const entry = { method: req.method, path: url.pathname, query: url.searchParams, body: req.method === "POST" ? await req.json() as Record<string, unknown> : null };
+      seen[seen.length] = entry;
+      if (url.pathname.startsWith("/api/pane/notes")) return answer(entry) ?? Response.json({ note: stored(), summary: { open: 1 } });
+      return response(req);
+    };
+  }
+  it("prints the note as data, with its tasks, for the pinned terminal", async () => {
+    const seen: Seen[] = [];
+    await fixture(notes(seen), async url => {
+      const output = JSON.parse(await paneContext(["notes", "P34", "--expect-terminal", "terminal-34"], env(url)));
+      expect(output).toMatchObject({ untrusted: true, revision: 3, text: stored().text, pane: { terminal_id: "terminal-34" } });
+      expect(output.tasks).toEqual([{ line: 2, done: false, text: "ship it" }, { line: 3, done: true, text: "test" }]);
+      const read = seen.find(entry => entry.path === "/api/pane/notes")!;
+      expect([read.method, read.query.get("pane_id"), read.query.get("terminal_id")]).toEqual(["GET", "w1:p34", "terminal-34"]);
+      expect(seen.some(entry => entry.method !== "GET")).toBe(false);
+    });
+  });
+  it("refuses another terminal behind the number before reading the note", async () => {
+    const seen: Seen[] = [];
+    await fixture(notes(seen), async url => {
+      await expect(paneContext(["notes", "P34", "--expect-terminal", "terminal-old"], env(url))).rejects.toThrow("not terminal-old");
+      expect(seen.some(entry => entry.path.startsWith("/api/pane/notes"))).toBe(false);
+    });
+  });
+  it("sets a task line done, or open with --undo, naming the task and the terminal", async () => {
+    for (const [args, done] of [[["notes-done", "P34", "2"], true], [["notes-done", "P34", "--undo", "2"], false]] as const) {
+      const seen: Seen[] = [];
+      await fixture(notes(seen), async url => {
+        await paneContext([...args], env(url));
+        const change = seen.find(entry => entry.method === "POST")!;
+        expect(change.path).toBe("/api/pane/notes/task");
+        expect(change.body).toEqual({ pane_id: "w1:p34", terminal_id: "terminal-34", line: 2, done, expect_text: "ship it" });
+      });
+    }
+  });
+  it("refuses a line that is not a task without changing anything", async () => {
+    const seen: Seen[] = [];
+    await fixture(notes(seen), async url => {
+      await expect(paneContext(["notes-done", "P34", "1"], env(url))).rejects.toThrow("not a task line");
+      expect(seen.some(entry => entry.method === "POST")).toBe(false);
+    });
+  });
+  it("appends one authored line", async () => {
+    const seen: Seen[] = [];
+    await fixture(notes(seen), async url => {
+      await paneContext(["notes-add", "P34", "--author", "P6", "built", "the", "release"], env(url));
+      expect(seen.find(entry => entry.method === "POST")).toMatchObject({ path: "/api/pane/notes/append",
+        body: { pane_id: "w1:p34", terminal_id: "terminal-34", author: "P6", text: "built the release" } });
+    });
+  });
+  it("reports a change that landed as done, even when the pane closes right after", async () => {
+    const seen: Seen[] = [];
+    let posted = false;
+    await fixture(async req => {
+      if (new URL(req.url).pathname === "/api/panes/by-number/34" && posted) return new Response(null, { status: 404 });
+      if (req.method === "POST") posted = true;
+      return notes(seen)(req);
+    }, async url => {
+      expect(JSON.parse(await paneContext(["notes-add", "P34", "--author", "P6", "x"], env(url))).revision).toBe(3);
+    });
+  });
+  it("discards a plain read when the number moves to another terminal meanwhile", async () => {
+    let lookups = 0;
+    await fixture(async req => {
+      if (new URL(req.url).pathname === "/api/panes/by-number/34" && ++lookups > 1) return Response.json(target({ terminal_id: "other" }));
+      return notes([])(req);
+    }, async url => {
+      await expect(paneContext(["notes", "P34"], env(url))).rejects.toThrow("Output discarded");
+    });
+  });
+  it("says plainly when the server refuses a change", async () => {
+    for (const [errorCode, message] of [["note_changed", "changed meanwhile"], ["terminal_changed", "Pane identity changed"], ["note_full", "note is full"]]) {
+      const seen: Seen[] = [];
+      await fixture(notes(seen, entry => entry.method === "POST" ? Response.json({ error: { code: errorCode }, note: stored({ text: "secret owner words" }) }, { status: 409 }) : null), async url => {
+        const failure = paneContext(["notes-add", "P34", "--author", "P6", "x"], env(url));
+        await expect(failure).rejects.toThrow(message);
+        await expect(failure).rejects.not.toThrow("secret owner words");
+      });
+    }
+  });
+  it("rejects bad note arguments before any request", async () => {
+    for (const args of [["notes"], ["notes", "P34", "extra"], ["notes-done", "P34"], ["notes-done", "P34", "0"], ["notes-done", "P34", "x"],
+      ["notes", "P34", "--undo"], ["notes-add", "P34", "text"], ["notes-add", "P34", "--author", "P[6]", "x"], ["notes-add", "P34", "--author", "P6"],
+      ["notes-add", "P34", "--author", "a".repeat(41), "x"], ["read", "P34", "--author", "P6"], ["notes", "P34", "--lines", "5"],
+      ["notes-add", "P34", "--author", "P6", "x".repeat(2001)]]) {
+      await expect(paneContext(args, { TERMWEAVE_URL: "http://127.0.0.1:1" })).rejects.toThrow();
+    }
+  });
+});

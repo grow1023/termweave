@@ -6,6 +6,7 @@ import type { JournalApproval, JournalQuestion, JournalRow, JournalToolCall, Jou
 import type { Translate } from "../../../lib/i18n.ts";
 import { mcpIdentity, parseToolInput } from "../adapter/turns-to-messages.ts";
 import type { NativeChatBlock, NativeChatMessage, NativeChatRole, NativeChatTextPresentation } from "../shared/index.ts";
+import type { LabelledNoticeBlock } from "../transcript/notice-label.ts";
 
 /** A message being built; `blocks` is replaced, never pushed to. */
 interface Draft {
@@ -32,6 +33,25 @@ function textDraft(row: JournalRow, role: NativeChatRole, text: string, presenta
   return { id: row.itemId, role, blocks: [{ type: "text", text, ...(presentation ? { presentation } : {}) }], timestamp: row.observedAt, turnKey: turnKeyOf(row) };
 }
 
+function mailDraft(row: JournalRow, label: string | null, text: string): Draft {
+  const block: LabelledNoticeBlock = { type: "text", text, presentation: "notice", noticeLabel: label };
+  return { id: row.itemId, role: "system", blocks: [block], timestamp: row.observedAt, turnKey: turnKeyOf(row) };
+}
+
+/** How many calls a sub-agent made under each parent call, by the parent's callId. */
+export function childCallCounts(rows: readonly JournalRow[]): ReadonlyMap<string, number> {
+  return rows.reduce((counts, row) => {
+    const parent = row.body.kind === "tool-call" ? row.body.parentCallId : undefined;
+    return parent === undefined ? counts : new Map(counts).set(parent, (counts.get(parent) ?? 0) + 1);
+  }, new Map<string, number>());
+}
+
+/** The faint suffix of a call with sub-agent calls under it; "" for none. */
+function stepsSuffix(count: number, t: Translate): string {
+  if (count <= 0) return "";
+  return count === 1 ? ` · ${t("1 step")}` : ` · ${t("{count} steps", { count })}`;
+}
+
 /** Why a call has no answer, in the owner's words; null while it still runs. */
 function endedText(body: JournalToolCall, t: Translate): string {
   if (body.endedAs === "interrupted") return t("Stopped before it answered.");
@@ -43,10 +63,11 @@ function endedText(body: JournalToolCall, t: Translate): string {
  * A call and, once it settled, its result. Decision: a running call has no result block, which is how
  * the tool run draws "running"; a call stopped or orphaned before it answered reads as failed.
  */
-export function toolBlocks(body: JournalToolCall, t: Translate): NativeChatBlock[] {
+export function toolBlocks(body: JournalToolCall, t: Translate, steps = 0): NativeChatBlock[] {
   const identity = mcpIdentity(body.name);
   const call: NativeChatBlock = {
-    type: "tool-call", name: body.name, callId: body.callId, summary: body.summary,
+    // a Task call counts the calls its sub-agent made under it (they are not rows of their own)
+    type: "tool-call", name: body.name, callId: body.callId, summary: `${body.summary}${stepsSuffix(steps, t)}`,
     // a cut input is no longer JSON: parseToolInput gives {} and the summary still names the call
     input: parseToolInput(body.input.text),
     ...(identity ? { mcpIdentity: identity } : {}),
@@ -119,22 +140,23 @@ function appendAssistant(drafts: Draft[], row: JournalRow, kind: "text" | "tool"
 }
 
 /** The drafts one row adds. Turn rows add none here: `closeTurns` places what they say. */
-function addRow(drafts: Draft[], row: JournalRow, t: Translate): Draft[] {
+function addRow(drafts: Draft[], row: JournalRow, t: Translate, children: ReadonlyMap<string, number>): Draft[] {
   const body = row.body;
   switch (body.kind) {
     case "message": {
       if (body.text.trim() === "") return drafts;
       if (body.role === "user") {
         // mail from TermWeave (a worker's report, a schedule) is not the owner's words: a notice row
-        if (body.from?.kind === "termweave") return [...drafts, textDraft(row, "system", body.from.label ? `${body.from.label}: ${body.text}` : body.text, "notice")];
+        // labelled with the mail's own label, its text kept apart
+        if (body.from?.kind === "termweave") return [...drafts, mailDraft(row, body.from.label, body.text)];
         return [...drafts, textDraft(row, "user", body.text)];
       }
       if (body.role === "reasoning") return [...drafts, textDraft(row, "reasoning", body.text)];
       return appendAssistant(drafts, row, "text", [{ type: "text", text: body.text }]);
     }
     case "tool-call":
-      // a subagent's calls stay inside its Task call; the tool run has no nesting to show them in
-      return body.parentCallId !== undefined ? drafts : appendAssistant(drafts, row, "tool", toolBlocks(body, t));
+      // a subagent's calls stay inside its Task call, counted there; the tool run has no nesting to show them in
+      return body.parentCallId !== undefined ? drafts : appendAssistant(drafts, row, "tool", toolBlocks(body, t, children.get(body.callId) ?? 0));
     case "approval":
     case "question": {
       const line = settledPromptLine(body, t);
@@ -198,7 +220,8 @@ function finish(drafts: readonly Draft[], ends: ReadonlyMap<string, number>): Na
 /** Every loaded row as chat messages, in drawing order. Ids are the journal's item ids, so they never move. */
 export function rowsToMessages(rows: Iterable<JournalRow>, t: Translate): NativeChatMessage[] {
   const ordered = orderedRows(rows);
-  const drafts = ordered.reduce<Draft[]>((all, row) => addRow(all, row, t), []);
+  const children = childCallCounts(ordered);
+  const drafts = ordered.reduce<Draft[]>((all, row) => addRow(all, row, t, children), []);
   return finish(closeTurns(drafts, ordered, t), turnEnds(ordered));
 }
 
