@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "repoType": "app",
   "mode": "update",
-  "baselineCommit": "3d32fdc9dc2e5060b9dc750f2991f6d59cf0c438",
-  "reviewedHead": "421be53282cdc46696d95ba65533f4008d0eb0dc",
+  "baselineCommit": "421be53282cdc46696d95ba65533f4008d0eb0dc",
+  "reviewedHead": "249b8af98731f19ea442f5b570c28986a314411d",
   "references": [
     {
       "repo": "tsl0922/ttyd",
@@ -75,23 +75,37 @@
     "gaps": []
   },
   "diffReview": {
-    "since": "3d32fdc9dc2e5060b9dc750f2991f6d59cf0c438",
+    "since": "421be53282cdc46696d95ba65533f4008d0eb0dc",
     "files": [
       "CHANGELOG.termweave.md",
       "CITATION.cff",
       "herdr-plugin.toml",
       "package.json",
-      "server/bots/runtime.ts",
-      "shared/bots/chat.ts",
+      "server/bots/session/connection.ts",
+      "server/bots/session/host-types.ts",
+      "server/bots/session/session.ts",
+      "server/companion.test.ts",
+      "server/companion.ts",
+      "server/index.ts",
+      "shared/companion.test.ts",
+      "shared/companion.ts",
       "shared/product.ts",
+      "src/App.tsx",
+      "src/components/Companion.css",
+      "src/components/Companion.tsx",
+      "src/components/PaneTerminal.tsx",
       "src/lib/i18n.ja.ts",
       "src/lib/i18n.ko.ts",
       "src/lib/i18n.zh.ts",
-      "src/orca/chat/bot/BotModelPicker.tsx",
-      "src/orca/chat/bot/bot-model-picker.test.ts",
-      "src/orca/i18n/bot-model.json"
+      "src/lib/shortcutBindings.ts",
+      "src/lib/shortcuts.ts",
+      "src/lib/terminalSelection.test.ts",
+      "src/lib/terminalSelection.ts",
+      "src/orca/chat/session/SessionChat.tsx",
+      "src/orca/chat/session/rows-to-messages.ts",
+      "src/orca/i18n/companion.json"
     ],
-    "summary": "Automated review for v0.3.67 by tools/public-release/auto_release.sh. 13 file(s) changed since 3d32fdc9dc2e. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- feat(bots): Orca's model and reasoning picker for a bot, with each family's newest model only"
+    "summary": "Automated review for v0.3.68 by tools/public-release/auto_release.sh. 27 file(s) changed since 421be53282cd. build_public.sh passed its leakscan on this export; the harness flow runs the master gate after this record. Source commits:\n- feat(companion): a read-only project companion that knows the terminal in view"
   },
   "readiness": {
     "verified": [
